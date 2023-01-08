@@ -1,0 +1,39 @@
+GAL22V10    ;   ;Module Right_bit_shift_register
+Counter    ;       second line: any text (max. 8 char.)
+
+;1		2		3		4		5		6		7		8		9		10		11		12
+;-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|	
+Clock		RD		D0		A3		A4		A5		A6		A7		M1		MREQ	IORQ	GND
+
+RESET	NC		NC		JC      PIOM1	FEN		CKFEN	CSBank	CEDART	CECTC	CEPIO	VCC
+;-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|	
+;13		14		15		16		17		18		19		20		21		22		23		24
+
+; CSBank = select bank signal (positive edge !)
+; CKFEN = clock pulse flr flash enable registerd output (FEN), addr 40-47
+; FEN = flash enable registerd outputg
+
+
+; M1 and Reset for PIO M1 for correct reset behaviour
+/CEPIO  = /M1 * /IORQ * /A7 * /A6 * /A5 * /A4 * /A3			;00 - 07
+/CECTC  = /M1 * /IORQ * /A7 * /A6 * /A5 * /A4 *  A3			;08 - 0F
+/CEDART = /M1 * /IORQ * /A7 * /A6 * /A5 *  A4 * /A3			;10 - 17
+CSBank = /M1 * /IORQ * /A7 * /A6 *  A5 * /A4 * /A3			;20 - 27
+CKFEN =  /M1 * /IORQ * /A7 *  A6 * /A5 * /A4 * /A3			;40 - 47
+
+FEN.R = D0											; load value of D0 on clock pulse 
+PIOM1 = M1 * RESET
+
+
+
+AR = /RESET				; back to bank 0 @ RESET
+;SP = Set
+
+
+
+; END
+
+DESCRIPTION
+
+this is the glue between Z80 and 8536
+

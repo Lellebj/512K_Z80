@@ -1,0 +1,836 @@
+;Z80_PLD_PCB_.asm
+
+		include 	"Z80_Params_.inc"
+ 
+
+		
+;********************************************************		
+;		section MainSRam			; main program in sram
+;********************************************************		
+
+			section Samples
+
+
+			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, BN2DEC,BN2DEC_S,DEC2BN,MFILL, BLKMOV,STRCMP,CONCAT,POS,COPY,DELETE,INSERT_STR
+			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
+			xref	Textbuf, EIBUF,IBUF
+			
+			xref	st2g1,st1g2,steq,subst
+			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
+			xref	sourctext1,sourctext2,endtext,src_size, printSTRBelow
+
+
+
+	;***************************************************************
+	;SAMPLE EXECUTION:
+	;***************************************************************
+
+RAM_Start:	
+		ld 	A,$01
+		out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+
+		; ld 	A,$00
+		; out (_CE_RST_BANK),A 		;// set bank register (HC374) in high imp. defaults to bank #0
+		; jp 	RTestprog
+
+
+
+
+		CALL 	InitBuffers			;INITIALIZE DART. INTERRUPT SYSTEM
+		call	Init_RAM_HEAP			; put zero values to addr $F000 - $F200
+
+		call	S_head_tail			; save input heads and tails
+
+
+		; call	sh_test
+		;call 	Flash_WR_Test
+		;ld		HL,$2010
+		;call	Flash_SE_Erase
+		call	CRLF
+		ld 		iy,DateBuf
+		call	WriteLineCRNL
+		ld 		iy,Str3
+		call	WriteLineCRNL
+		ld 		iy,Str4
+		call	WriteLine
+		call	CRLF
+		call	CRLF
+		call	CRLF
+
+		call	printSTRBelow
+		db		80,"  additional message ! ",0
+
+next_line:
+		ld 		iy,MsgText1
+		call	WriteLine
+;************
+		ld 		hl,Textbuf
+		call	ReadLine 			;to textbuf  (A=length of input string)
+		
+		; LD		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
+		; LD		DE,Textbuf			;DE = 32767
+		; CALL	BN2DEC				; C0NVERT
+		; jr		textloop
+		;	save number of cars in Textbuf
+		;	skip spaces....
+
+		;	compare with "command_list" until mismatch/ or match
+
+		; 	save command #
+
+		call DumpRegisters
+
+		ld 		hl,Textbuf
+		call	DEC2BN			; result in HL
+
+		push 	hl
+		pop 	de				; move result to DE
+
+			; Binary to HEX  BN2HEX   A->HL
+		ld 		hl, T_BUFFER
+		inc		hl
+		call	Bin2Hex16			;result in T_buffer
+
+		ld 		iy,T_BUFFER
+
+		rst		8				;WriteLineCRNL
+
+
+		ld 		iy,Textbuf
+		rst		8				;WriteLineCRNL
+
+		jr		next_line
+;********************************************************************************************
+;********************************************************************************************	
+
+
+debug:		equ	0		; Set to 1 to show debug printing, else 0 
+
+
+stacktop:	equ	0
+
+
+	;###################################################
+	; NOTE THAT THE SRAM IS NOT READABLE AT THIS POINT
+	;###################################################
+
+	; ; Select SRAM low bank 0, idle the SD card, and idle printer signals
+	; ld	a,(gpio_out_cache)
+	; out	(gpio_out),a
+
+	; ; Copy the FLASH into the SRAM by reading every byte and 
+	; ; writing it back into the same address.
+	; ld	hl,0
+	; ld	de,0
+	; ld	bc,_end
+	; ldir				; Copy all the code in the FLASH into RAM at same address.
+
+	; ; Disable the FLASH and run from SRAM only from this point on.
+	; in	a,(flash_disable)	; Dummy-read this port to disable the FLASH.
+
+	;###################################################
+	; STARTING HERE, WE ARE RUNNING FROM RAM
+	;###################################################
+
+
+	; ; Initialize the CTC so that the SIO will have a baud clock if J11-A is set to the CTC!
+	; ;ld	c,1			; 115200 bps
+	; ld	c,6			; 19200 bps
+	; call	init_ctc_1
+
+	; ; Init the SIO to run at 115200 or 19200 depending on J11-A
+	; call	sioa_init
+
+	; Display a startup message
+	ld	iy,boot_msg
+	call	WriteLineCRNL
+
+	;call	test_80clks		; test the CLK signal
+	;call	test_ssel		; test the ssel & CLK logic
+	;call	test_bits		; test simple MOSI bit patterns
+	;call	test_read		; test MISO bit patterns
+
+	;call	test_80clks		; required prior to a CMD0
+	;call	test_cmd0		; see if we can wake up an SD card
+
+	call	printSTRBelow
+	db	'\r\n\nTests done\r\n\0'
+
+	; Spin loop here because there is nothing else to do
+halt_loop:
+	halt
+	jp	halt_loop
+
+
+boot_msg:
+	defb    '\r\n\n'
+	defb	'##############################################################################\r\n'
+	defb	'Z80 Retro Board 2063.3\r\n'
+	defb	'      git: @@GIT_VERSION@@\r\n'
+	defb	'    build: @@DATE@@\r\n'
+	defb	'\r\n'
+	defb	'I/O library tester.\r\n'
+	defb	'\0'
+
+
+;##############################################################################
+; Tick the clock 80 times
+;##############################################################################
+test_80clks:
+	ld	b,10			; 10 8-bit clock bursts
+test_80clks_loop:
+	call	spi_read8		; read and discard 8 bits with MOSI high
+	djnz	test_80clks_loop	; if more to do, keep going
+	ret
+
+
+
+;##############################################################################
+; Test the spi_ssel_true and spi_ssel_false routines
+;##############################################################################
+test_ssel:
+	call	printSTRBelow
+	db	'test_ssel\r\n\0'
+
+	call	spi_ssel_true		; 8-clk, SSEL=0, 8-clk
+	call	spi_ssel_false		; 8-clk, SSEL=1, 16-clk
+	ret
+
+
+;##############################################################################
+; Test writing of data bit patterns.
+;##############################################################################
+test_bits:
+	call	printSTRBelow
+	db	'test_bits\r\n\0'
+
+	ld	hl,bit_test1		; buffer address
+	ld	bc,4			; buffer size
+	ld	e,0			; no fancy formatting
+	call	hexdump			; dump the buffer in hex
+
+	call	spi_ssel_true		; 8-clk, SSEL=0, 8-clk
+
+	ld	hl,bit_test1
+	ld	b,4
+	call	spi_write_str		; write 4 bytes
+
+	call	spi_ssel_false		; 8-clk, SSEL=1, 16-clk
+	ret
+
+bit_test1:
+	db	0x01,0x02,0x80,0x40
+
+
+;##############################################################################
+; Test reading a byte.
+;##############################################################################
+test_read:
+	call	printSTRBelow
+	db	'test_read\r\n\0'
+
+	call	printSTRBelow
+	db	'A=0x\0'
+
+	call	spi_read8		; read 8 bits into A
+
+	call	hexdump_a
+	call	CRLF
+
+	ret
+
+
+
+;##############################################################################
+; Test an SD CMD0
+; This command puts the SD card into SPI mode and goes into an idle state.
+;##############################################################################
+test_cmd0:
+	call	printSTRBelow
+	db	'test_cmd0\r\n\0'
+
+	call	spi_ssel_true		; 8-clk, SSEL=0, 8-clk
+	
+	call	printSTRBelow
+	db	'CMD0=\0'
+	ld	hl,test_cmd0_msg	; buffer to dump
+	ld	bc,6			; buffer length
+	ld	e,0			; no fancy formatting
+	call	hexdump
+
+	; Send a CMD0 message
+	ld	hl,test_cmd0_msg
+	ld	b,6
+	call	spi_write_str		; write 4 bytes
+
+	ld	b,0xf0			; might need to read multiple bytes before SD replies 
+test_cmd0_loop:
+	push	bc			; save the retry counter value
+
+	call	printSTRBelow
+	db	'R1=\0'
+
+	; Read a R1 response message
+	call	spi_read8		; read the 1 byte R1 response message into A
+
+	push	af			; save the response byte
+	call	hexdump_a
+	call	CRLF
+	pop	af			; restore the R1 response byte
+	pop	bc			; restore the retry counter
+
+	cp	0x01			; is the R1 response 0x01?
+	jr	z,test_cmd0_success	; yes -> success
+
+	djnz	test_cmd0_loop		; R1 response is bad keep reading until B is zero 
+
+	; max retries exceeded, bail out
+	call	printSTRBelow
+	db	'CMD0 failed after max retries!\r\n\0'
+	jp	test_cmd0_done
+
+test_cmd0_success:
+	call	printSTRBelow
+	db	'CMD0 success!\r\n\0'
+
+test_cmd0_done:
+	call	spi_ssel_false		; 8-clk, SSEL=1, 16-clk
+
+	ret
+
+
+; See page 265 of 'SD Physical Layer Simplified Specification Version 8.00'
+; This command MUST have a valid CRC.  Subsequent ones in SPI mode need not.
+test_cmd0_msg:
+	db	0x40,0x0,0x0,0x0,0x0,0x95
+
+
+
+;##############################################################################
+; This is a cache of the last written data to the gpio_out port.
+; The initial value here is what is written to the latch during startup.
+;##############################################################################
+		xdef 	gpio_out_cache
+gpio_out_cache:	db	gpio_out_sd_mosi|gpio_out_sd_ssel|gpio_out_prn_stb
+
+
+;##############################################################################
+; This marks the end of the data copied from FLASH into RAM during boot
+;##############################################################################
+
+;*******************************************************************************     
+;*******************************************************************************     
+
+
+
+
+
+
+command_list:
+
+		db		ETX,1,"list",0
+		db		ETX,2,"dm",0
+		db		ETX,3,"pc",0
+		db		ETX,4,"cm",0
+		db		ETX,5,"$",0
+		db		ETX,6,"exe",0
+		db		ETX,7,"go",0
+		db		ETX,8,"++",0
+		db		ETX,9,"--",0
+		db		ETB
+
+
+textloop:
+		; LD		HL,sourctext1
+		; LD		DE,S1x
+		; LD		BC,src_size
+		; CALL 	BLKMOV		;	MOVE DATA FROM SOURCE TO DESTINATION
+
+
+		; LD		HL,sourctext2
+		; LD		DE,S2x
+		; LD		BC,14
+		; CALL 	BLKMOV		;	MOVE DATA FROM SOURCE TO DESTINATION
+
+		; test of string concat
+		; LD		HL,S1_8B		;HL = BASE ADDRESS OF S1
+		; LD		DE,S2_8B		;DE = BASE ADDRESS OF S2
+		; LD		B,40			;B = MAXIMUM LENGTH OF STRING 1
+		; CALL 	CONCAT 			;CONCATENATE STRINGS to S1_8B
+
+
+		; test of POS
+		; LD		HL,Str2			;HL = BASE ADDRESS OF STRING
+		; LD		DE,subst		;DE = BASE ADDRESS OF SUBSTRING	
+		; CALL	POS				;FIND POSITION OF SUBSTRING
+								; RESULTS IN REGISTER A = 8
+
+
+		; test copy
+		LD		HL,Str4			; SOURCE STRING
+		LD		DE,COPY_BUFFER	;	DESTINATION STRING
+		
+		LD		C,4				; STARTING INDEX FOR COPYING
+
+		LD		B,6				; NUMBER OF BYTES TO COPY
+		LD		A, 25			; MAXIMUM LENGTH OF SUBSTRING
+		CALL 	COPY			; COPY SUBSTRING
+
+		; ld 		iy,COPY_BUFFER
+		; rst		8				;WriteLineCRNL ; print the copy string
+
+
+		; test DELETE
+		LD		HL,Str0		;HL	= BASE 	ADDRESS OF STRING
+		LD		A,8			
+		LD		C,8				;	C= STARTING INDEX FOR DELETION
+		LD		A,4			
+		LD		B,4			; B = NUMBER OF CHARACTERS TO DELETE
+		CALL 	DELETE 			; DELETE CHARACTERS
+									; DELETING 4 CHARACTERS STARTING AT INDEX 1
+		; ld 		iy,Str0
+		; rst		8				;WriteLineCRNL ; print the copy string
+
+
+		;test INSERT
+
+		LD		HL,Str3				; HL = BASE ADDRESS OF STRING
+		LD		DE,subst			; DE = BASE ADDRESS OF SUBSTRING
+
+		LD		C,7					; C = STARTING INDEX FOR INSERTION
+
+		LD		B,0x40				; B = MAXIMUM LENGTH OF STRING
+		CALL 	INSERT_STR			; INSERT SUBSTRING
+		ld 		iy,Str3
+		; call	WriteLineCRNL 		; print the modified string
+
+
+		jp		next_line
+
+		;TEST DATA. CHANGE FOR OTHER VALUES
+S1_8B:	DB		8H				; LENGTH OF SI
+		DB      "LASTNAME                        "	; 32 BYTE MAX LENGTH
+S2_8B:	DB		0BH				;LENGTH OF S2
+		DB		". FIRSTNAME                     "	; 32 BYTE MAX LENGTH
+
+;********************************************************************************************
+;********************************************************************************************	
+sh_test:
+		; turn shadow off then halt
+		xor A
+		out (_CE_RST_BANK),A 		;// clear '64K_SRAM' signal
+
+		halt
+
+		ld	A,$80
+		out (_Z80_BankCS),A			;// set '64K_SRAM' signal
+		ld 	A,1
+		out (_CE_RST_BANK),A 		; engage 3-state on bank#
+		ret
+
+
+;********************************************************************************************
+;********************************************************************************************	
+			;9H JUMP TABLE (JTAB)   353
+        ; Title               Jump table
+        ; Name:               JTAB
+        ; Purpose:            Given an index, jump to the subroutine with
+        ;                     that index in a table.
+        ; Entry:              Register A is the subroutine number (0 to
+        ;                                LENSUB-l, the number of subroutines)
+        ;                                LENSUB must be less than or equal to
+        ;                                128.
+        ; Exit:               If the routine number is valid then
+        ;                       execute the routine
+        ;                     else
+        ;                       Carry flag = 1
+        ; Registers used: AF
+        ; Time:               117 cycles plus execution time of subroutine
+        ; Size:               Program 21 bytes plus size of table (2*LENSUB)
+
+        ;EXIT WITH CARRY SET IF ROUTINE NUMBER IS INVALID
+        ; THAT IS, IF IT IS TOO LARGE FOR TABLE OLENSUB -     1)
+
+
+JTAB:
+		CP		LENSUB			;COMPARE ROUTINE NUMBER, TABLE SIZE
+		CCF						;COMPLEMENT CARRY FOR ERROR INDICATOR
+		RET		C				;RETURN IF ROUTINE NUMBER TOO LARGE
+									; WITH CARRY SET
+		; INDEX INTO TABLE OF WORD-LENGTH ADDRESSES
+		; LEAVE REGISTER PAIRS UNCHANGED SO THEY CAN BE USED FOR PASSING PARAMETERS
+
+		PUSH	HL				;SAVE HL
+		ADD		A,A				;DOUBLE INDEX FOR WORD-LENGTH ENTRIES
+		LD		HL,JMPTAB		;INDEX INTO TABLE USING 8-BIT
+		ADD		A,L			; ADDITION TO AVOID DISTURBING
+		LD		L,A				; ANOTHER REGISTER PAIR
+		LD		A,0
+		ADC		A,H
+		LD		H,A			; ACCESS ROUTINE ADDRESS
+			;OBTAIN ROUTINE ADDRESS FROM TABLE AND TRANSFER
+			;CONTROL TO IT, LEAVING ALL REGISTER PAIRS UNCHANGED
+
+		LD		A, (HL)			;MOVE ROUTINE ADDRESS TO HL
+		INC		HL
+		LD		H, (HL)
+		LD		L,A
+		EX		(SP),HL				;RESTORE OLD HL, PUSH ROUTINE ADDRESS
+		RET						; JUMP TO ROUTI NE
+
+LENSUB		EQU		3				;NUMBER OF SUBROUTINES IN TABLE
+JMPTAB:                            ;JUMP TABLE
+		DW		SUB0			;ROUTINE 0
+		DW		SUB1			;ROUTINE 1
+		DW		SUB2			;ROUTINE 2
+           ;THREE TEST SUBROUTINES FOR JUMP TABLE
+SUB0:
+		LD		A,1				; TEST ROUTI NE 0 SETS (A)    1
+		RET
+SUB1:
+		LD		A,2				; TEST ROUTI NE 1 SETS (A) = 2
+		RET
+SUB2:
+		LD		A,3				;TEST ROUTINE 2 SETS (A)      3
+		RET
+
+
+
+			;SAMPLE EXECUTION:
+
+
+SC9H:
+		SUB		A				;EXECUTE ROUTINE 0
+		CALL	JTAB			; AFTER EXECUTION, (A)   =1
+
+		LD		A,1				;EXECUTE ROUTINE 1
+		CALL	JTAB			; AFTER EXECUTION, (A) = 2
+		LD		A,2				;EXECUTE ROUTINE 2
+		CALL	JTAB			; AFTER EXECUTION, (A)   3
+		LD		A,3				;EXECUTE ROUTINE 3
+		CALL	JTAB			; AFTER EXECUTION, CARRY   1
+		JR		SC9H			;LOOP FOR MORE TESTS
+
+
+;********************************************************************************************
+;********************************************************************************************	
+		xdef 	RAM_Start
+		xref  	RDATA,RDATA_END,TB_length
+
+		;--------------------------------------------------
+		; ld A,5
+		; ld 	A,$00	
+		; out (_Z80_BankCS),A		;// set bank register number 	
+		ld 	A,$01
+		out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+
+		out (_8Bitsout),A
+
+		ld A, $0F                 ;mode 1 out
+		out (portA_Contr), A         ; set port A as output
+		ld A,$EB
+
+Rtll:	
+
+		ld (40000),A
+		ld A,0
+		ld A,(40000)
+
+		out (portA_Data),A		; Data to PIO port A
+		out (_8Bitsout),A
+		;--------------------------------------------------
+		ld	DE,$8200
+		ld	HL,RDATA
+		ld	BC,TB_length
+		; ld	BC,RDATA_END-RDATA
+		ldir
+
+
+DART_A_RESET:
+		ld	a,00110000b
+		out	(DART_A_C),A		;write into WR0: error reset, select WR0
+
+		ld	a,018h				;write into WR0: channel reset
+		out (DART_A_C),A 
+
+		ld	a,004h				;write into WR0: select WR4
+		out	(DART_A_C),A
+		ld	a,44h				;44h write into WR4: clkx16,1 stop bit, no parity
+		out (DART_A_C),A
+
+		ld	a,005h				;write into WR0: select WR5
+		out (DART_A_C),A
+		ld	a,01101000b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS inactive (bit 2)
+		ld	a,01101010b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS active (bit 2)
+		out (DART_A_C),A
+DART_A_EI:
+			;enable SIO channel A RX
+		ld	a,003h				;write into WR0: select WR3
+		out (DART_A_C),A
+		ld	a,11000001b				;RX 8bit, auto enable off 8(bit 5), RX on (bit 0)
+		ld	a,11100001b				;RX 8bit, auto enable on 8(bit 5), RX on (bit 0)
+		out (DART_A_C),A
+		;Channel A RX active
+
+
+		ld 	HL,Str0
+tstout:
+		ld 	A,(HL)
+		out (DART_A_D),A
+		inc HL
+		ld D,A
+chkTX:
+		in	A,(DART_A_C)		; read status
+		bit	2,A					; all sent ?
+		jr z,chkTX				; not all sent..
+
+		ld 	A,(HL)
+		cp	0
+		jr 	z,endmsg
+
+		ld	A,D
+		djnz	tstout
+
+endmsg:
+chkRX:
+		in	A,(DART_A_C)		; read status
+		bit	0,A					; char present ??
+		jr z,chkRX				; check again
+
+		in 	A,(DART_A_D)		; read the char.
+
+		out (DART_A_D),A
+chkTX2:
+		in	A,(DART_A_C)		; read status
+		bit	2,A					; all sent ?
+		jr z,chkTX2
+		
+		jr	endmsg				; not all sent..
+
+
+
+
+		halt
+		halt
+		halt
+		inc A
+		jr Rtll			
+
+
+;************************************************************************
+; ShowPC_HALT:
+; Dump prog counter prior to HALT instr. value present in stack (pointed by SP).
+; uses  IX (pointer to HEX chars)
+;       IY (pointer at stack)
+;       BC ( count)
+; ;       HL (value for conversion to HEX)
+; ;       DE (positon of display 2004A)
+; 		align 8            
+; ShowPC_HALT:
+; 		ld (SP_value), SP	; save contents of SP
+; 		push AF
+; 		push BC
+; 		push DE
+; 		push HL
+; 		ld HL,(SP_value)
+; 		push HL				; push the SP value on the stack...
+; 		push IX
+; 		Push IY
+
+		
+; 		; first print the labels: adr: t_str4 - 7
+; 		;*****************************************
+; 		ld de, $0000		; row 0, col 1
+; 		ld IX, t_str4
+; nxt2:
+; 		call setcursor		; set cur
+; 		ld B, t_str5-t_str4	; all 4 rows has the same length
+; nxt3:
+; 		ld a, (ix+0)
+; 		inc ix
+; 		call writedata
+; 		djnz nxt3
+
+; 		inc D				;Next row
+; 		ld A,D
+; 		cp $04				; all rows printed ?
+; 		jr NZ, nxt2
+
+
+; 		; set all values, first value (SP)
+; 		;***************************************
+; 		ld iy,(SP_value)		; top of stored stack
+; 		ld IX,cur_pos			; table of cursor positions
+		
+		
+; nxt4:	ld L,(iy+0)
+; 		ld H,(iy+1)
+; 		dec IY
+; 		dec IY					; next value in stack
+
+; 		call Num4Hex			; convert value in HL
+; 		;
+; 		ld E,(IX+0)
+; 		ld D,(IX+1)			; DE - cursor pos d-row e-col
+; 		inc IX
+; 		inc IX				; IX - next cursor position adr.
+; 		call setcursor		; runs also 'command'
+; 	;
+; 		ld b, $04
+; 		push IX
+; 		ld IX, Result_NumToHex	; pointer to hex characters
+; nxt5:
+; 		ld a, (IX+0)
+; 		inc IX
+; 		call writedata
+; 		djnz nxt5
+; 		pop IX
+; 		ld a,(IX+0)				
+; 		cp $FF					; check if end of cursor positions
+; 		jr NZ, nxt4
+
+; 		; print flags Z/NZ, C/NC, PO/PE, P/M
+; 		;***************************************
+; 		ld DE, $0011
+; 		call setcursor
+; 		ld IY,(SP_value)		; IY - top of stack
+; 		ld A, (IY-2)
+; 		ld (AF_value), A
+; 		bit 6, (IY-2)					; test for Z flag
+; 		jr NZ, nx_noNZ			
+; 		ld A,'N'
+; 		call writedata
+; nx_noNZ:
+; 		ld A,'Z'
+; 		call writedata
+; 		inc D					; next row (E=$11), next flag (C)
+; 		call setcursor
+; 		;-----------------------------
+		
+; 		bit 0, (IY-2)					; test for C flag
+; 		jr NZ, nx_noNC			
+; 		ld A,'N'
+; 		call writedata
+; nx_noNC:
+; 		ld A,'C'
+; 		call writedata
+; 		inc D					; next row (E=$11), next flag (PE/PO)
+; 		call setcursor
+; 		;-----------------------------
+; 		ld A,'P'
+; 		call writedata
+; 		bit 2,(IY-2)					; test for P/V flag
+; 		jr Z, nx_PO			
+; 		ld A,'E'				;parity even (PE)
+; 		call writedata
+; 		jr nx_sign
+; nx_PO:
+; 		ld A,'O'					;parity even (PE)
+; 		call writedata
+; nx_sign:		
+; 		inc D					; next row (E=$11), next flag (sign)
+; 		call setcursor
+; 		;-----------------------------
+; 		bit 7,(IY-2)					; test for S flag S=0 positive
+; 		jr Z, nx_S			
+; 		ld A,'M'				;sign negative (Minus)
+; 		call writedata
+; 		jr nx_hlt
+; nx_S:
+; 		ld A,'P'					;sign positive (P)
+; 		call writedata
+; nx_hlt:		
+; 		;-----------------------------
+
+; 		halt
+
+; 		pop IY
+; 		pop IX
+; 		pop HL
+; 		pop HL
+; 		pop DE
+; 		pop BC
+; 		pop AF
+
+; 		ret
+
+; 	align 8        
+; */
+
+;
+;t_intAstr:   .ascii "PIO A INT"
+;************************************************************************
+; Hexadecimal conversion operates directly on nibbles and takes advantage of nifty DAA trick.
+;Input: HL = number to convert, IX = location of ASCII string
+;Output: ASCII string at (IX) 
+; Num4Hex:  	; convert 2 bytes in HL
+; 	push IX
+; 	ld ix, Result_NumToHex
+; 	ld	a,h
+; 	call	Num1
+; 	ld	a,h
+; 	call	Num2
+; Num2Hex:	; converts 1 byte in L
+; 	ld	a,l
+; 	call	Num1
+; 	ld	a,l
+; 	call	Num2
+; 	pop IX
+; 	ret
+
+; Num1:
+; 	rra
+; 	rra
+; 	rra
+; 	rra
+; Num2:
+; 	or	$F0
+; 	daa
+; 	add	a,$A0
+; 	adc	a,$40
+
+; 	ld	(ix+0),a
+; 	inc	ix
+; 	ret
+
+; inc_portB_value:
+; 		ld a, (PIO_B_value)
+; 		inc a
+; 		ld (PIO_B_value), a
+; 		out (portB_Data), a
+; 		ret
+
+
+; #code DAT_TABLE, DataTables,  $200
+
+
+; 		align 8            
+; initbytes:   .byte $01, $38, $0E, $06, $B0
+; t_str1:		.ascii "Z80 micro and"
+; t_str2:		.ascii "HD44780 display"
+; t_str3:		.ascii "Z8536 assist->"
+; t_str4:		.ascii " PC:____ AF:____    "
+; t_str5:		.ascii " BC:____ DE:____    "
+; t_str6:		.ascii " HL:____ SP:____    "
+; t_str7:		.ascii " IX:____ IY:____    "
+; t_str8:		.ascii " "
+; t_str9:		.ascii " "
+; t_string_E: equ $
+; 		align 2
+; cur_pos: equ $
+; 		defw	$0004, $000C, $0104, $010C,$0204, $020C,$0304, $030C, $FFFF
+; 		align 2
+; t_str_table: equ $
+; 		defw	t_str1, t_str2, t_str3, t_str4, t_str5, t_str6, t_str7, t_str8
+
+
+; #code INT_TABLE, Interupt_vector, $10
+; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
+; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
+; 		.word PIO_A_INT,PIO_A_INT,PIO_A_INT,PIO_A_INT
+		
+; 		;defw $0400          ; NMI adress table    
+
+
+
+.end

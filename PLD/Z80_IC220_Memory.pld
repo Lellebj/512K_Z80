@@ -1,0 +1,42 @@
+GAL22V10    ;   ;Module Right_bit_shift_register
+Counter    ;       second line: any text (max. 8 char.)
+
+;1		2		3		4		5		6		7		8		9		10		11		12
+;-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|	
+SELBANK	D0		D1		D2		D3		A15		RD		PRGM	FEN		MREQ	RESET	GND
+
+NC		SA15	SA16	SA17	SA18	CEFLASH	CESRAM	B0		B1		B2		B3		VCC
+;-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|	
+;13		14		15		16		17		18		19		20		21		22		23		24
+
+; SELBANK = clock on positive flanke
+; RD = Z80 read signal
+
+B0.R = D0 
+B1.R = D1 
+B2.R = D2 
+B3.R = D3 
+
+SA15 = B0 + A15
+SA16 = B1 + A15
+SA17 = B2 + A15
+SA18 = B3 + A15
+
+; dont read (only write) sram if flash mem enabled (Shadow read), deselect if flash PRGM
+/CESRAM = /MREQ * /FEN */PRGM + /MREQ * RD */PRGM		
+
+; only read from flash if flash enabled, write if PRGM enable
+/CEFLASH = /MREQ * FEN * /RD	+ /MREQ * FEN * PRGM 				
+
+
+AR = /RESET				; back to bank 0 @ RESET
+;SP = Set
+
+
+
+; END
+
+DESCRIPTION
+
+this is the glue between Z80 and 8536
+

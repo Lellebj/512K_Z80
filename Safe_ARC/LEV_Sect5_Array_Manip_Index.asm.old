@@ -1,0 +1,129 @@
+
+		; Array Manipulation and Indexing
+		; 5A      Memory Fill    195
+		; 5B      Block Move    198
+
+				;*****************************************************************************************************
+				;*****************************************************************************************************
+				; Memory Fill (MFILL)                                                                                                        5A
+				; Places a specified value in each byte of a mem-
+				; ory area of known size, starting at a given ad-                 Registers Used: AF, BC, DE, HL
+				; dress.                                                          Execution Time: Approximately 21 cycles per byte
+				;         Registers used: AF.BC.DE.HL
+				;         Time:                Approximately 21 cycles per byte plus
+				;                                 50 cycles overhead
+				;         Size:                Program 11 bytes
+				;                                 Data    None
+				;*****************************************************************************************************
+				;*****************************************************************************************************
+			section Functions
+
+MFILL:
+			LD		(HL),A			;FILL FIRST BYTE WITH VALUE
+			LD		D,H				;DESTINATION PTR = SOURCE PTR + 1
+			LD		E,L
+			INC		DE
+			DEC		BC				;ELIMINATE FIRST BYTE FROM COUNT
+			LD		A,B				;ARE THERE MORE BYTES TO FILL?
+			OR		C
+			RET		Z				;NO. RETURN - SIZE WAS 1
+			LDIR					;YES. USE BLOCK MOVE TO FILL REST
+									; BY MOVING VALUE AHEAD 1 BYTE
+			RET
+
+
+
+			; SAMPLE EXECUTION:
+
+
+SC5A:
+			;FILL BF1 THROUGH BF1+15 WITH 00
+; 			LD		HL,BF1			:STARTING ADDRESS
+; 			LD		BC,SIZEI		JNUMBER OF BYTES
+; 			LD		A,0				;VALUE TO FILL
+; 			CALL	MFILL			;FILL MEMORY
+; 			;FILL BF2 THROUGH BF2+l999 WITH FF
+; 			LD		HL,BF2			;STARTING ADDRESS
+; 			LD		BC,SIZE2		;NUMBER OF BYTES
+; 			LD		A,0FFH			;VALUE TO FILL
+; 			CALL	MFILL			;FILL MEMORY
+; 			JR		SC5A
+; SIZEl	EQU	16					;SIZE OF BUFFER 1 (10 HEX)
+; SIZE2	EQU	2000				; SIZE OF BUFFER 2 (07DO HEX)
+; BF1:	DS	SIZE1
+; BF2:	DS	SIZE2
+
+
+				;*****************************************************************************************************
+				;*****************************************************************************************************
+				; Block Move (BLKMOV)                                                                                                 58
+				; Moves a block of data from a source area to
+				; a destination area.                                              Registers Used: AF, BC, DE, HL
+				; 		Title               Block Move
+				; 		Name:                BLKMOV
+				; 		Purpose:             Move data from source to destination
+				; 		Entry:               Register'H     = High byte of source address
+				; 							Register L     = Low byte of sou,rce address
+				; 							Register D     = High byte of destination address
+				; 							Register E     = Low byte of destination address     ,
+				; 							Register B     = High byte of number of bytes to move,
+				; 							Register C     = Low byte of number of bytes to move
+				; 		Exit:                Data moved from source to destination
+				; 		Registers used:AF,BC,DE,HL
+				; 		Time:                21 cycles per byte plus 97 cycles overhead
+				; 							if no overlap exists, 134 cycles overhead
+				; 							if overlap occurs
+				; 		Size:                Program 27 bytes
+				;*****************************************************************************************************
+				;*****************************************************************************************************
+
+
+BLKMOV:
+			LD		A,B				;IS SIZE OF AREA O?
+			OR		C
+			RET		Z				;YES, RETURN WITH NOTHING MOVED
+				; DETERMINE IF DESTINATION AREA IS ABOVE SOURCE AREA AND OVERLAPS
+				; IT (OVERLAP CAN BE MOD 64K). OVERLAP OCCURS IF
+				; STARTING DESTINATION ADDRESS MINUS STARTING SOURCE ADDRESS
+				; (MOD 64K) IS LESS THAN NUMBER OF BYTES TO MOVE
+			EX		DE,HL			;CALCULATE DESTINATION - SOURCE
+			PUSH	HL				;SAVE DESTINATION
+			AND		A				;CLEAR CARRY
+			SBC		HL,DE
+			AND		A				;THEN    SUBTRACT AREA SIZE
+			SBC		HL,BC
+			POP		HL				;RESTORE    DESTINATION
+			EX		DE,HL
+			JR		NC,DOLEFT		;JUMP    IF NO PROBLEM WITH OVERLAP
+				; DESTINATION     AREA IS ABOVE SOURCE AREA AND OVERLAPS IT
+				; MOVE   FROM HIGHEST ADDRESS TO AVOID DESTROYING DATA
+			ADD		HL,BC			;SOURCE = SOURCE + LENGTH - 1
+			DEC		HL
+			EX		DE,HL			;DEST = DEST + LENGTH - 1
+			ADD		HL,BC
+			DEC		HL
+			EX		DE,HL
+			LDDR					;BLOCK MOVE HIGH TO LOW
+			RET
+			; ORDINARY     MOVE STARTING AT LOWEST ADDRESS
+DOLEFT:
+			LDIR					;BLOCK    MOVE LOW TO HIGH
+			RET
+
+
+
+			; SAMPLE EXECUTION:
+
+
+; SOURCE    EQU		2000H             ;BASE    ADDRESS OF SOURCE AREA
+; DEST      EQU		2010H             ;BASE    ADDRESS OF DESTINATION AREA
+; LEN       EQU		11H               ;NUMBER    OF BYTES TO MOVE
+;           ;MOVE   11 HEX BYTES FROM 2000-2010 HEX TO 2010-2020 HEX
+; SC5B:
+; 			LD		HL,SOURCE
+; 			LD		DE,DEST
+; 			LD		BC,LEN
+; 			CALL	BLKMOV            ;MOVE    DATA FROM SOURCE TO DESTINATION
+; 			JR		SC5B
+
+

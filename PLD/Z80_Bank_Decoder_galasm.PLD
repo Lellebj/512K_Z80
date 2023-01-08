@@ -1,0 +1,54 @@
+GAL22V10    ;   ;Z80 memory bank decoder...
+Counter    ;       second line: any text (max. 8 char.)
+
+;1		2		3		4		5		6		7		8		9		10		11		12
+;-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|	
+Z80RD	Z80WR	Z80M1  Z80MREQ Z80IOREQ   Z80RESET  NC  A4  A5      A6      A7      GND
+
+A15		NC2	    NC3     PIOM1  SRAMSEL FLASHSEL  8Bitout  BankCS 	 DART CTC PIO	VCC
+;-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|	
+;13		14		15		16		17		18		19		20		21		22		23		24
+
+
+
+
+; SELBANK = clock on positive flanke
+; RD = Z80 read signal
+
+
+
+
+
+
+/PIO =   /Z80IOREQ * Z80M1  * /A4 * /A5 * /A6 * /A7 ;    
+/CTC =   /Z80IOREQ * Z80M1  * /A4 * /A5 *  A6 * /A7 ;
+/DART =   /Z80IOREQ * Z80M1  * /A4 * A5 * /A6 * /A7 ;
+/8Bitout =   /Z80IOREQ * Z80M1  * /A4 * A5 * A6 * /A7 ;
+
+;/*
+;/DTACHFLASH =   /Z80IOREQ * Z80M1  * /A4 * A5 * A6 * /A7 ;
+;/FLASHBOOT =   /Z80IOREQ * Z80M1  * /A4 * A5 * A6 * /A7 ;
+;*/
+
+SRAMSEL	=	Z80RESET * /FLASHSEL * /Z80IOREQ * Z80M1  * A4 * /A5 * /A6 * /A7  ;		/*  Flash boot init <addr 0x8n  >  */
+FLASHSEL 	=	/SRAMSEL * /Z80IOREQ * Z80M1  * A4 * /A5 * A6 * /A7  ;		/*  Flash boot init <addr 0xAn  >      */
+
+
+
+
+;/*
+DESCRIPTION
+
+;IC2 (Address Decoder) for rosco_m68k
+
+;Copyright (c)2020 Ross Bamford. See LICENSE.
+;*/
+
+
+
+
+
+
+
+
+

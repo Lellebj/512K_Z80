@@ -1,0 +1,68 @@
+Name     Z80Decoder ;
+PartNo   0123 ;
+Date     2022-01-04 ;
+Revision 01 ;
+Designer Engineer ;
+Company  Lellebj ;
+Assembly None ;
+Location  ;
+Device   g22V10 ;
+
+/* *************** INPUT PINS *********************/
+PIN 1    =  Z80_RD 							; /*								*/ 
+PIN 2    =  Z80_WR 							; /*								*/ 
+PIN 3    =  Z80_M1 							; /*								*/ 
+PIN 4    =  Z80_MREQ  							; /*								*/ 
+PIN 5    =  Z80_IOREQ  							; /*								*/ 
+PIN 6    =  Z80_RESET  							; /*								*/ 
+PIN 7    =  NC   							; /*								*/ 
+PIN 8    =  A4 							; /*								*/ 
+PIN 9    =  A5 							; /*								*/ 
+PIN 10    =  A6 							; /*								*/ 
+PIN 11    =  A7 							; /*								*/ 
+PIN 13    =  A15 							; /*								*/ 
+/* *************** OUTPUT PINS *********************/
+
+PIN 14    =   SRAM_OE		  						; /*								*/ 
+PIN 15    =   SRAM_WE							; /*								*/ 
+PIN 16    =   FLASH_CE		 						; /*								*/ 
+PIN 17    =   FLASH_OE                 			; /*								*/ 
+PIN 18    =   FLASH_PGM		  						; /*								*/ 
+PIN 19    =   WR_SRAM                 			; /*								*/ 
+PIN 20    =   FLASH_DS							; /*								*/ 
+PIN 21    =   WR_FLASH 						; /*								*/ 
+PIN 22    =   CE_IO2  						; /*								*/ 
+PIN 23    =   CE_IO1  							; /*								*/ 
+
+/*
+!CE_PIO =       !Z80_IOREQ & Z80_M1  & !A4 & !A5 & !A6 & !A7 ;    
+!CE_CTC =       !Z80_IOREQ & Z80_M1  &  A4 & !A5 & !A6 & !A7 ;
+!CE_DART =      !Z80_IOREQ & Z80_M1  & !A4 &  A5 & !A6 & !A7 ;
+!CE_BankCS  =   !Z80_IOREQ & Z80_M1  &  A4 &  A5 & !A6 & !A7 ;
+!CE_8Bitout =   !Z80_IOREQ & Z80_M1  & !A4 & !A5 &  A6 & !A7 ;
+*/
+
+!WR_SRAM 	=	!(!Z80_RESET # (!Z80_IOREQ & Z80_M1  & !A4 & !A5 & !A6 & A7)) &  FLASH_DS  &  WR_FLASH ;	/*  Read from FLASH init <addr 0x8n  >  */
+!FLASH_DS 	=	!(!Z80_IOREQ & Z80_M1  &  A4 & A5 &  !A6 & A7) &  WR_SRAM  &  WR_FLASH ;		            /*  Disconnect FLASH <addr 0xDn  >      */
+!WR_FLASH 	=	!(!Z80_IOREQ & Z80_M1  &  A4 & A5 &   A6 & A7) &  WR_SRAM  &  FLASH_DS ;		            /*  Disconnect FLASH <addr 0xFDn  >      */
+
+SRAM_OE		=	WR_SRAM # Z80_RD					; /*							*/
+SRAM_wE		=	WR_FLASH # Z80_WR					; /*							*/
+FLASH_CE	=	FLASH_DS # Z80_MREQ				    ; /*							*/
+FLASH_OE    =   FLASH_DS # WR_FLASH # Z80_RD;           /*                      */
+FLASH_PGM   =   WR_SRAM # FLASH_DS # Z80_WR;            /*                      */
+
+/*
+DESCRIPTION
+
+IC2 (Address Decoder) for rosco_m68k
+
+Copyright (c)2020 Ross Bamford. See LICENSE.
+*/
+
+
+
+
+
+
+

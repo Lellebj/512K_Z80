@@ -1,0 +1,1681 @@
+
+			Section IOLIB
+
+			GLOBAL 	WRCHAR,RDLINE,WRNEWL,WRSTRG
+
+			; Input/Output
+			; 1OA    Read a Line from a Terminal 356
+			; 1OB    Write a Line to an Output Device      365
+			; 1OC    CRC-16 Checking and Generation         368
+			; 10D    I/O Device Table Handler 373
+			; 1OE    Initialize I/O Ports   385
+			; 1OF    Delay Milliseconds     391
+
+
+
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+			; Read a Une from a Terminal (RDLlNE)                                                                      10A
+			; Reads a line of ASCII characters ending with
+			; 														Registers Used: AF, BC, DE, HL
+			; a carriage return and saves them in a buffer.
+			; Defines the control characters Control H (08             Execution Time: Approximately 162 cycles to place
+			; hex), which deletes the latest character, and            an ordinary character in the buffer, not including the
+			; 														execution time of RDCHAR or WRCHAR
+			; Control X (18 hex), which deletes the entire line.
+			; Sends a bell character (07 hex) to the terminal if       Program Size: 148 bytes
+			; the buffer overflows. Echoes each character
+			; placed in the buffer. Echoes non-printable char-         Data Memory Required: None
+			; acters as an up arrow or caret (A) followed by the       Special cases:
+			; printable equivalent (see Table 10-1). Sends a              I. Typing Control H (delete one character) or
+			; new line sequence (typically carriage return, line       Control X (delete the entire line) when the buffer is
+			; feed) to the terminal before exiting.                    empty has no effect.
+			; RDLINE assumes the following system-depen-               2. The program discards an ordinary character
+			; 														received when the buffer is full, and sends a bell
+			; dent subroutines:                                        character to the terminal (ringing the bell).
+			; 1. RDCHAR reads a character from the
+			; terminal and puts it in the accumulator.               return, the program sends a new line sequence to
+			; 													the terminal and exits. Otherwise, it checks for
+			; 2. WRCHAR sends the character in the                 the special characters Control H and Control X.
+			; accumulator to the terminal.                           If the buffer is not empty, Control H makes the
+			; 													program decrement the buffer pointer and char-
+			; 3. WRNEWL sends a new line sequence to               acter count by 1 and send a backspace string
+			; the terminal.                                          (cursor left, space, cursor left) to the terminal.
+			; 													Control X makes the program delete characters
+			; These subroutines are assumed to change all
+			; 													until it empties the buffer.
+			; user registers.
+			; 														If the character is not special, the program
+			; RDLINE is an example of a terminal input            determines whether the buffer is full. If it is, the
+			; handler. The control characters and 110 subrou-        program sends a bell character to the terminal.
+			; tines in a real system will, of course, be computer-   If not, the program stores the character in the
+			; dependent. A specific example in the listing is        buffer, echoes it to the terminal, and increments
+			; for a computer running the CP I M operating            the character count and buffer pointer.
+			; system with a standard Basic Disk Operating
+			; 														Before echoing a character or deleting one
+			; System (BDOS) accessed by calling memory
+			; 													from the display, the program must determine
+			; address 0005 16 , Table 10-2 lists commonly used
+			; 													whether the character is printable. If it is not
+			; CP 1M BDOS functions. For more information
+			; 													(that is, it is a non-printable ASCII control
+			; on CP / M, see Osborne CP/M User Guide,                character), the program must display or delete
+			; Second Edition by Thorn Hogan (Berkeley:               two characters, the control indicator (up arrow
+			; Osborne I McGraw-Hill, 1982).                          or caret) and the printable equivalent (see Table
+			; Procedure: The program starts the loop by             10-1). Note, however, that the character is stored
+			; reading a character. If the character is a carriage    in its non-printable form.
+
+			; Table 10-1: ASCII Control Characters and Printable Equivalents
+			; 	Name       Hex Value              Printable               Name       Hex Value               Printable
+			; 									Equivalent                                                 Equivalent
+			; 	NUL          00                  Control   @              DLE          10                      Control P
+			; 	SOH          01                  Control   A              DCI          II                      Control Q
+			; 	STX          02                  Control   B              DC2          12                      Control R
+			; 	ETX          03                  Control   C              DC3          I3                      Control S
+			; 	EOT          04                  Control   D              DC4          14                      Control T
+			; 	ENQ          05                  Control   E              NAK          15                      Control U
+			; 	ACK          06                  Control   F              SYN          16                      Control V
+			; 	BEL          07                  Control   G              ETB          17                      Control W
+			; 	BS           08                  Control   H              CAN          18                      Control X
+			; 	HT           09                  Control   I              EM           19                      Control Y
+			; 	LF           OA                  Control   J              SUB          IA                      Control Z
+			; 	VT           OB                  Control   K              ESC          IB                      Control [
+			; 	FF           OC                  Control   L              FS           lC                      Control..-
+			; 	CR           OD                  Control   M              GS           1D                      Control]
+			; 	SO           OE                  Control   N              RS           IE                      Control A
+			; 	SI           OF                  Control   0              VS           IF                      Control -
+
+			; Table 10-2: BDOS Functions for CP / M 2.0
+			; Function
+			; Number               Function                           Input                             Output
+			; (Decimal in            Name                            Parameters                        Parameters
+			; Register C)
+			; 	0           System Reset                       None                         None
+			; 	I           Console Input                      None                         A = ASCII character
+			; 	2           Console Output                     E = ASCII character          None
+			; 	3           Reader Input                       None                         A = ASCII character
+			; 	4           Punch Output                       E = ASCII character          None
+			; 	5           List Output                        E = ASCII character          None
+			; 	6           Direct Console Input               E = FFl6                     A = ASCII character or 00
+			; 																					if no character is available
+			; 	6           Direct Console Output              E = ASCII character          None
+			; 	7           Get I/O Byte                       None                         A= IOBYTE
+			; 	8           Set I/O Byte                       E= IOBYTE                    None
+			; 	9           Print String                       DE = String Address          None
+			; 	10          Read Console Buffer                DE = Buffer Address          (Data in buffer)
+			; 	II           Get Console Status                 None                         A = 00 (no character) or A =
+
+			; Entry Conditions                                                  Exit Conditions
+			; Base address of buffer in HL                                      Number of characters in the buffer in A
+			; Length (size) of buffer in bytes in A
+			; Examples
+			; 1.    Data:      Line from keyboard is 'ENTERcr'                  What has happened is
+			; 	Result:     Character count = 5 (line length)
+			; 				Buffer contains 'ENTER'                             a. The operator types 'D', 'M'.
+			; 				'ENTER' is sent to terminal, followed by a          b. The operator sees that 'M' is wrong (it
+			; 				new line sequence (typically either carriage
+			; 				return, line feed or just carriage return).
+			; 																should be 'N'), types Control H to delete it, and
+			; 				Note that the 'cr' (carriage return) character   types 'N'.
+			; 				does not appear in the buffer.                    c. The operator then sees that the initial 'D' is
+			; 																also wrong (it should be 'E'). Since the error is
+			; 																not in the latest character, the operator types
+			; 2.    Data:      Line from keyboard is 'DMcontrolHNcontrol        Control X to delete the entire line, and then
+			; 					XENTETcontrolHRcr'
+			; 	Result:     Character count = 5 (length of final line)       types 'ENTET'.
+			; 				Buffer contains 'ENTER'                             d. The operator sees that the second 'T' is
+			; 				'D MBackspaceStringNBackspaceStringBack-         wrong (it should be 'R'), types Control H to
+			; 				spaceStringENTETBackspaceStringR' is
+			; 				sent to terminal, followed by a new line       delete it, and types 'R'.
+			; 				sequence. The Backspace String deletes a          e. The operator types a carriage return to end
+			; 				character from the screen and moves the        the line.
+			; 				cursor left one space.
+			; 				The sequence of operations is as follows:
+			; Character        Initial     Final        Sent to
+			; Typed            Buffer      Buffer       Terminal
+			; D                Empty       'D'          D
+			; M                'D'         'DM'         M
+			; Control H        'DM'        'D'          Backspace string
+			; N                'D'         'DN'         N
+			; Control X        'DN'        Empty        2 Backspace strings
+			; E                Empty       'E'          E
+			; N                'E'         'EN'         N
+			; T                'EN'        'ENT'        T
+			; E                'ENT'       'ENTE'       E
+			; T                'ENTE'      'ENTET'      T
+			; Control H        'ENTET'     'ENTE'       Backspace string
+			; R                'ENTE'      'ENTER'      R
+			; cr               'ENTER'     'ENTER'      New line string
+			; 		Title              Read line
+			; 		Name:              RDLINE
+			; 		Purpose:           Read characters from CPIM BDOS CON: device
+			; 							until carriage return encountered. All control
+			; 							characters but the following are placed in the
+			; 							buffer and displayed as the equivalent printable;
+			; 							ASCII character preceded by a caret.
+			; 							Control H: delete last character
+			; 							Control X: delete entire line
+			; 		Entry:             Register pair HL = Base address of buffer
+			; 							Register A = Length of buffer in bytes
+			; 		Exit:              Register A = Number of characters in buffer
+			; 		Registers used: AF.BC.DE. HL
+			; 		Time:              Not applicable
+			; 		Size:              Program 148 bytes
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+
+			;EQUATES
+BELL	EQU		07H		;BELL CHARACTER (RINGS BELL ON TERMINAL)
+BSKEY	EQU		08H		;BACKSPACE KEYBOARD CHARACTER
+CR		EQU		0DH		;CARRIAGE RETURN FOR CONSOLE
+CRKEY	EQU		0DH		;CARRIAGE RETURN KEYBOARD CHARACTER
+CSRLFT	EQU		08H		;MOVE CURSOR LEFT FOR CONSOLE
+DELKEY	EQU		18H		;DELETE LINE KEYBOARD CHARACTER
+LF		EQU		0AH		;LINE FEED FOR CONSOLE
+SPACE	EQU		20H		;SPACE CHARACTER
+UPARRW	EQU		5EH		;UP· ARROW OR CARET USED AS CONTROL INDICATOR
+SDOS	EQU		0005H	;BDOS     ENTRY POINT
+DIRIO	EQU		6		;BDOS     DIRECT 1/0 FUNCTION
+PSTRG	EQU		9		; BDOS    PRINT STRING FUNCTION
+STERM	EQU		'$'		;CP/M    'STRING TERMINATOR
+
+RDLINE:
+	LD		C,A			;C = BUFFER LENGTH
+							;HL = BUFFER POINTER
+		;INITIALIZE CHARACTER COUNT TO ZERO
+INIT_10A:
+	LD		B,0			;CHARACTER COUNT   =0
+		;READ CHARACTERS UNTIL A CARRIAGE RETURN IS TYPED
+
+RDLOOP:
+	CALL	RDCHAR			;READ CHARACTER FROM KEYBOARD - NO ECHO
+		;CHECK FOR CARRIAGE RETURN. EXIT IF FOUND
+	CP		CRKEY
+	JR		Z, EXITRD		; END OF LINE IF CARRIAGE RETURN
+		; CHECK FOR BACKSPACE AND DELETE CHARACTER IF FOUND
+	CP		BSKEY
+	JR		NZ,RDLP1		;BRANCH IF NOT BACKSPACE
+	CALL	BACKSP			;IF BACKSPACE, DELETE ONE CHARACTER
+	JR		RDLOOP			; THEN START READ LOOP AGAIN
+		;CHECK FOR DELETE LINE CHARACTER AND EMPTY BUFFER IF FOUND
+RDLP1:	
+	CP		DELKEY
+	JR		NZ,RDLP2		;BRANCH IF NOT DELETE LINE
+DEL1:
+	CALL	BACKSP			;DELETE A CHARACTER
+	JR		NZ, DEL1		; CONTI NUE UNTI L BUFFER EMPTY
+	JR		RDLOOP			;THIS ACTUALLY BACKS UP OVER EACH
+							;CHARACTER RATHER THAN JUST MOVING UP A LINE
+		; NOT A SPECIAL CHARACTER
+		; CHECK IF BUFFER IS FULL
+		; IF FULL, RING BELL AND CONTINUE
+		; IF NOT FULL., STORE CHARACTER AND ECHO
+RDLP2:
+	LD		E,A				;SAVE CHARACTER
+	LD		A,B				;IS BUFFER FULL?
+	CP		C				; COMPARE COUNT AND BUFFER LENGTH
+	JR		C,STRCH			;JUMP IF BUFFER NOT FULL
+	LD		A,BELL 			;FULL, RING THE TERMINAL~S BELL
+	CALL	WRCHAR
+	JR		RDLOOP			;THEN CONTINUE THE READ LOOP
+		;BUFFER NOT FULL. STORE CHARACTER
+STRCH:
+	LD		A,E				;GET CHARACTER BACK
+	LD		(HL),A			;STORE CHARACTER IN BUFFER
+	INC		HL				; INCREMENT BUFFER POINTER
+	INC		B				; INCREMENT CHARACTER COUNT
+
+		;IF CHARACTER IS CONTROL, THEN OUTPUT
+		; UP ARROW FOLLOWED BY PRINTABLE EQUIVALENT
+	CP		SPACE			;CONTROL IF LESS THAN SPACE (20 HEX)
+	JR		NC,PRCH			;JUMP IF A PRINTABLE CHARACTER
+	PUSH	AF				; SAVE CHARACTER
+	LD		A, UPARRW		; WRITE UP ARROW OR CARET
+	CALL	WRCHAR
+	POP		AF				; RECOVER CHARACTER
+	ADD		A,40H			;CHANGE TO PRINTABLE FORM
+PRCH:	CALL	WRCHAR			;ECHO CHARACTER TO TERMINAL
+	JR		RDLOOP			; THEN CONTINUE READ LOOP EXIT
+		; SEND NEW LINE SEGlUENCE (USUALLY CR. LF) TO TERM I NAL
+		;GET LENGTH OF LINE
+EXITRD:
+	CALL	WRNEWL			;SEND NEW LINE SEQUENC.E
+	LD		A,B				;LINE LENGTH = CHARACTER COUNT
+	RET
+
+		;***************************************************
+		; ROUTINE: RDCHAR
+		; PURPOSE: READ CHARACTER BUT DO NOT ECHO TO CONSOLE
+		; ENTRY: NONE
+		; EXIT: REGISTER A = CHARACTER
+		; REGISTERS USED: ALL EXCEPT BC:, HL
+		;***************************************************
+RDCHAR:
+	PUSH	HL				;SAVE BC.HL
+	PUSH	BC
+		;WAIT FOR CHARACTER FROM CONSOLE
+RDWAIT:
+	LD		C,DIRIO			;DIRECT CONSOLE I/O
+	LD		E,0FFH			;INDICATE INPUT
+	CALL	BDOS			;READ CHARACTER FROM CONSOLE
+	OR		A				;LOOP IF NO CHARACfER (A = 0)
+	JR		Z,RDWAIT
+	POP		DE				;RESTORE BC,HL
+	POP		HL
+	RET						;RETURN WITH CHARACTER IN REGISTER A
+
+		;*****************************************
+		; ROUTINE: WRCHAR
+		; PURPOSE: WRITE CHARACTER TO CONSOLE
+		; ENTRY: REGISTER A = CHARACTER
+		; EXIT: NONE
+		; REGISTERS USED: ALL EXCEPT BC. HL
+		;**************************************.**
+WRCHAR:
+	PUSH	HL				;SAVE BC, HL
+	PUSH	BC
+		;WRITE A CHARACTER
+	LD		C,DIRIO			;DIRECT CONSOLE 1/0
+	LD		E,A				; INDICATE OUTPUT - CHARACTER IN E
+	CALL	BDOS			;WRITE CHARACTER ON CONSOLE
+	POP		BC				;RESTORE BC.HL
+	POP		HL
+	RET
+
+		;******************************************
+		; ROUTINE: WRNEWL
+		; PURPOSE: ISSUE NEW LINE SEQUENCE TO CONSOLE
+		; 			NORMALLY, THIS IS A CARRIAGE RETURN AND
+		; 			LI NE FEED, BUT SOME COMPUTERS REtlU I RE ONLY
+		; 			A CARRIAGE RETURN.
+		; ENTRY: NONE
+		; EXIT: NONE
+		; REGISTERS USED: ALL EXCEPT BC,HL
+		;*******************************************
+
+WRNEWL:
+	PUSH	HL				;SAVE BC,HL
+	PUSH	BC
+		; SEND NEW LINE STRING TO CONSOLE
+	LD		DE,NLSTRG		;POINT TO NEW LINE STRING
+	CALL	WRSTRG			;SEND STRING TO CONSOLE
+	POP		BC
+	POP		HL
+	RET
+NLSTRG: 
+	DB	CR,LF,STERM			;NEW LINE STRING
+								; NOTE: STERM ($) IS CP/M TERMINATOR
+		;**********************************************************
+		; ROUTINE: BACKSP
+		; PURPOSE: PERFORM A DESTRUCTIVE BACKSPACE
+		; ENTRY: B = NUMBER OF CHARACTERS IN BUFFER
+		;		HL = NEXT AVAILABLE BUFFER ADDRESS
+		; EXIT: IF NO CHARACTERS IN BUFFER
+		;			Z = 1
+		;		ELSE
+		;			Z =0
+		;          CHARACTER REMOVED FROM BUFFER
+		; REGISTERS USED: ALL EXCEPT C, HL
+		;************************************************************
+BACKSP:
+		;CHECK FOR EMPTY BUFFER
+	LD		A,B				; TEST NUMBER OF CHARACTER:::.
+	OR		A
+	RET		Z				;EXIT IF BUFFER EMPTY
+		; OUTPUT BACKSPACE STRING
+		; TO REMOVE CHARACTER FROM DISPLAY
+	DEC		HL				;DECREMENT BUFFER POINTER
+	PUSH	HL				;SAVE BC, HL
+	PUSH	BC
+	LD		A, (HL)			; GET CHARACTER
+	CP		20H				; IS IT A CONTROL?
+	JR		NC,BS1			; NO, BRANCH, DELETE ONLY ONE CHARACTER
+	LD		DE, BSSTRG		; YES, DELETE 2 CHARACTERS
+							;	(UP ARROW AND PRINTABLE EQUIVALENT)
+	CALL	WRSTRG			;WRITE BACKSPACE STRING
+BS1:    
+	LD		DE,BSSTRG
+	CALL	WRSTRG			;WRITE BACKSPACE STRING
+	POP		BC				;RESTORE Be, HL.
+	POP		HL
+		;DECREMENT CHARACTER COUNT BY 1
+	DEC		B               ; ONE LESS CHARACTER IN BUFFER
+	RET
+		; DESTRUCTIVE BACKSPACE STRING FOR CONSOLE
+		; MOVES CURSOR LEFT. PRINTS SPACE OVER CHARACTER. MOVES
+		; CURSOR LEFT
+		; NOTE: STERM ($) IS CP/M STRING TERMINATOR
+BSSTRG: DB		CSRLFT,SPACE,CSRLFT,STERM
+		;*********************************
+		; ROUTINE: WRSTRG
+		; PURPOSE: OUTPUT STRING TO CONSOLE
+		; ENTRY: HL = BASE ADDRESS OF STRING
+		; EXIT: NONE
+		; REGISTERS USED: ALL EXCEPT Be
+		;*********************************
+WRSTRG:
+	PUSH	BC				;SAVE BC
+	LD		C,PSTRG			;FUNCTION IS PRINT STRING
+	CALL	BDOS			;OUTPUT STRING TERMINATED WITH     $
+	POP		BC				;RESTORE BC
+	RET
+
+;   SAMPLE EXECUTION:
+
+	; EQUATES
+PROMPT	EQU		'?'					;OPERATOR PROMPT = QUESTION MARK
+SC10A:
+		; READ LINE FROM CONSOLE
+	LD		A,PROMPT			;OUTPUT PROMPT   (?)
+	CALL	WRCHAR
+	LD		HL,INBUFF			;HL = INPUT BUFFER ADDRESS
+	LD		A, LINBUF			;A = BUFFER LENGTH
+	CALL	RDLINE				;READ A LINE
+	OR		A					;TEST LINE LENGTH
+	JR		Z,SC10A				;NEXT LINE IF LENGTH IS 0
+	; ECHO LI NE TO CONSOLE
+	LD		B,A					;SAVE NUMBER OF CHARACTERS IN BUFFER
+	LD		HL,INBUFF			;POINT TO START OF BUFFER
+TLOOP:
+	LD		A,(HL)				;OUTPUT NEXT CHARACTER
+	CALL	WRCHAR
+	INC		HL					; INCREMENT BUFFER POINTER
+	DJNZ	TLOOP				;DECREMENT CHARACTER COUNT
+								; CONTINUE UNTIL ALL CHARACTERS SENT
+	CALL	WRNEWL				;THEN END WITH CR,LF
+	JR		SC10A
+
+		; DATA SECTION
+LINBUF	EQU		16					;LENGTH OF INPUT BUFFER
+INBUFF: DB		LINBUF				;LENGTH OF INPUT BUFFER
+		DS		LINBUF				;DATA BUFFER
+
+
+
+
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+			; Write a Une to an Output Device (WRLINE)                                                              10B
+
+			; W rites characters until it empties a buffer          Registers Used: AF, BC, DE, HL
+			; with given length and base address. Assumes the          Execution nme: 18 cycles overhead plus 43 cycles
+			; system-dependent subroutine WRCHAR, which                per byte besides the execution time of subroutine
+			; sends the character in the accumulator to the            WRCHAR
+			; output device.                                           Program Size: 22 bytes
+			; WRLlNE is an example of an output driver.             Data Memory Required: None
+			; The actual I/O subroutines will, of course, be           Special case: An empty buffer causes an immediate
+			; 														exit with nothing sent to the output device.
+			; computer-dependent. A specific example in the
+			; listing is for a CP/M-based computer with a
+			; standard Basic Disk Operating System (BDOS)           to the output device one at a time until it empties
+			; accessed by calling address 0005 16 ,                 the buffer. The program saves all temporary
+			; Procedure: The program exits immediately if        data in memory rather than in registers to
+			; the buffer is empty. Otherwise, it sends characters   avoid dependence on WRCHAR.
+			; Entry Conditions                                      Exit Conditions
+			; Base address of buffer in HL                          None
+			; Number of characters in the buffer in A
+			; Example
+			; I.    Data:     N umber of characters = 5
+			; 				Buffer contains 'ENTER'
+			; 	Result:    'ENTER' sent to the output device
+			; 			Tit Ie               Write line
+			; 			Name:                WRLlNE
+			; 		Purpose:             Write characters to CPIM BOOS CON: device
+			; 		Entry:               Register pair HL = Base address of buffer
+			; 								Register A = Number of characters in buffer
+			; 		Exit:                None
+			; 		Registers used: All
+			; 		Time:                Not applicable
+			; 		Size:                Program 22 bytes
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+
+
+		; EQUATES
+BDOS	EQU		0005H              ;BDOS ENTRY POINT
+DIRIO_10B	EQU		6                  ;BDOS DIRECT 1/0 FUNCTION
+WRLINE:
+		;EXIT IMMEDIATELY IF BUFFER IS EMPTY
+		OR		A				;TEST NUMBER OF CHARACTERS
+		RET		Z				; RETURN IF BUFFER EMPTY
+		LD		B,A				;B = COUNTER
+								;HL = BASE ADDRESS OF BUFFER
+		;LOOP SENDING CHARACTERS TO OUTPUT DEVICE
+WRLLP:
+		LD		A, (HL)			;GET NEXT CHARACTER
+		CALL	WRCHAR			;SEND CHARACTER TO OUTPUT DEVICE
+		INC		HL				; INCREMENT BUFFER POINTER
+		DJNZ	WRLLP			;DECREMENT COUNTER
+								; CONTINUE UNTIL ALL CHARACTERS SENT
+		RET
+
+		;*****************************************
+		; ROUTINE: WRCHAR
+		; PURPOSE: WRITE CHARACTER TO OUTPUT DEVICE
+		; ENTRY: REGlSTER A = CHARACTER
+		; EXIT: NONE
+		; REGISTERS USED: AF,DE
+		;*****************************************
+WRCHAR_10B:
+		PUSH	HL				;SAVE BC, HL
+		PUSH	BC
+		LD		C,DIRIO_10B			; DI RECl' 1 10 FUNCTI ON
+		LD		E,A				;CHARACTER IN REGISTER E
+		CALL	BDOS			;OUTPUT CHARACTER
+		POP		BC				;RESTORE BC, HL
+		POP		HL
+		RET
+
+		; SAMPLE EXECUTION:
+
+
+RCBUF	EQU		10				;BDOS READ CONSOLE BUFFER FUNCTION
+			;B DOS READ CONSOLE BUFFER FUNCTION USES
+			; THE FOLLOWING BUFFER FORMAT:
+			; BYTE 0   	: BUFFER LENGTH (MAXIMUM NUMBER OF CHARACTERS)
+			; BYTE 1	: NUMBER OF CHARACTERS READ (LINE LENGTH)
+			; BYTE 2 ON	: ACTUAL CHARACTERS
+			;CHARACTER EQUATES
+; CR       EQU		0DH				;CARRIAOE RETURN FOR CONSOLE
+; LF       EQU		0AH				;LINE FEED FOR CONSOLE
+; PROMPT   EQU		'?'
+								;OPERATOR PROMPT = QUESTION MARK
+SC1OB:
+			;READ LINE FROM CONSOLE
+		LD		A, PROMPT			;OUTPUT PROMPT    (?)
+		CALL	WRCHAR
+		LD		DE,INBUFF			;POINT TO INPUT BUFFER
+		LD		C,RCBUF				;BDOS READ LINE FUNCTION
+		CALL	BDOS				;READ LINE FROM CONSOLE
+		LD		A,LF				;OUTPUT LINE FEED
+		CALL	WRCHAR
+			; WRITE LINE TO CONSOLE
+		LD		HL,INBUFF			;POINT AT LENGTH BYTE RETURNED BY CP/M
+		LD		A,(HL)				;GET LENGTH OF LINE
+		INC		HL					;POINT TO FIRST DATA BYTE OF INBUFF
+		CALL	WRLINE				;WRITE LINE
+		LD		HL,CRLF				;OUTPUT CARRIAGE RETURN, LINE FEED
+		LD		A,2					;LENGTH OF CRLF STRING
+		CALL	WRLINE				;WRITE CRLF STRING
+		JR		SC1OB				; CONTINUE
+			; DATA SECTION
+CRLF:   DB		CR,LF				;CARRIAGE RETURN. LINE FEED
+; LINBUF	EQU		10H					;LENGTH OF INPUT BUFFER
+; INBUFF: DB		LINBUF				;LENGTH OF INPUT BUFFER
+; 		DS		LINBUF				;DATA BUFFER
+
+
+
+
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+			; CRC-16 Checking and Generation
+			; (ICRC:16,CRC:16,GCRC:16 )                                                                        10C
+			; Generates a 16-bit cyclic redundancy check   Registers Used:
+			; (CRC) based on the IBM Binary Synchronous        I. ICRCI6: HL
+			; Communications protocol (BSC or Bisync).         2. CRCI6: None
+			; Uses the polynomial XI6 + XIS + X2 + 1. Entry.   3. GCRCI6: HL
+			; point ICRCl6 initializes the CRC to 0 and the    Execution Time:
+			; polynomial to the appropriate bit pattern. Entry I. ICRCI6: 62 cycles
+			; point CRCI6 combines the previous CRC with       2. CRCI6: 148 cycles overhead plus an average of
+			; the CRC generated from the current data byte.    584 cycles per data byte, assuming that the previous
+			; Entry point GCRCI6 returns the CRe.              CRC and the polynomial must be EXCLUSIVE-ORed
+			; 												in half of the iterations
+			; Procedure: Subroutine ICRCl6 initializes the
+			; 												3. GCRCI6: 26 cycles
+			; CRC to 0 and the polynomial to a I in each bit
+			; 												Program Size:
+			; position corresponding to a power of X present
+			; 												I. ICRCI6: 13 bytes
+			; in the formula. Subroutine CRCI6 updates the
+			; 												2. CRCI6: 39 bytes
+			; CRC for a data byte. It shifts both the data and
+			; 												3. GCRCI6: 4 bytes
+			; the CRC left eight times; after each shift, it
+			; 												Data Memory Required: 4 bytes anywhere in
+			; EXCLUSIVE-ORs the CRC with the polynomial        RAM for the CRC (2 bytes starting at address CRC)
+			; if the EXCLUSIVE-OR of the data bit and the      and the polynomial (2 bytes starting at address PLY)
+			; CRC's most significant bit is 1. Subroutine
+			; CRCI6 leaves the CRC in memory locations significant byte). Subroutine GCRCI610ads the
+			; CRC (less significant byte) and CRC+ I (more CRC into HL.
+			; Entry Conditions                                       Exit Conditions
+			; 1. ICRCI6: none                                         I. ICRCI6: 0 (initial CRC value) in memory
+			; 													locations CRC (less significant byte) and
+			; 2. CRCI6: data byte in A, previous CRC in           CRC+ I (more significant byte), CRC
+			; memory locations CRC (less significant byte)           polynomial in memory locations PLY (less
+			; and CRC+ I (more significant byte), CRC polynomial     significant byte) and PLY + I (more significant
+			; in memory locations PLY (less significant byte)        byte)
+			; and PLY + I (more significant byte)
+			; 														2. CRCI6: CRC with current data byte in-
+			; 3. GCRCI6: CRC in memory locations CRC              cluded in memory locations CRC (less significant
+			; (less significant byte) and CRC+ I (more significant   byte) and CRC+I (more significant byte)
+			; byte)
+			; 														3. GCRCI6: CRC in HL
+			; Examples
+			; I. Generating a CRC                                       2. Checking a CRC
+			; a. Call ICRC16 for initialization and to start the CRC     a. Call ICRC16 for initialization and to start the CRC
+			; at O.                                                      at O.
+			; b. Call CRC16 repeatedly to update the CRC for each        b. Call CRC 16 repeatedly to update the CRC for each data
+			; data byte.                                                 byte (including the stored CRC) for checking.
+			; c. Call GCRC16 to obtain the final CRe.                    c. Call GCRC16 to obtain the final CRC; it will be 0 if
+			; 															there were no errors.
+			; Note that only ICRCl6 depends on the particular           memory locations PLY (less significant byte)
+			; CRC polynomial used. To change the polynomial,            and PLY+ 1 (more significant byte).
+			; simply change the data ICRC16 loads into
+			; REFERENCE
+			; J.E.McNamara. Technical Aspects of Data Communications, 2nd ed. Billerica, Mass.:
+			; Digital Press, 1982. This book contains explanations of CRC and communications
+			; protocols.
+			; 		Title                   Generate CRC-16
+			; 		Name:                   CRC16
+			; 		Put"pose:               Generate a 16-bit CRC based on IBM's Binary
+			; 								Synchronous Communications protocol. The CRC is
+			; 								based on the polynomial:
+			; 									to indicates "to the power")
+			; 										X"16 + X"15 + X"2 + 1
+			; 								To generate a CRC:
+			; 									1) Call ICRC16 to initialize the CRC
+			; 										polynomial and clear the CRe.
+			; 									2) Call CRC16 for each data byte.
+			; 									3) Call GCRC16 to obtain the eRe.
+			; 										It should then be appended to the data,
+			; 										high byte first.
+			; 						To check a CRC:
+			; 							1) Call ICRC16 to initialize the CRC.
+			; 							2)  Call CRC16 for each data byte and       ;
+			; 								the 2 bytes of CRC previously generated.;
+			; 							3)  Call GCRC16 to obtain the CRC. It will
+			; 								be zero if no errors occurred.
+			; 		Entry:            ICRC16 - None
+			; 						CRC16 - Register A   = Data   byte
+			; 						GCRC16 - None
+			; 		Exit:             ICRC16 - CRC, PLY initialized
+			; 						CRC16 - CRC updated
+			; 						GCRC16 - HL = CRe
+			; 		Registers used: None
+			; 		Time:             148 cycles overhead plus an average of 584
+			; 						cycles per byte, assuming that half the
+			; 						iterations require EXCLUSIVE-ORing the CRC
+			; 						and the polynomial.
+			; 		Size:             Program 56 bytes
+			; 						Data     4 bytes
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+
+
+CRC16:
+			;SAVE REGISTERS
+		PUSH	AF
+		PUSH	BC
+		PUSH	DE
+		PUSH	HL
+
+			;LOOP THROUGH EACH BIT GENERA TI NO THE CRe
+		LD		B,8				;8 BITS PER BYTE
+		LD		DE,(PLY)		;GET POLYNOMIAL
+		LD		HL,(CRC)		;GET CURRENT CRC VALUE
+CRCLP:
+		LD		C,A				;SAVE DATA C
+		AND		10000000B		;GET BIT 7 OF DATA
+		XOR		H				; EXCLUSIVE·-"OR BIT 7 WITH BIT 15 OF CRG
+		LD		H,A
+		ADD		HL,HL			;SHIFT CRe LEFT
+		JR		NC,CRCLP1		; JUMP IF BIT 7 OF EXCLUSIVE-OR WAS 0
+			;BIT 7 WAS 1, SO EXCLUSIVE-OR CRC WITH POLYNOMIAL
+		LD		A,E				;GET LOW BYTE OF POLYNOMIAL
+		XOR		L				;EXCLUSIVE-OR WITH LOW BYTE OF eRG
+		LD		L,A
+		LD		A,D				;GET HIGH BYTE OF POLYNOMIAL
+		XOR		H				;EXCLUSIVE-OR WITH HIGH BYTE OF CRG
+		LD		H,A
+CRCLP1 :
+		LD		A,C				;RESTORE DATA
+		RLA						;SHIFT NEXT DATA BIT TO BIT 7
+		DJNZ	CRCLP			;DECREMENT BIT COUNTER .
+								;JUMP IF NOT THROUGH 8 BITS
+		LD		(CRC),HL		;SAVE UPDATED CRC
+		;RESTORE REGISTERS AND EXIT
+		POP		HL
+		POP		DE
+		POP		BC
+		POP		AF
+		RET
+
+		;*****************************************
+		; ROUTINE: ICRC1c.
+		; PURPOSE: INITIALIZE CRC AND PLY
+		; ENTRY: NONE
+		;EXIT: CRC AND POLYNOMIAL INITIALIZED
+		;REGISTERS USED: HL
+		;******************************************
+ICRC16:
+		LD		HL,0				;CRC = 0
+		LD		(CRC),HL							
+		LD		HL,08005H			;PLY = 8005H
+		LD		(PLY),HL			;8005H IS FOR X^16+X^15+X^2+1
+									;A 1 IS IN EACH BIT POSITION
+									; FOR WHICH A POWER APPEARS IN
+									; THE FORMULA (BITS 0, 2, AND 1S)
+		RET
+		;*******************************************
+		; ROUTINE: GCRC16
+		; PURPOSE: GET CRC VALUE
+		; ENTRY: NONE
+		; EXIT: REGISTER PAIR HL    = CRe    VALUE
+		; REGISTERS USED: HL
+		;******************************************~
+GCRC16:
+		LD		HL,(CRC)			;HL   = CRC
+		RET
+			;DATA
+CRC:	DS      2					;CRC VALUE
+PLY:	DS      2					; POLYNOMIAL VALUE
+
+
+
+
+		; SAMPLE EXECUTION:
+
+
+		;GENERATE A CRC FOR THE NUMBER 1 AND CHECK IT
+SC10C:
+
+		CALL	ICRC16			;INITIALIZE CRC. POLYNOMIAL
+		LD		A,1				;GENERATE CRC FOR 1
+		CALL	CRC16
+		CALL	GCRC16
+		EX		DE,HL			;SAVE CRC IN DE
+		CALL	ICRC16			;INITIALIZE AGAIN
+		LD		A,1
+		CALL	CRC16			;CHECK CRC BY GENERATING IT FOR DATA
+		LD		A,D
+		CALL	CRC16			; AND STORED CRC ALSO
+		LD		A,E
+		CALL	CRC16
+		CALL	GCRC16			;CRC SHOULD BE ZERO IN HL
+			;GENERATE CRC FOR THE SEQUENCE 0.1.2 ••••• 255 AND CHECK IT
+		CALL	ICRC16			;INITIALIZE CRC. POLYNOMIAL
+		LD		B,0				;START DATA BYTES AT 0
+GENLP:
+		LD		A,B				;GET DATA BYTE
+		CALL	CRC16			;UPDATE CRC
+		INC		B				;ADD 1 TO PRODUCE NEXT DATA BYTE
+		JR		NZ,GENLP		;BRANCH IF NOT DONE
+		CALL	GCRC16			;GET RESULTING CRC
+		EX		DE,HL			;AND SAVE IT IN DE
+			;CHECK CRC BY GENERATING IT AGAIN
+		CALL	ICRC16			;INITIALIZE CRC. POLYNOMIAL
+		LD		B,0				;START DATA BYTES AT 0
+CHKLP:
+		LD		A,B				;GET DATA BYTE
+		CALL	CRC16			;UPDATE CRC
+		INC		B				;ADD 1 TO PRODUCE NEXT DATA BYTE
+		JR		NZ,CHKLP
+			;ALSO INCLUDE STORED CRC IN CHECK
+		LD		A,D				;UPDATE FOR HIGH BYTE OF STORED CRC
+		CALL	CRC16
+		LD		A,E				;UPDATE FOR LOW BYTE OF STORED CRC
+		CALL	CRC16
+		CALL	GCRC16			;GET RESULTING CRC
+								; IT SHOULD BE 0
+		JR        SC10C
+
+
+
+
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+			; I/O Device Table Handler (IOHDLR)                                                                     10D
+			; Performs input and output in a device-               Registers Used:
+			; independent manner using 110 control blocks                I. IOHDLR: AF,BC,DE,HL,IX
+			; and an 110 device table. The 110 device table is          2. INITDL: HL
+			; a linked list; each entry contains a link to the          3. ADDDL: DE
+			; next entry, the device number, and starting             Execution Time:
+			; addresses for routines that initialize the device,         1. IOHDLR: 270 cycles overhead plus 90 cycles
+			; determine its input status, read data from it,          for each unsuccessful match of a device number
+			; determine its output status, and write data to it.         2. INITDL: 36 cycles
+			; An 110 control block is an array containing the            3. ADDDL: 72 cycles
+			; device number, operation number, device status,         Program Size:
+			; and the base address and length of the device's            1. IOHDLR: 70 bytes
+			; buffer. The user must provide IOHDLR with the             2. INITDL: 7 bytes
+			; base address of an 110 control block and the               3. ADDDL: 12 bytes
+			; data if only one byte is to be written. IOHDLR          Data Memory Required: 3 bytes anywhere in
+			; returns the status byte and the data (if only one       RAM for the device list header (2 bytes starting at
+			; 													address DVLST) and temporary storage for data to
+			; byte is read).                                          be written without a buffer (I byte at address
+			; This subroutine is an example of handling            BDATA)
+			; input and output in a device-independent man-
+			; ner. The 110 device table must be constructed
+			; using subroutines INITDL, which initializes the      checks for a valid operation and transfers control
+			; device list to empty, and ADDDL, which adds a        to the appropriate routine from the device table
+			; device to the list.                                  entry. That routine must end by transferring
+			; An applications program will perform input        control back to the original caller. If the operation
+			; or output by obtaining or constructing an 1/0        is invalid (the operation number is too large or
+			; control block and then calling IOHDLR. IOHDLR        the starting address for the routine is 0), the
+			; uses the I 10 device table to determine how to       program returns with an error number in the
+			; transfer control to the 110 driver.                  status byte.
+			; Procedure: The program first initializes the         Subroutine INITDL initializes the device list,
+			; status byte to 0, indicating no errors. It then      setting the initial link to O.
+			; searches the device table, trying to match the          Subroutine ADDDL adds an entry to the
+			; device number in the 110 control block. If it        device list, making its base address the head of
+			; does not find a match, it exits with an error        the list and setting its link field to the old head of
+			; number in the status byte. If it finds a match, it   the list.
+			; Entry Conditions                                     Exit Conditions
+			; 1. IOHDLR:      Base address of input I output       1. IOHDLR:         110 control block status byte
+			; 				control block in IX                                      in A if an error is found;
+			; 				Data byte (if the operation is                                  otherwise, the routine exits
+			; 					to write one byte) in A                                         to the appropriate 110 driver.
+			; 2. INITDL: None                                                                    Data byte in A if the opera-
+			; 																					tion is to read one byte
+			; 3. ADDDL: Base address of a device table                        2. INITDL:         Device list header (addresses
+			; 		entry in HL                                                             DVLST and DVLST+I)
+			; 																				cleared to indicate empty list
+			; 															3. ADDDL:          Device table entry added to
+			; 																					list
+			; Example
+			; I. The example in the listing uses the following structure:                   M are significant byte oflink field (base address
+			; 																			of next entry)
+			; 		Input/ Output Operations                                   2       Device number
+			; Operation                                                            3       Less significant byte of starting address of
+			; Number Operation                                                              device initialization routine
+			; 	o       Initialize device                                       4       More significant byte of starting address of
+			; 	I       Determine input status                                            device initialization routine
+			; 	2       Read I byte from input device                           5       Less significant byte of starting address of
+			; 	3       Read N bytes (normally I line) from input                         input status determination routine
+			; 			device                                                6       More significant byte of starting address of
+			; 	4       Determine output status                                           input status determination routine
+			; 	5       Write I byte to output device                           7       Less significant byte of starting address of
+			; 	6       Write N bytes (normally I line) to output                         input driver (read I byte only)
+			; 			device                                                8       M ore significant byte of starting address of
+			; 																			input driver (read I byte only)
+			; 																	9       Less significant byte of starting address of
+			; 			Input/ Output Control Block                                       input driver (N bytes or I line)
+			; 																	10      More significant byte of starting address of
+			; 																			input driver (N bytes or I line)
+			; Index     Contents                                                 11      Less significant byte of starting address of
+			; 	o      Device number                                                      output status determination routine
+			; 	I      Operation number                                         12      M are significant byte of starting address of
+			; 	2      Status                                                             output status determination routine
+			; 	3      Less significant byte of base address of                 13      Less significant byte of starting address of
+			; 			buffer                                                           output driver (write I byte only)
+			; 	4      M ore significant byte of base address of                14      M ore significant byte of starting address of
+			; 			buffer                                                           output driver (write I byte only)
+			; 	5      Less significant byte of buffer length                   15      Less significant byte of starting address of
+			; 	6      M ore significant byte of buffer length                            output driver (N bytes or I line)
+			; 																	16      M are significant byte of starting address of
+			; 																			output driver (N bytes or I tine)
+			; 				Device Table Entry
+			; 																If an operation is irrelevant or undefined (such as output
+			; Index     Contents                                           status determination for a keyboard or input driver for a
+			; 	o      Less significant byte oflink field (base address   printer), the corresponding starting address in the device
+			; 			of next entry)                                   table is O.
+			; 			Status Values
+			; Value   Description
+			; o      No errors
+			; I     Bad device number (no such device)
+			; 2     Bad operation number (no such operation
+			; 		or invalid operation)
+			; 3     Input data available or output device ready
+			; 254    Buffer too small for use by CP 1M BDOS
+			; 		function 10 (Read Console Buffer). This
+			; 		function requires 2 bytes for the buffer
+			; 		length and character count.
+			; 	Title                    I/O Device Table Handler
+			; 	Name:                    IOHDLR
+			; 	Purpose:                 Perform I/O in a device-independent manner.
+			; 								This can be done only by accessing all
+			; 								devices in the same way using an I/O Control
+			; 								Block (10CB) and a device table. The routines
+			; 								here allow the following operations:
+			; 								Operation number            Description
+			; 									o                  Initialize device
+			; 									1                  Determine input status
+			; 									2                  Read 1 byte
+			; 									3                  Read N bytes
+			; 									4                  Determine output status
+			; 									5                  Write 1 byte
+			; 									6                  Write N bytes
+			; 								Other operations that could be included are
+			; 								Open, Close, Delete, Rename, and Append, which
+			; 								would support devices such as floppy disks.
+			; 								A 10CB is an array of the following form:
+			; 								10CB       +   0   = Device number
+			; 								10CB       +   1   = Operation number
+			; 								10CB       +   2     Status
+			; 								IOCB       +   3   = Low byte of buffer address
+			; 								10CB       +   4   = High byte of buffer address
+			; 								10CB       +   5   = Low byte of buffer length
+			; 								10CB       +   6     High byte of buffer length
+			; 					The device table is implemented as a linked
+			; 					list. Two routines maintain the list: INITDL,
+			; 					which initializes the device list to empty, and
+			; 					ADDDL, which adds a device to the list.
+			; 					A device table entry has the following form:
+			; 					DVTBL    +   0   =   Low byte of link field
+			; 					DVTBL    +   1   =   High byte of link field
+			; 					DVTBL    +   2   =   Device numbet"
+			; 					DVTBL    +   3   =   Low byte of device initialization
+			; 					DVTBL    +   4   =   High byte of device initialization
+			; 					DVTBL    +   5   =   Low byte of input status routine
+			; 					DVTBL    +   6   =   High byte of input status routine
+			; 					DVTBL    +   7       Low byte of input 1 byte routine
+			; 					DVTBL    +   8 =     High byte of input 1 byte routine
+			; 					DVTBL    +   9 =     Low byte of input N bytes routine
+			; 					DVTBL    +   10=     High byte of input N bytes routine
+			; 					DVTBL    +   11=     Low byte of output status routine
+			; 					DVTBL    +   12=     High byte of output status rc.utine
+			; 					DVTBL    +   13=     Low byte of output 1 byte routine
+			; 					DVTBL    +   14=     High byte of output 1 byte t"outine
+			; 					DVTBL    +   15=     Low byte of output N bytes routine
+			; 					DVTBL    +   16=     High byte of output N bytes routine
+			; 	Entry:         Register IX        = Base  address of IOCB
+			; 					Register A         = For  write 1 byte, contains the
+			; 										data (no buffer is used)
+			; 	Exit:           Register A          = COpy
+			; 										of the IOCB status byte
+			; 								Except contains the data for
+			; 								read 1 byte (no buffer is used)
+			; 					Status byte of IOCB is 0 if the operation was
+			; 					completed successfully; otherwise, it contains
+			; 					the error number.
+			; 					Status value              Description
+			; 						o                     No errors
+			; 						1                     Bad device number
+			; 						2                     Bad operation number
+			; 						3                     Input data available or output
+			; 												device ready
+			; 						254                   Buffer too small for CP/M BDOS
+			; 												function 10 (Read Console
+			; 												Buffer)
+			; 	Registers used: AF,BC,DE.HL,IX
+			; 	Time:           270 cycles minimum plus 90 cycles for each
+			; 					device in the list which is not the requested
+			; 					device
+			; 	Size:           Program 89 bytes
+			; 					Data     3 bytes
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+
+
+
+		;IOCB AND DEVICE TABLE EQUATES
+IOCBDN		EQU		0		; IOCB DEVICE NUMBER
+IOCBOP		EQU		1		; IOCB OPERATION NUMBER
+IOCBST		EQU		2		; IOCB STATUS
+IOCBBA		EQU		3		; IOCB BUFFER ADDRESS
+IOCBBL		EQU		5		; IOCB BUFFER LENGTH
+DTLNK		EQU		0		; DEVICE TABLE LINK FIELD
+DTDN		EQU		2		; DEVICE TABLE DEVICE NUMBER
+DTSR		EQU		3		; BEGINNING OF DEVICE TABLE SUBROUTINES
+		; OPERATION NUMBERS
+NUMOP		EQU		7		; NUMBER OF OPERATIONS
+INIT		EQU		0		; INITIALIZATION
+ISTAT		EQU		1		; INPUT STATUS
+R1BYTE		EQU		2		; READ 1 BYTE
+RNBYTE		EQU		3		; READ N BYTES
+OSTAT		EQU		4		; OUTPUT STATUS
+W1BYTE		EQU		5		; WR ITE 1 BYTE
+WNBYTE		EQU		6		; WRITE N BYTES
+		;STATUS   VALUES
+NOERR		EQU		0		;NO ERRORS
+DEVERR		EQU		1		;BAD DEVICE NUMBER
+OPERR		EQU		2		;BAD OPERATION NUMBER
+DEVRDY		EQU		3		; INPUT DATA AVAILABLE OR OUTPUT DEVICE READY
+BUFERR		EQU		254		;BUFFER TOO SMALL FOR BDOS READ CONSOLE BUFFER
+
+IOHDLR:
+		LD		(BDATA),A		;SAVE DATA BYTE FOR WRITE     1   BYTE
+			; INITIALIZE STATUS BYTE TO ZERO (NO ERRORS)
+		LD		(IX+IOCBST),NOERR     ;STATUS = NO ERRORS
+			; CHECK THAT OPERATION IS VALID
+		LD		A, (IX+IOCBOP)	;GET OPERATION NUMBER FROM IOCB
+		LD		B,A				;SAVE OPERATION NUMBER
+		CP		NUMOP			;IS OPERATION NUMBER WITHIN LIMIT?
+		JR		NC,BADOP		;JUMP IF OPERATION NUMBER TOO LARGE
+			;SEARCH DEVICE LIST FOR   THIS DEVICE
+			;C = IOCB DEVICE NUMBER
+			;DE = POINTER TO DEVICE   LIST
+		LD		C, (IX+IOCBDN)	;C = IOCB DEVICE NUMBER
+		LD		DE, (DVLST)		;DE = FIRST ENTRY IN DEVICE LIST
+			;DE = POINTER TO DEVICE LIST
+			;B = OPERATION NUMBER
+			;C = REQUESTED DEVICE NUMBER
+SRCHLP:
+			; CHECK IF AT END OF DEVICE LIST (LINK FIELD = 0000)
+		LD		A,D				;TEST LINK FIELD
+		OR		E
+		JR		Z,BADDN			;BRANCH IF NO MORE DEVICE ENTRIES
+
+			; CHECK IF CURRENT ENTRY IS DEVICE IN IOCB
+		LD		HL,DTDN			;POINT TO DEVICE NUMBER IN ENTRY
+		ADD		HL,DE
+		LD		A, (HL)
+		CP		C				;COMPARE TO REQUESTED DEVICE
+		JR		Z,FOUND			;BRANCH IF DEVICE FOUND
+			;DEVICE NOT FOUND, SO ADVANCE TO NEXT DEVICE
+			; TABLE ENTRY THROUGH LINK FIELD
+			; MAKE CURRENT DEVICE = LINK
+		EX		DE,HL			;POINT TO LINK FIELD (FIRST WORD)
+		LD		E,(HL)			;GET LOW BYTE OF LINK
+		INC		HL
+		LD		D,(HL)			;GET HIGH BYTE OF LINK
+		JR		SRCHLP			;CHECK NEXT ENTRY IN DEVICE TABLE
+
+			;FOUND DEVICE, SO VECTOR TO APPROPRIATE ROUTINE IF ANY
+			;DE = ADDRESS OF DEVICE TABLE ENTRY
+			;B = OPERATION NUMBER
+FOUND:
+			;GET ROUTI NE ADDRESS (ZERO INDICATES INVALID OPERATION)
+		LD		L,B				;HL = 16-BIT OPERATION NUMBER
+		LD		H,0
+		ADD		HL,HL			;MULTIPLY BY 2 FOR ADDRESS ENTRIES
+		LD		BC,DTSR
+		ADD		HL,BC			; HL = OFFSET TO SUBROUTINE IN
+								;      DEVICE TABLE ENTRY
+		ADD		HL,DE			;HL = ADDRESS OF SUBROUTINE
+		LD		A, (HL)			;GET SLiBROUTINE"S STARTING ADDRESS
+		INC		HL
+		LD		H, (HL)
+		LD		L,A				;IS STARTING ADDRESS ZERO?
+		OR		H
+		JR		Z,BADOP			;YES, JUMP (OPERATION INVALID)
+		LD		A, (BDATA)		;GET DATA BYTE FOR WRITE 1 BYTE
+		JP		(HL)			; GOTO SUBROUTI NE
+BADDN:
+		LD		A,DEVERR		;ERROR CODE -- NO SUCH DEVICE
+		JR		EREXIT
+BADOP:
+		LD		A,OPERR			;ERROR CODE -- NO SUCH OPERATION
+EREXIT:
+		LD		(IX+IOCBST), A	;SET STATUS BYTE IN IOCB
+		RET
+
+		;****************************************
+		; ROUTINE: INITDL
+		;PURPOSE: INITIALIZE DEVICE LIST TO EMPTY
+		; ENTRY: NONE
+		;EXIT: DEVICE LIST SET TO NO ITEMS
+		;REGISTERS USED: HL
+		;*****************************************
+INITDL:
+			;INITIALIZE DEVICE LIST HEADER TO 0 TO INDICATE NO DEVICES
+		LD		HL,0			; HEADER = 0 (EMPTY LIST)
+		LD		(DVLST),HL
+		RET
+		;*******************************************
+		;ROUTINE: ADDDL
+		;PURF'OSE: ADD DEVICE TO DEVICE LIST
+		; ENTRY: REGISTER Hl = ADDRESS OF DEVICE TABLE ENTRY
+		; EXIT: DEVICE ADDED TO DEVICE LIST
+		;REGISTERS USED: DE
+		;*******************************************
+ADDDL:
+		LD		DE,(DVLST)			;GET CURRENT HEAD OF DEVICE LIST
+		LD		(HL), E				;STORE CURRENT HEAD OF DEVICE LIST
+		INC		HL					;INTO LINK FIELD OF NEW DEVICE
+		LD		(HL), D
+		DEC		HL
+		LD		(DVLST), HL			;MAKE DVlST POINT AT NEW DEVICE
+		RET
+			; DATA SECTION
+DVLST:    DS		2				; DEVICE LIST HEADER
+BDATA:    DS		1				;DATA BYTE FOR WRITE 1 BYTE
+
+
+
+		; SAMPLE EXECUTION:
+		; This test routine sets UP the CP/M console as
+		; device 1 and the CP/M printer as device 2.
+		; The routine then reads a line from the console and
+		; echoes it to the console and the printer.
+
+
+		; CHARACTER EG!UATE!:,
+; CR			EQU		ODH				;CARRIAGE RETURN CHARACTER
+; LF			EOU		OAH				; LINE FEED CHARACTER
+		;CP/M EQUATES
+; BDOS		EQU		0005H			;ADDRESS OF CP/M BDOS ENTRY POINT
+CINP		EQU		1				;BDOS CONSOLE INPUT FUNCTION
+COUTP		EQU		2				;BDOS CONSOLE OUTPUT FUNCTION
+LOUTP		EQU		5				; BDOS LIST OUTPUT FUNCTION
+; RCBUF		EQU   	10				;BDOS READ CONSOLE BUFFER FUNCTION
+CSTAT		EQU		11				;BDOS CONSOLE STATUS FUNCTION
+SC10D:
+			;INITIAlIZE DEVICE LIST, POINT TO IOCB
+		CALL	INITDL				;INITIALIZE DEVICE LIST
+		LD		IX,IOCB				;POINT TO IOCB
+			;SET UP CONSOLE AS DEVICE 1 AND INITIALIZE IT
+
+		LD		HL,CONDV			;POINT TO CONSOLE DEVICE ENTRY
+		CALL	ADDDL				;ADD CON::;OLE TO DEVICE LIST
+		LD		(IX+IOCBOP),INIT 	;INITIALIZE OPERATION
+		LD		(IX+IOCBDN),1		;DEVICE NUMBER = 1
+		CALL	IOHDLR				;INITIALIZE CONSOLE
+			;SET UP PRINTER AS DEVICE 2 AND INITIALIZE IT
+		LD		HL,PRTDV			;POINT TO PRINTER DEVICE ENTRY
+		CALL	ADDDL				;ADD PRINTER TO DEVICE LIST
+		LD		(IX+IOCBOP),INIT 	;INITIALIZE OPERATION
+		LD      (IX+IOCBDN),2		;DEVICE NUMBER = 2
+		CALL	IOHDLR				;INITIALIZE PRINTER
+			;LOOP READING LINES FROM CONSOLE, AND ECHOING THEM TO
+			; CONSOLE AND PRINTER UNTIL A BLANK LINE IS ENTERED
+TSTLP:
+		LD		(IX+IOCBDN),1		;DEVICE NUMBER = 1 (CONSOLE)
+		LD		(IX+IOCBOP),RNBYTE 	;OPERATION IS READ N BYTES
+		LD		HL,LENBUF
+		LD		(IOCB+IOCBBL),HL 	;SET BUFFER LENGTH TO LENBUF
+		CALL	IOHDLR				; READ A LINE
+			; OUTPUT   LI NE FEED TO CONSOLE
+		LD		(IX+IOCBOP),W1BYTE ;OPERATION IS WRITE 1 BYTE
+		LD		A,LF				;CHARACTER IS LINE FEED
+		CAll	IOHDLR				;WRITE 1 BYTE (LINE FEED)
+			; ECHO LINE TO DEVICE       AND 2
+		LD		A,1
+		CALL	ECHO				; ECHO LINE TO DEVICE 1
+		LD		A,2
+		CALL	ECHO				; ECHO LINE TO DEVICE 2
+			; STOP IF LINE LENGTH IS 0
+		LD		HL,(IOCB+IOCBBL)	;GET LINE LENGTH
+		LD		A,H					;TEST LINE LENGTH
+		OR		L
+		JR		NZ,TSTLP			;CONTINUE IF LENGTH NOT ZERO
+		JR		SC10D				;AGAIN
+ECHO:
+		; OUTPUT LINE
+		LD		(IX+IOCBDN),A		;SET DEVICE NUMBER IN 10CB
+									;NOTE THAT ECHO WILL SEND A LINE
+									; TO ANY DEVICE. THE DEVICE NUMBER
+									; IS IN THE ACCUMULATOR
+		LD		(IX+IOCBOP) ,WNBYTE ;SET OPERATION TO WRITE N BYTES
+		CALL	IOHDLR				;WRITE N BYTES
+			; OUTPUT   CARRIAGE RETURN/LINE FEED
+		LD		(IX+IOCBOP),W1BYTE ; SET OPERATION TO WR ITE 1 BYTE
+		LD		A,CR				;CHARACTER IS CARRIAGE RETURN
+		CALL	IOHDLR				;WRITE 1 BYTE
+		LD		A,LF				; CHARACTER IS LI NE FEED
+		CALL	IOHDLR				;WRITE 1 BYTE
+		RET
+			;IOCB FOR PERFORMING  I/0
+IOCB:	DS		1					;DEVICE NUMBER
+		DS		1					;OPERATION NUMBER
+		DS		1					; STATUS
+		DW		BUFFER				;BUFFER ADDRESS
+		DS		2					;BUFFER LENGTH
+			; BUFFER
+LENBUF EQU		127
+BUFFER: DS		LENBUF
+			; DEVICE   TABLE ENTRIES
+CONDV:	DW		0					;LINK FIELD
+		DB		1					;DEVICE 1
+		DW		CINIT				;CONSOLE INITIALIZE
+		DW		CISTAT				;CONSOLE INPUT STATUS
+		DW		CIN					;CONSOLE INPUT 1 BYTE
+		DW		CINN				;CONSOLE INPUT N BYTES
+		DW		COSTAT				;CONSOLE OUTPUT STATUS
+		DW		COUT				;CONSOLE OUTPUT 1 BYTE
+		DW		COUTN				;CONSOLE OUTPUT N BYTES
+
+PRTDV:	DW		0					;LINK FIELD
+		DB		2					;DEVICE 2
+		DW		PINIT_10D				;PRINTER INITIALIZE
+		DW		0					;NO PRINTER INPUT S~ATUS
+		DW		0					;NO PRINTER INPUT 1 BYTE
+		DW		0					;NO PRINTER INPUT N BYTES
+		DW		POSTAT				;PRINTER OUTPUT STATUS
+		DW		POUT				;PRINTER OUTPUT 1 BYTE
+		DW		POUTN				;PRINTER OUTPUT N BYTES
+
+			;***********************************
+			;CONSOLE 1/0 ROUTINES
+			;***********************************
+
+			;CONSOLE INITIALIZE
+CINIT:
+		SUB		A					;STATUS = NO ERRORS
+		RET							;NO INITIALIZATION NECESSARY
+			;CONSOLE INPUT STATUS
+CISTAT:
+		PUSH	IX					;SAVE loeB ADDRESS
+		LD		C,CSTAT				;BDOS CONSOLE STATUS FUNCTION
+		CALL	BDOS				;GET CONSOLE STATUS
+		POP		IX					;RESTORE IOCB ADDRESS
+		OR		A
+		JR		Z,C1S1				;JUMP IF NOT READY
+		LD		A,DEVRDY			; INDICATE CHARACTER READY
+C1S1:	LD		(IX+IOCBST), A		;STORE STATUS AND LEAVE IT IN REGISTER A
+		RET
+
+			;CONSOLE READ      1   BYTE
+CIN:
+		PUSH	IX					;SAVE IX
+		LD		C,CINP				;BDOS CONSOLE INPUT FUNCTION
+		CALL	BDOS				;READ 1 BYTE FROM CONSOLE
+		POP		IX					;RESTORE IX
+		RET
+			;CONSOLE READ N BYTES
+CINN:
+			; READ LINE USING BDOS READ CONSOLE BUFFER FUNCTION
+			; BDOS READ CONSOLE BUFFER FUNCTION USES THE FOLLOWING BUFFER FORMAT:
+			; BYTE 0: BUFFER LENGTH (MAXIMUM NUMBER OF CHARACTERS)
+			; BYTE 1: NUMBER OF CHARACTERS READ (LINE LENGTH)
+			; BYTES 2 ON: ACTUAL CHARACTERS
+		PUSH	IX					;SAVE BASE ADDRESS OF IOCB
+		LD		A,(IX+IOCBBL)		;GET BUFFER LENGTH
+		SUB		3					;BUFFER MUST BE AT LEAST 3 CHARACTERS
+									; TO ALLOW FOR MAXIMUM LENGTH AND COUNT
+									; USED BY BDOS READ CONSOLE BUFFER
+		JR		NC,CINN1			;JUMP IF BUFFER LONG ENOUGH
+		LD		(IX+IOCBST),BUFERR 	;SET ERROR STATUS - BUFFER TOO SMALL
+		RET
+
+CINN1:	INC		A					;ADD ONE BACK TO DETERMINE HOW MUCH
+									; SPACE IS AVAILABLE IN BUFFER FOR DATA
+		LD		E, (IX+IOCBBA)		;GET BUFFER ADDRESS FROM IOCB
+		LD		D, (IX+IOCBBA+1)
+		PUSH	DE					;SAVE BUFFER ADDRESS
+		LD		(DE), A				;SET MAXIMUM LENGTH IN BUFFER
+		LD		C,RCBUF				;BDOS READ CONSOLE BUFFER FUNCTION
+		CALL	BDOS				;READ BUFFER
+			; RETURN   NUMBER OF CHARACTERS READ IN THE IOCB
+		POP		HL					;RESTORE BUFFER ADDRESS
+		POP		IX					;RESTORE BASE ADDRESS OF IOCB
+		INC		HL					;POINT TO NUMBER OF CHARACTERS READ
+		LD		A, (HL)				;GET NUMBER OF CHARACTERS READ
+		LD		(IX+IOCBBL), A		;SET BUFFER LENGTH IN IOCB
+		LD		(IX+IOCBBL+1),0		; WITH UPPER BYTE = 0
+			;MOVE DATA TO FIRST BYTE OF BUFFER
+			;DROPPING OVERHEAD (BUFFER LENGTH,        LINE LENGTH)
+			; RETURNED BY CP/M. LINE LENGTH IS        NOW IN THE IOCB
+		OR		A					; TEST LINE       LENGTH
+		RET		Z					;RETURN IF        LENGTH WAS 0
+		LD		C,A                 ;BC = NUMBER OF BYTES
+		LD		B,0
+		LD		D,H                 ;POINT TO START OF BUFFER + 1
+		LD		E,L
+		INC		HL                  ;HL = SOURCE = FIRST BYTE OF DATA
+									; 2 BYTES BEYOND START
+		DEC		DE                  ;DE = DESTINATION (FIRST BYTE OF BUFFER)
+		LDIR						;MOVE DATA DOWN 2 BYTES IN BUFFER
+		SUB		A                   ;STATUS = NO ERRORS
+		RET
+			;CONSOLE OUTPUT STATUS
+COSTAT:
+		LD		A,DEVRDY			;STATUS = ALWAYS READY TO OUTPUT
+		RET
+			; CONSOLE OUTPUT 1 BYTE
+COUT:
+		PUSH	IX					;SAVE IX
+		LD		C,COUTP				;BDOS CONSOLE OUTPUT OPERATION
+		LD		E,A					;E = CHARACTER
+		CALL	BDOS				;OUTPUT 1 BYTE
+		POP		IX					;RESTORE IX
+		SUB		A					; RETURN, NO ERRORS
+		RET
+			;CONSOLE OUTPUT N BYTES
+COUTN:
+		LD		HL,COUT				;HL POINTS TO OUTPUT CHARACTER ROUTINE
+		CALL	OUTN				;CALL OUTPUT N CHARACTERS
+		SUB		A					;STATUS = NO ERRORS
+		RET
+
+
+		;***************************************
+		;PRINTER ROUTINES
+		;***************************************
+			;PRINTER INITIALIZE
+PINIT_10D:
+		SUB		A					;NOTHING TO DO, RETURN NO ERRORS
+		RET
+		;PRINTER OUTPUT STATUS
+POSTAT:
+		LD		A,DEVRDY			;STATUS = ALWAYS READY TO OUTPUT
+		RET
+		; PRINTER OUTPUT 1 BYTE
+POUT:
+		PUSH	IX					; SAVE IX
+		LD		C,LOUTP				; BOOS LIST OUTPUT FUNCTION
+		LD		E,A					;E =  CHARACTER
+		CALL	BDOS				;OUTPUT TO PRINTER
+		POP		IX					;RESTORE IX
+		SUB		A					;STATUS  = NO ERRORS
+		RET
+			;PRINTER OUTPUT N BYTES
+POUTN:
+		LD		HL,POUT				;HL = ADDRESS OF OUTPUT ROUTINE
+		CALL	OUTN				;OUTPUT N CHARACTERS
+		SUB		A					;NO ERRORS
+		RET
+
+
+		;*****************************************
+		; Roun NE: OUTN
+		; PURPOSE: OUTPUT N CHARACTERS
+		; ENTRY: REGISTER HL = CHARACTER OUTPUT SUBROUTINE ADDRESS
+		;        REGISTER IX = BASE ADDRESS OF AN IOCB
+		;EXIT: DATA OUTPUT
+		; REGISTERS USED: AF. BC .HL
+		;******************************************
+OUTN:
+		;STORE ADDRESS OF CHARACTER OUTPUT SUBROUTINE
+		LD		(COSR),HL			; SAVE ADDRESS
+			;GET NUMBER OF BYTES. EXIT IF     LENGTH IS 0
+			; BC = NUMBER OF BYTES
+		LD		C,(IX+IOCBBL)		;BC =    BUFFER LENGTH
+		LD		B,(IX+IOCBBL+1)
+		LD		A,B					; TEST   BUFFER LENGTH
+		OR		C
+		RET		Z					;EXIT    IF BUFFER EMPTY
+			;GET OUTPUT BUFFER ADDRESS FROM IOCB
+			; HL =·BUFFER ADDRESS
+		LD      L,(IX+IOCBBA)		;HL = BUFFER ADDRESS
+		LD      H,(IX+IOCBBA+1)
+OUTLP:
+		LD		A,(HL)
+		PUSH	HL					;SAVE BUFFER POINTER, COUNT
+		PUSH	BC
+		CALL	DOSUB				;OUTPUT CHARACTER
+		POP		BC					;RESTORE COUNT, BUFFER POINTER
+		POP		HL
+		INC		HL					;POINT TO NEXT CHARACTER
+		DEC		BC					;DECREMENT AND TEST COUNT
+		LD		A,B
+		OR		C
+		JR		NZ,OUTLP			;CONTINUE UNTIL COUNT = 0
+		RET
+
+DOSUB:	LD		HL,(COSR)
+		JP		(HL)				; GOTO ROUTINE
+COSR:	DW		0					;ADDRESS OF CHARACTER OUTPUT SUBROUTINE
+
+
+
+
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+			; Initialize I/O Ports (IPORTS)                                                                            10E
+			; Initializes a set of II a ports from an array of      Registers Used: AF, Be, DE, HL
+			; port device addresses and data values. Examples          ExecuHon Time: 22 cycles overhead plus 46 + 21 * N
+			; are given of initializing the common Z80 program-        cycles for each port, where N is the number of bytes
+			; mable II a devices: CTC, PIa, and SIa.                   sent.
+			; This subroutine is a generalized method for           Program Size: II bytes plus the size of the table (at
+			; 														least 3 bytes per port plus I byte for a terminator)
+			; initializing II a sections. The initialization may
+			; involve data ports, data direction registers that        Data Memory Required: None
+			; determine whether bits are inputs or outputs,         initial priorities to interrupts or other opera-
+			; control or command registers that determine the       tions
+			; operating modes of programmable devices, count-          9. Initializing vectors used in servicing
+			; ers (in timers), priority registers, and other ex-    interrupts, DMA requests, and other inputs.
+			; ternal registers or storage locations.                   Procedure: For each port, the program obtains
+			; Tasks the user may perform with this routine       the number of bytes to be sent and the device
+			; include:                                              address. It then sends the data values to the port
+			; 1. Assigning bidirectional I I a lines as inputs   using a repeated block output instruction. This
+			; or outputs                                            approach does not depend on the number or
+			; 													type of devices in the II a section. The user may
+			; 2. Initializing output ports
+			; 													add or delete devices or change the initialization
+			; 3. Enabling or disabling interrupts from            by changing the array rather than the program.
+			; peripheral chips                                      Each entry in the array consists of a series of
+			; 													byte-length elements in the following order:
+			; 4. Determining operating modes, such as
+			; whether inputs are latched, whether strobes             1. Number of bytes to be sent to the port
+			; are produced, how priorities are assigned,              2. 8-bit device address for the port
+			; whether timers operate continuously or only on          3. Data bytes in sequential order.
+			; demand, etc.
+			; 													The array ends with a terminator that has 0 in
+			; 5. Loading starting values into timers and          its first byte.
+			; counters                                                 Note that an entry may consist of an arbitrary
+			; 6. Selecting bit rates for communications           number of bytes. The first element determines
+			; 													how many bytes are sent to the device address in
+			; 7. Clearing or resetting devices that are not      the second element. The subsequent elements
+			; tied to the overall system reset line                 contain the data values. The terminator need
+			; 8. Initializing priority registers or assigning     consist only of a single 0 byte.
+			; Entry Conditions                                      Exit Conditions
+			; Base address of initialization array in HL            All data values sent to appropriate ports
+			; Example
+			; 1.   Data:    Array elements are                              Result:   Three values sent to port I's device address
+			; 			3 (number of bytes for port I)                            Two values sent to port 2's device address
+			; 				Port I device address, first value, second             Four values sent to port 3's device address
+			; 				value, third value
+			; 			2 (number of bytes for port 2)
+			; 				Port 2 device address, first value, second
+			; 				value
+			; 			4 (number of bytes for port 3)
+			; 				Port 3 device address, first value, second
+			; 				value, third value, fourth value
+			; 			o (terminator)
+			; 			Title                   Initialize 1/0 Ports
+			; 			Name:                    IPORT8.
+			; 									Initialize 1/0 ports from an array of port
+			; 									addresses and values
+			; 			Enh'y:                    Register pair HL        = Base    address of arraY
+			; 									The array consists of byte-length elemnts
+			; 									in the following order: number of bytes to
+			; 									be sent to the port. port device addressi data
+			; 									values for the port. This sequence is repeated ;
+			; 									for any number of ports. The array is terminated;
+			; 									by an entry with 0 in the number of bytes.
+			; 										array+O = Number of bytes for this port
+			; 										array+1         =
+			; 												Port device address
+			; 										array+2 = First value for this port
+			; 										array+2+(N-l)         Last value for this port
+			; 			Exit :                    None
+			; 			Registers used: AF.BC,DE,HL
+			; 			Time:                     22 cycles overhead plus 46 + (N                *
+			; 																		21) cycles for:
+			; 									each port, where N is the number of bytes sent
+			; 		Size:             Program 11 bytes
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+
+
+IPORTS:
+		;GET NUMBER OF DATA BYTES TO SEND TO CURRENT PORT
+		;EXIT IF NUMBER OF BYTES IS O. INDICATING TERMINATOR
+		LD		A,(HL)			;GET NUMBER OF BYTES
+		OR		A				;TEST FOR ZERO (TERMINATOR)
+		RET		Z				; RETURN IF NUMBER OF BYTES = 0
+		LD		B,A
+		INC		HL				;POINT TO PORT ADDRESS (NEXT BYTE)
+			;C = PORT ADDRESS
+			;HL = ADDRESS OF DATA TO OUTPUT
+		LD		C,(HL)			; GET PORT ADDRESS
+		INC		HL				;POINT TO FIRST DATA VALUE (NEXT BYTE)
+		;OUTPUT DATA AND CONTINUE TO NEXT PORT
+		OTIR					;SEND DATA VALUES TO PORT
+		JR		IPORTS			; CONl'INUE TO NEXT PORT ENTRY
+
+
+
+		; SAMPLE EXECUTION:
+
+
+		; INITIALIZE
+		;	Z80 CTC (PROGRAMMABLE TIMER/COUNTER)
+		;	Z80 SIO (PROGRAMMABLE SERIAL INTERFACE)
+		;	Z80 PIO (PROGRAMMABLE PARALLEL INTERFACE)
+		;ARBITRARY PORT ADDRESSES
+		; CTC PORT ASSIGNMENTS
+CTC0	EQU		70H				;CTC        CHANNEL     0
+CTC1	EQU		71H				;CTC        CHANNEL     1
+CTC2	EQU		72H				; CTC       CHANNEL     2
+CTC3	EQU		73H				; CTC       CHANNEL     3
+			;SIO PORT ASSIGNMENTS
+SIOCAD	EQU		80H				;SIO CHANNEL A DATA
+SIOCBD	EQU		81H				;SIO CHANNEL B DATA
+SIOCAS	EQU		82H				;SIO CHANNEL A COMMANDS/STATUS
+SIOCBS	EQU		83H				;SIO CHANNEL B COMMANDS/STATUS
+			;PIO PORT ASSIGNMENTS
+PIOAD	EQU		0F0H			;PIO   PORT   A   DATA
+PIOBD	EQU		0F1H			;PIO   PORT   B   DATA
+PIOAC	EQU		0F2H			;PIO   PORT   A   CONTROL
+PIOBC	EQU		0F3H			;PIO   PORT   B   CONTROL
+			;INTERRUPT VECTORS
+SIOIV     EQU        0C0H              ;SIO INTERRUPT VECTOR
+
+PIOIVA     EQU       0D0H             ;PIO PORT A INTERRUPT VECTOR
+PIOIVB     EQU       0D2H             ;PIO PORT B INTERRUPT VECTOR
+SC10E:
+		LD		HL,PINIT         ; POINT TO INITIALI ZATION ARRAY
+		CALL	IPORTS           ;INITIALIZE PORTS
+		JR		SC10E
+PINIT:
+			;INITIALIZE zeo CTC CHANNEL 0
+			;RESET CHANNEL
+			;OPERATE CHANNEL IN COUNTER MODE, DECREMENTING DOWN COUNTER
+			;	AFTER EACH POSITIVE (RISING) EDGE ON CLOCK INPUT.
+			;SET INITIAL TIME CONSTANT TO 26 CLOCK CYCLES.
+			;NOTE: CTC RELOADS TIME CONSTANT REGISTER INTO DOWN COUNTER
+			;	AUTOMATICALLY AFTER EACH COUNTDOWN TO O.
+			;	THIS INITIALIZATION PRODUCES AN SIO CLOCK FOR 9600 BAUD
+			;	TRANSMISSION.
+			;	IT ASSUMES 4 MHZ CLOCK INPUT TO PIN 23, SO A COUNT OF
+			;	4,000,0001 (16*9600) = 26 WILLL GENERATE A 153,600
+			;	(16*9600) HZ SQUARE WAVE ON PIN 7 FOR SIO PINS 13 AND 14.
+
+			;SIO IS OPERATING    IN DIVIDE BY 16 MODE.
+	DB		2					; OUTPUT TWO BYTES
+	DB		CTC0				; DESTINATION IS CHANNEL CONTROL REGISTER
+	DB		01010111B			; BIT 0 = 1 (WRITE CHANNEL CONTROL WORD)
+							; BIT 1   1 (RESET CHANNEL)
+							; BIT 2   1 (TIME CONSTANT FOLLOWS)
+							; BIT 3   0 (NOT USED IN COUNTER MODE)
+							; BIT 4   1 (DECREMENT COUNTER ON
+							;            POSITIVE CLOCK EDGE)
+							; BIT 5 = 0 (NOT USED IN COUNTER MODE)
+							;BIT 6    1 (COUNTER MODE)
+							; BIT 7   0 (NO INTERRUPT)
+	DB		26					; TIMER COUNTDOWN VALUE FOR 9600 BAUD
+
+;INITIALIZE Z80 SIO CHANNEL A FOR ASYNCHRONOUS SERIAL 1/0.
+;	SET INTERRUPT VECTOR (ALWAYS IN CHANNEL B) TO SIOIV
+;	NO PARITY, 2 STOP BITS, 16 TIMES CLOCK.
+;	RECEIVE AND TRANSMIT 8 BITSICHAR, NO SPECIAL CONTF:OLS.
+;	ENABLE TRANSMIT INTERRUPT, RECEIVE INTERRUPTS ON ALL CHARS;
+;	PARITY OR STATUS DOES NOT AFFECT INTERRUPT VECTORS.
+
+			;  SET INTERRUPT VECTOR
+	DB		2					;OUTPUT TWO BYTES
+	DB		SIOCBS				; DESTINATION IS COMMAND REGISTER B
+	DB		00000010B			;SELECT WRITE REGISTER 2
+	DB		SIOIV				;8ET INTERRUPT VECTOR FOR SIO
+		;INITIALIZE CHANNEL A
+	DB		9					; OUTPUT NINE BYTES
+	DB		SIOCAS				; DEST! NA T! ON I S COMMAND REG I STER A
+
+		;RESET THE CHANNEL
+	DB		00011000B			;SELECT WRITE REGISTER 0
+							;BITS 2,1,0 = 0 (WRITE REGISTER 0)
+							;BITS 5,4,3 = 011 (CHANNEL RESET)
+							;BITS 7,6 = 0 (DO NOT CARE)
+
+		;INITIALIZE BAUD RATE CONTROL
+		; NO PARITY, 2 STOP BITS, 16 TIMES CLOCK
+	DB		00000100B			;SELECT WRITE REGISTER 4
+	DB		01001100B			;BIT 0 = 0 (NO PARITY)
+							;BIT 1 = 0 (DON'T CARE)
+							; BITS 3,2   11 (2 STOP BITS)
+							;BITS 5,4 = 00 (DON'T CARE)
+							;BITS 7,6 = 01 (16 TIMES CLOCK)
+
+		;INITIALIZE RECEIVE CONTROL
+		; 8 BITS PER CHARACTER, ENABLE RECEIVER, NO AUTO ENABLE
+	DB		00000011B			;SELECT WRITE REGISTER 3
+	DB		11100001B			; BIT 0 = 1 (RECEIVE ENABLE)
+							;BITS 4,3,2,1 = 0 (DON'T CARE)
+							;BIT 5 = 0 (NO AUTO ENABLE)
+							;BIT 7,6 = 11 (RECEIVE 8 BITS/CHAR)
+
+		;INITIALIZE TRANSMIT CONTROL
+		;8 BITS PER CHARACTER. ENABLE TRANSMIT. NO BREAK OR CRC
+	DB		00000101B			; SELECT WRITE REGISTER 5
+	DB		11101010B			;BIT 0    0 (NO CRC ON TRANSMIT)
+							;BIT 1    1 (REQUEST TO SEND)
+							;BIT 2 = 0 (OON""T CARE)
+							;BIT 3 = 1 (TRANSMIT ENABLE)
+							;BIT 4 = 0 (DO NOT SEND BREAK)
+							;SITS 6.5 = 11 (TRANSMIT 8 BITS/CHAR)
+							;BIT 7 = 1 (DATA TERMINAL READY)
+
+		;INITIALIZE INTERRUPT CONTROL
+		; RESET INTERRUPTS FIRST
+		; ENABLE TRANSMIT INTERRUPT, RECEIVE INTERRUPTS ON ALL CHARS
+		; NEITHER STATUS NOR PARITY ERRORS AFFECT INTERRUPT VECTOR
+		; DO NOT CONTRC~ THE WAIT/READY OUTPUT LINE
+	DB		00010001B			;SELECT WRITE REGISTER 1 AND
+							; RESET EXTERNAL/STATUS INTERRUPTS
+	DB		00011010B			; BIT 0   0 (NO EXTERNAL INTERRUPTS)
+							;BIT 1 = 1 (ENABLE TRANSMIT INTERRUPT)
+							;BIT 2 = 0 (STATUS DOES NOT AFFECT VECTOR)
+							;BITS 4,3 = 11 (RECEIVE INTERRUPTS ON
+							;				ALL CHARS. PARITY DOES NOT
+							;               AFFECT VECTOR)
+							;BITS 7,6.5 = 000 (NO WAIT/READY FUNCTION)
+
+
+
+		;TRANSMIT A NULL BYTE TO START INTERRUPT PROCESSING
+	DB		1					;OUTPUT 1 BYTE
+	DB		SIOCAD				; DESTI NA TI ON I S CHANNEL A OAT A
+	DB		0					;NULL CHARACTER (00 HEX)
+
+		;INITIALIZE Z80 PIO
+		; PORT A - INPUT PORT WITH INTERRUPT ENABLED
+		; PORT B - CONTROL PORT WITH INTERRUPT ENABLED. AN INTERRUPT IS
+		; GENERATED IF ANY OF BITS 0, 4, OR 7 BECOME 1
+
+			; INITIALIZE PIa PORT A
+	DB		3					;OUTPUT 3 BYTES
+	DB		PIOAC				;DESTINATION IS PORT A CONTROL
+	DB		PIOIVA				;SET INTERRUPT VECTOR FOR PORT A
+	DB		10001111B			;BITS 3,2,1,0 = 1111 (MODE SELECT)
+							; BITS 5,4 =00 (DOWT CARE)
+							;BITS 7,6 = 01 (INPUT MODE)
+	DB		10000111B			;BITS 3,2,1,0 = 0111 (INTERRUPT CONTROL)
+							;BITS 6,5,4 = 000 (DON'T CARE)
+							;BITS 7    1 (ENABLE INTERRUPTS)
+;       INITIALIZE PIO PORT B
+	DB		4					;OUTPUT 4 BYTES
+	DB		PIOBC				;DESTINATION IS PORT B CONTROL
+	DB		PIOIVB				;SET INTERRUPT VECTOR FOR PORT B
+	DB		11001111B			;BITS 3.2,1,0 = 1111 (MODE SELECT)
+							;BITS 5.4 = 00 (DON'T CARE)
+							;BITS 7,6 = 11 (CONTROL MODE)
+	DB		10110111B			;BITS 3,2.1,0 = 0111 (INTERRUPT CONTROL)
+							; BIT 4 = 1 (MASK FOLLOWS)
+							;BIT 5 = 1 (ACTIVE STATE ON MONITORED
+							; INPUT LINES IS 1 FOR AN INTERRUPT)
+							;BIT 6 = 0 (INTERRUPT IF ANY OF THE
+							; MONITORED INPUT LINES IS ACTIVE)
+							; BIT 7 = 1 (ENABLE INTERRUPTS)
+	DB		10010001B			; MONITOR INPUT BITS 0, 4, AND 7
+							; FOR INTERRUPTS
+			; END OF PORT INITIALIZATION DATA
+	DB      0					; TERMINATOR
+
+
+
+
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+			; Delay Milliseconds (OELAV)                                                                                   10F
+			; Provides a delay of between I and 256 milli-                   Registers Used: AF
+			; seconds, depending on the parameter supplied.                     ExecuHon Time: I ms * (A)
+			; A parameter value of 0 is interpreted as 256. The                 Program Size: 51 bytes
+			; user must calculate the value CPMS (cycles per                    Data Memory Required: None
+			; millisecond) to fit a particular computer. Typical                Special case: (A) = 0 causes a delay of 256 ms
+			; values are 2000 for a 2 MHz clock, 4000 for a
+			; 4 MHz clock, and 6000 for a 6 MHz clock.
+			; Procedure: The program simply counts down                    instructions account for the CALL instruction,
+			; register B for the appropriate amount of time as               RET instruction, and routine overhead without
+			; determined by the user-supplied constant. Extra                changing anything.
+			; Entry Conditions                                              Exit Conditions
+			; Number of milliseconds to delay (l to 256) in A                Returns after the specified delay with (A) = 0
+			; Example
+			; I.    Data:      (A)= number of milliseconds = 2A16 (4210)
+			; 	Result:     Software delay of 2A16 milliseconds, with
+			; 				proper CPMS supplied by user
+			; 			Title                  Delay milliseconds
+			; 			Name:                  Delay
+			; 			Purpose:               Delay from 1 to 256 milliseconds
+			; 			Entry:                 Register A             Number of milliseconds to delay
+			; 															A 0 equals 256 milliseconds
+			; 			Exit:                  Returns to calling routine after the
+			; 									specified delay
+			; 																											391
+			; 		Registers used: AF
+			; 		Time:             1 millisecond   *   Register A,
+			; 		Size:             Program 51 bytes
+			;*********************************************************************************************************
+			;*********************************************************************************************************
+
+		;,EQUATES
+		;CYCLES PER MILLISECOND -      USER-SUPPLIED
+CPMS	EQU		3686		; 2000 = 2     MHZ CLOCK
+							;4000 = 4      MHZ CLOCK
+
+
+				; METHOD:
+				; THE ROUTINE IS DIVIDED INTO 2 PARTS. THE CALL TO
+				; THE "DLY" ROUTINE DELAYS EXACTLY 1 LESS THAN THE
+				; REQUIRED NUMBER OF MILLISECONDS. THE LAST ITERATION
+				; TAKES INTO ACCOUNT THE OVERHEAD TO CALL "DELAY" AND
+				; "DLY". THIS OVERHEAD IS:       '
+				; 			17 CYCLES ==> CALL DELAY
+				; 			11 CYCLES ==> PUSH BC
+				; 			17 CYCLES ==> CALL DLY
+				; 			4 CYCLES ==) DEC A
+				; 			11 CYCLES ==> RET Z
+				; 			7 CYCLES ==> LD   B,(CPMS/100)-1
+				; 			10 CYCLES ==> POP BC
+				; 			13 CYCLES T=> LD   A, (DELAY)
+				; 			10 CYCLES ==> RET
+				; 			100 CYCLES OVERHEAD
+DELAY:
+			;DO ALL BUT THE LAST MILLISECOND
+									;17 CYCLES FOR THE USER~S CALL
+		PUSH	BC					;11 CYCLES
+		CALL	DLY					;32 CYCLES TO RETURN FROM DLY
+			;DO 2 LESS THAN 1 MILLISECOND FOR OVERHEAD
+		LD		B,+(CPMS/50)-2		;7 CYCLES
+									;67 CYCLES
+LDLP:
+		JP		LDLY1            	;10 CYCLES
+LDLY1:	JP		LDLY2            	;10 CYCLES
+LDLY2:	JP		LDLY3           	 ; 10 CYCLES
+LDLY3:	ADD		A,0            		  ;7 CYCLES
+		DJNZ	LDLP            	 ;13 CYCLES
+									;---
+									;50 CYCLES
+			;EXIT IN 33 CYCLES
+		POP		BC					;10 CYCLES
+		LD      A,(DELAY)			; 13 CYCLES
+		RET							;10 CYCLES
+									;33 CYCLES
+
+		;***********************************************
+		; ROUTI NE: DL Y
+		;,PURPOSE: DELAY ALL BUT LAST MILLISECOND
+		; ENTRY: REOISTER A = TOTAL NUMBER OF MILLISECONDS
+		;EXIT: DELAY ALL BUT LAST MILLISECOND
+		;REOISTERS USED: AF,BC,HL
+		;**********************************************
+DLY:
+		DEC		A					;4 CYCLES
+		RET		Z					;5 CYCLES (RETURN WHEN DONE 11 CYCLES)
+		LD		B,+(CPMS/50)-1		;7 CYCLES
+									;________________,
+									;16 CYCLES
+DLP:
+		JP		DLY1				;10 CYCLES
+DLY1:	JP      DLY2				;10 CYCLES
+DLY2:	JP      DLY3				;10 CYCLES
+DLY3:	ADD     A,0					;7 CYCLES
+		DJNZ    DLP					; 13 CYCLES
+									;___________,
+									;50 CYCLES
+		;EXIT IN 34 CYCLES
+		JP		DLY4				; 10 CYCLES
+DLY4:	JP		DLY5				;10 CYCLES
+DLY5:	NOP							;4 CYCLES
+		JP		DLY					;10 CYCLES
+									;______________
+									;34 CYCLES
+
+
+
+		; SAMPLE EXECUTION:
+
+
+SC10F:
+		; DELAY 10 SECONDS
+		; CAll DELAY 40 TIMES AT 250 MILLISECONDS EACH
+		LD		B,40				; 40 TIMES (28 HEX)
+QTRSCD:
+		LD		A,250				;250 MILLISECONDS (FA HEX)
+		CALL	DELAY
+		DJNZ	QTRSCD				;CONTINUE UNTIL DONE
+		JR		SC10F
+	
+	
+.end

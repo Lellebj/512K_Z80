@@ -1,0 +1,85 @@
+Name     Z80_MEM_IO_Decoder_V2 ;
+PartNo   0123 ;
+Date     2022-01-04 ;
+Revision 01 ;
+Designer Engineer ;
+Company  Lellebj ;
+Assembly None ;
+Location  ;
+Device   g22V10 ;
+
+/* *************** INPUT PINS *********************/
+PIN 1    =  Bus_EN 							; /*	connected to Bus acknowledge	*/ 
+PIN 2    =  Z80_WR 							; /*                                */ 
+PIN 3    =  Z80_M1 							; /*								*/ 
+PIN 4    =  Z80_MREQ  							; /*								*/ 
+PIN 5    =  Z80_IOREQ  							; /*								*/ 
+PIN 6    =  Z80_RESET  							; /*								*/ 
+PIN 7    =  A4   							; /*								*/ 
+PIN 8    =  A5 							; /*								*/ 
+PIN 9    =  A6 							; /*								*/ 
+PIN 10    =  A7 							; /*								*/ 
+PIN 11    =  A14 							; /*								*/ 
+PIN 13    =  A15 							; /*								*/ 
+/* *************** OUTPUT PINS *********************/
+
+PIN 14    =   64K_SRAM		  						; /*								*/ 
+PIN 15    =   CE_SRAM		 						; /*								*/ 
+PIN 16    =   CE_FLASH  							; /*								*/ 
+PIN 17    =   PIO_M1                 			; /*								*/ 
+PIN 18    =   CE_RSTBANK						; /*								*/ 
+PIN 19    =   CE_8Bitout 						; /*								*/ 
+PIN 20    =   CE_BankCS  						; /*								*/ 
+PIN 21    =   CE_DART  							; /*								*/ 
+PIN 22    =   CE_CTC 							; /*								*/ 
+PIN 23    =   CE_PIO 							; /*								*/ 
+
+
+
+
+!CE_PIO =       !Z80_IOREQ & Z80_M1 &!A4 & !A5 & !A6 & !A7 ;          /* 00 - 0F   */
+!CE_CTC =       !Z80_IOREQ & Z80_M1 & A4 & !A5 & !A6 & !A7 ;          /* 10 - 1F    */
+!CE_DART =      !Z80_IOREQ & Z80_M1 &!A4 &  A5 & !A6 & !A7 ;          /* 20 - 2F	*/
+CE_BankCS  =    !Z80_IOREQ & Z80_M1 & A4 &  A5 & !A6 & !A7 ;          /* noninverted to suit the HC374 chip (pin 11) 30 - 3F    */
+CE_8Bitout =    !Z80_IOREQ & Z80_M1 &!A4 & !A5 &  A6 & !A7 ;          /* noninverted to suit the HC374 chip (pin 11) 40 - 4F */
+CE_RSTBANK	=	!Z80_IOREQ & Z80_M1 &!A4 & !A5 & !A6 &  A7 ;	/*puts bank CS in high imp mode, resetting bank SRAM/FLASH to 0  (80)*/    
+
+PIO_M1		=	Z80_M1 & Z80_RESET;						/* PIO special M1 comb with RESET  */
+/*----------------------------------------
+SRAM memory: 
+if '64K_SRAM' acitve no FLASH memory is selected
+if '64K_SRAM' non_acitve FLASH memory is lower 32k and SRAM upper 32k
+------------------------------------------*/
+
+ !CE_FLASH   =  !64K_SRAM & !Z80_MREQ & !A15 ;		/*  selects lower 32 k FLASH if '64K_SRAM' not selected  */
+                                                        /* or deselect FLASH if '64K_SRAM' active */
+ !CE_SRAM     =  !Z80_MREQ & (!64K_SRAM & A15 #  64K_SRAM );	
+                                                /* selects upper 32 k SRAM if '64K_SRAM' not selected */
+                                                /* or entire SRAM if '64K_SRAM' active */
+
+/*!CE_FLASH   =  !64K_SRAM & !Z80_MREQ & !A15 & !A14;		/*  selects lower 16 k FLASH if '64K_SRAM' not selected */
+                                                        /* or deselect FLASH if '64K_SRAM' active */
+/*!CE_SRAM     =  !Z80_MREQ & (!64K_SRAM & A15 #  !64K_SRAM & !A15 & A14 # 64K_SRAM )		;	
+                                        /* selects upper 48 k SRAM if '64K_SRAM' not selected */
+                                        /* or entire SRAM if '64K_SRAM' active */
+
+CE_FLASH.oe  = Bus_EN;                  /* connected to Bus acknowledge   */
+CE_SRAM.oe   = Bus_EN;			        /* connected to Bus acknowledge   */
+CE_RSTBANK.oe  = Bus_EN;			    /* connected to Bus acknowledge   */
+CE_8Bitout.oe  = Bus_EN;			    /* connected to Bus acknowledge   */
+CE_BankCS.oe  = Bus_EN;			        /* connected to Bus acknowledge   */
+
+/*
+DESCRIPTION
+
+IC2 (Address Decoder) for rosco_m68k
+
+Copyright (c)2020 Ross Bamford. See LICENSE.
+*/
+
+
+
+
+
+
+

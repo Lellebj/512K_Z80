@@ -1,0 +1,44 @@
+GAL22V10    ;   ;Module Right_bit_shift_register
+Counter    ;       second line: any text (max. 8 char.)
+
+;1		2		3		4		5		6		7		8		9		10		11		12
+;-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|	
+Temp	WR	    RESET	RD	    IORQ	MREQ    M1      WAIT8	NC		NC		NC		GND
+
+CTRL	Q0		Q1		Q2		Q3		Q4		WRITE   READ    IORQ8   INTACK  WAIT	VCC
+;-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|	
+;13		14		15		16		17		18		19		20		21		22		23		24
+
+
+Q0.R = MREQ * /M1
+Q1.R = Q0
+Q2.R = Q1
+Q3.R = Q2
+Q4.R = Q3
+
+
+AR = M1
+;SP = Set
+
+
+
+WRITE = WR * RESET
+READ  = RD * RESET * /Q2
+IORQ8 = IORQ + Q0 */Q2
+
+INTACK = /Q0
+/WAIT   = Q0 * /Q4 + /WAIT8
+
+
+; Equations
+; Q0	= Data * Enable;
+; [Q1, Q2, Q3, Q4, Q5, Q6, Q7] = [Q0, Q1, Q2, Q3, Q4, Q5, Q6];
+; [Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7].CLK = clock;
+; [Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7].AR = !clear;
+
+; END
+
+DESCRIPTION
+
+this is the glue between Z80 and 8536
+
