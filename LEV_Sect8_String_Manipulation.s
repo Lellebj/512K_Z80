@@ -967,10 +967,10 @@ SSTG_8F:	DB	1					;LENGTH OF SUBSTRING
 Init_RAM_HEAP:
 		GLOBAL	Init_RAM_HEAP
 
-		ld		DE,SRAM_VAR_START
+		ld		DE,SRAM_VAR_START		; defined in linker script
 		ld		hl,zero_byte
 		
-		ld 		BC,SRAM_VAR_END-SRAM_VAR_START
+		ld 		BC,HEAP_SIZE			; defined in linker script
 .cl_vars:
 		ldi
 		dec 	hl

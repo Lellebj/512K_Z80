@@ -12,8 +12,11 @@ MAIN=Z80_BOARD
 
 
 #****************************************************
-SOURCES = $(shell find  -maxdepth 1 -name "*$(S_EX)")
+SOURCES    := $(wildcard *.s)
 OBJECTS = $(SOURCES:%$(S_EX)=$(BUILD_DIR)/%.o)
+
+# SOURCES = $(shell find  -maxdepth 1 -name "*$(S_EX)")
+# OBJECTS    := $(patsubst %.asm,%.o,$(SOURCES))
 APPNAME = $(notdir $(CURDIR))
 
 #****************************************************
@@ -52,6 +55,8 @@ RM=rm -f
 .SECONDEXPANSION:
 
 DATE := $(shell date +"%Y-%m-%d_%H:%M")
+GIT_VERSION := $(shell git describe --long --dirty)
+$(info    GIT is $(GIT_VERSION))
 # GIT_VERSION := $(shell git describe --long --dirty; git show -s --format='%ci')
 # cat $< | sed -e "s/@@DATE@@/$(DATE)/g" -e "s/@@GIT_VERSION@@/$(GIT_VERSION)/g" | z80asm - -o $@ --list=$(basename $@).lst --label=$(basename $@).sym $(ASM_FLAGS)
 
@@ -62,9 +67,10 @@ DATE := $(shell date +"%Y-%m-%d_%H:%M")
 
 $(OBJECTS) : $$(patsubst $(BUILD_DIR)/%.o, %$(S_EX),$$@)
 		mkdir -p $(@D)
-		sed -ri "s/[2][0-9]{3}[-][0][0-9][-][0-3][0-9][_][0-9]{2}[:][0-9]{2}/$(DATE)/g" $^
-		$(AS)  $(ASFLAGS)  $<
+		sed -e "s|@@DATE@@|$(DATE)|g" -e "s|@@EEDATE@@|$(DATE)|g" -e "s+@@GIT_VERSION@@+$(GIT_VERSION)+g" $^  >  temp.tmp
+		$(AS)  $(ASFLAGS)  temp.tmp
 #		mv 	*.lis *.map *.o -t $(BUILD_DIR)
+		rm  -f  temp.tmp
 		echo
 
 $(TARGET): $(OBJECTS)

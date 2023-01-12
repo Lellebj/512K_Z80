@@ -43,18 +43,20 @@ DART_Int_Spec_Vec	EQU     DART_Int_Vec+14		;DART CHANNEL A SPECIAL RECEIVE INTER
 
 
 ;Write register 0
-_Reset_STAT_INT	equ 2<<3
-_Ch_Reset		equ 3<<3
-_ENINT_Nx_Char	equ 4<<3
-_Reset_TxINT_Pend equ 5<<3
-_Error_Reset 	equ 6<<3
-_Ret_F_Int		equ 7<<3
+WR0 equ 0
+_Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
+_Ch_Reset		equ 3<<3			; 18
+_EN_INT_Nx_Char	equ 4<<3			; 20  000 0100  -> 010 0000
+_Reset_TxINT_Pend equ 5<<3			; 28   000 0101 ->  010 1000
+_Error_Reset 	equ 6<<3			; 30	
+_Ret_F_Int		equ 7<<3			; 38  0000111  ->  0011 1000
 
 ;Write register 1
-_Ext_INT_EN		equ 1
-_Tx_INT_EN 		equ 2
-_Status_Vector	equ 4
-_Rx_INT_Disable	equ 0
+WR1 equ 1
+_Ext_INT_EN			equ 1
+_Tx_INT_EN 			equ 2
+_Status_Vector		equ 4
+_Rx_INT_Disable		equ 0
 _Rx_INT_First_Char  equ $08
 _INT_All_Rx_Char_P 	equ $10 
 _Int_All_Rx_Char_NP	equ $18
@@ -62,7 +64,10 @@ _WAIT_READY_R_T 	equ $20
 _WAIT_READY_FUNC	equ $40
 _WAIT_READY_EN		equ $80
 
+WR2 equ 2
+
 ;Write register 3
+WR3 equ 3
 _Rx_Enable 			equ $01
 _Auto_Enable		equ $20
 _RX_5_bits			equ $00
@@ -71,6 +76,7 @@ _RX_7_bits			equ $80
 _RX_8_bits			equ $C0
 
 ;Write register 4
+WR4 equ 4
 _Parity_EN			equ $01
 _Parity_Even		equ $02
 _Stop_1_bit			equ $04
@@ -82,6 +88,7 @@ _X32_Clock_mode		equ $80
 _X64_Clock_mode		equ $C0
 
 ;Write register 5
+WR5 equ 5
 _RTS_Enable			equ $02
 _Tx_Enable 			equ $08
 _Send_Break			equ $10
@@ -176,35 +183,7 @@ US			EQU		1Fh
 SP			EQU		20h
 
 
-; 	Variables in SRAM   HEAP TOP
-SRAM_VAR_START  =		Heap
-
-Textbufsize:	=		0x40			; text input buffer
-Textbuf:		=		SRAM_VAR_START		; text buffer
-
-S1x:			=	  	Textbuf + Textbufsize
-S2x:			=		S1x + Textbufsize	
-
-cur_resp_size	=		40
-cur_resp:		=		S2x + Textbufsize			; response from cursor
-T_BUFFER: 		=		cur_resp + cur_resp_size		;16-BYTE BUFFER
-COPY_BUFFER: 	=		T_BUFFER + $10				;16-BYTE BUFFER
-
-SP_value:		=		COPY_BUFFER + $10
-reg16_value:	=		SP_value+0x4
-num_chars		=		reg16_value+0x4
-bufferSize			=		$64				;SIZE OF INPUT BUFFER
-inBuffer:			=		num_chars + $4			;INPUT BUFFER
-inBufferEnd			=		inBuffer+bufferSize       		;END OF INPUT BUFFER
-outBufferSize			=		255				;SIZE OF OUTPUT BUFFER
-outBuffer:			=		inBufferEnd + $2          	;OUTPUT BUFFER
-endOutBuffer			=		outBuffer + outBufferSize				;END OF OUTPUT BUFFER
-
-list_len		=		48H				; length of command pointer list
-Comm_Ptr_list:	=		endOutBuffer + $2 	; command pointer list
-; $2C3
-
-SRAM_VAR_END	=		Comm_Ptr_list + list_len
+; 	Variables in SRAM   HEAP TOP  - Moved to load script !
 ;DATA LOCATIONS
 ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
 ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
@@ -266,22 +245,6 @@ SRAM_VAR_END	=		Comm_Ptr_list + list_len
 
 ;****************************************************************************
 
-; Z80 Retro Rev 3 IO port definitions
-
-
-; gpio_in:		equ     0x00		; GP input port
-; gpio_out:		equ	0x10		; GP output port
-; prn_dat:		equ	0x20		; printer data out
-
-; sio_ad:			equ	0x30		; SIO port A, data
-; sio_bd:			equ	0x31		; SIO port B, data
-; sio_ac:			equ	0x32		; SIO port A, control
-; sio_bc:			equ	0x33		; SIO port B, control
-
-; ctc_0:			equ	0x40		; CTC port 0
-; ctc_1:			equ	0x41		; CTC port 1
-; ctc_2:			equ	0x42		; CTC port 2
-; ctc_3:			equ	0x43		; CTC port 3
 
 flash_disable:		equ	0x70		; dummy-read from this port to disable the FLASH
 
@@ -289,25 +252,6 @@ gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
 gpio_out:		equ		portA_Data		; GP output port (repl with PIO A)
 
 
-; bit-assignments for General Purpose output port 
-gpio_out_sd_mosi:	equ	0x01
-gpio_out_sd_clk:	equ	0x02
-gpio_out_sd_ssel:	equ	0x04
-gpio_out_prn_stb:	equ	0x08
-gpio_out_a15:		equ	0x10
-gpio_out_a16:		equ	0x20
-gpio_out_a17:		equ	0x40
-gpio_out_a18:		equ	0x80
-
-; bit-assignments for General Purpose input port 
-gpio_in_prn_err:	equ	0x01
-gpio_in_prn_stat:	equ	0x02
-gpio_in_prn_papr:	equ	0x04
-gpio_in_prn_bsy:	equ	0x08
-gpio_in_prn_ack:	equ	0x10
-gpio_in_user1:		equ	0x20 
-gpio_in_sd_det:		equ	0x40
-gpio_in_sd_miso:	equ	0x80
 
 ; Define the memory size to be used for the CP/M configuration
 MEM:    equ 60

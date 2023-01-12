@@ -18,6 +18,8 @@
 			xref	st2g1,st1g2,steq,subst
 			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
 			xref	sourctext1,sourctext2,endtext,src_size, printSTRBelow
+		
+		xdef 	PLD_PCB_Start
 
 
 	;***************************************************************
@@ -28,9 +30,11 @@
 DO_Debug:	equ	1		; Set to 1 to show debug printing, else 0 
 
 
+		align 9
+
+PLD_PCB_Start:	
 
 
-RAM_Start:	
 		ld 	A,$01
 		out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
 
@@ -62,26 +66,26 @@ RAM_Start:
 		call 	printSTRBelow
 	defb    "\r\n\n"
 	defb	"##########################################################\r\n"
-	defb	"The Z80 Board Awakened 2022\r\n"
+	defb	"The Z80 Board Awakened 2023\r\n"
 	defb	"    git: @@GIT_VERSION@@\r\n"
-	defb	"    build: 2022-12-30_17:22\r\n"
+	defb	"    build: @@DATE@@\r\n"
 	defb	"\r\n"
-	defb	"I/O library tester.\r\n"
+	defb	"Mix CTC/DART interrupt.\r\n"
 	defb	"\0"
 
 
 		call	CRLF
-		call	CRLF
+		; call	CRLF
 
-		call	printSTRBelow_CRLF
-		db		"  PIO init: D0-3 outputs ! ",0
+		; call	printSTRBelow_CRLF
+		; db		"  PIO init: D0-3 outputs ! ",0
 
 next_line:
-		ld 		a,(0x8800)
-		; ld 		A,3
-		out 	(portB_Data),A
-		inc 	A
-		ld 		(0x8800),A
+		; ld 		a,(0x8800)
+		; ; ld 		A,3
+		; out 	(portB_Data),A
+		; inc 	A
+		; ld 		(0x8800),A
 
 		ld 		iy,MsgText1
 		call	WriteLine
@@ -90,15 +94,13 @@ next_line:
 		call	ReadLine 			;to textbuf  (A=length of input string)
 		
 		; call 	DumpRegisters 
-		
-
-		; LD		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
-		; LD		DE,Textbuf			;DE = 32767
-		; CALL	BN2DEC				; C0NVERT
-		; jr		textloop
 
 
-		; call DumpRegisters
+		ld		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
+		ld		DE,Textbuf			;DE = 32767
+		call	BN2DEC				; C0NVERT
+		jp		textloop
+
 
 		ld 		hl,Textbuf
 		call	DEC2BN			; result in HL
@@ -116,24 +118,6 @@ next_line:
 		call	WriteLineCRNL
 
 		jr 		next_line
-
-
-		; call 		MakeTestSD
-
-	; call	test_80clks		; test the CLK signal
-	; call	test_ssel		; test the ssel & CLK logic
-	; call	test_bits		; test simple MOSI bit patterns
-	; call	test_read		; test MISO bit patterns
-
-	; call	test_80clks		; required prior to a CMD0
-	; call	test_cmd0		; see if we can wake up an SD card
-
-	call	printSTRBelow
-	db		"\r\nTests done\r\n\0"
-
-
-
-		jr		next_line
 ;********************************************************************************************
 
 ; _DI 		equ 	$80		; D7 - 1 enables interrupt
@@ -158,7 +142,7 @@ CTC_Init:
 		
 		ld	A,_INT_EN|_Counter|_Prescaler|_Rising|_TC_Follow|_Reset|_CW	
 		out		(CH1),A			; CH1 counter
-		ld		A,66			; time constant 255d defined
+		ld		A,66			; time constant 66 defined
 		out		(CH1),A			; and loaded into channel 2
 	
 		ld 		HL,CTC_CH0_I_Vector          (F410)
@@ -170,8 +154,8 @@ CTC_Init:
 		;init CH2
 		ld 	 A,_Counter|_Prescaler|_Rising|_TC_Follow|_Reset|_CW
 		out		(CH2),A
-		; ld		A,0FFh			; time constant 255d defined
-		; out		(CH2),A			; and loaded into channel 2
+		ld		A,0FFh			; time constant 255d defined
+		out		(CH2),A			; and loaded into channel 2
 								; T02 outputs f= CPU_CLK/(256*256)
 		;init CH3
 								;input TRG of CH3 is supplied by clock signal from TO2
@@ -181,8 +165,8 @@ CTC_Init:
 								; time trigger don't care, time constant follows
 								; sw reset, this is a ctrl cmd
 		out		(CH3),A
-		; ld		A,0AFh			; time constant AFh defined
-		; out		(CH3),A			; and loaded into channel 3
+		ld		A,0AFh			; time constant AFh defined
+		out		(CH3),A			; and loaded into channel 3
 		; ld		A,10h			; it vector defined in bit 7­3,bit 2­1 don't care, bit 0 = 0
 
 		; out		(CH0),A			; and loaded into channel 0
@@ -194,18 +178,66 @@ CTC_Init:
 
 CTC_CH0_Interrupt_Handler:
 CTC_CH1_Interrupt_Handler:
-		
+		push 	AF
+		; ld 		a,(0x8800)
+		; ; ; ld 		A,3
+		; out 	(portB_Data),A
+		; inc 	A
+		; ld 		(0x8800),A
+
+
+		ld 		A,'C'
+		out 	(DART_A_D),A			; send the 'C' character after ~ 1 sec
+
 		ld 		a,(0x8800)
-		; ld 		A,3
-		out 	(portB_Data),A
 		inc 	A
 		ld 		(0x8800),A
+
+
+		cp 		30						; Z is set 
+		jr 		z,showtimeout				; check if lopp should timeout...
+
+		in		A,(DART_A_C)			;read RRx ;test next test char available
+		bit 	0,A						; char available ?
+		jr 		z,blockstart			; test if minicom has begun sending Z=0...
+
+		; NZ is set
+		pop 	AF
+		reti
+
+;------------------------------------------------------------------------------
+
+
+
+
+		pop 	AF
+		nop
 		ei
 		reti
 
 
 CTC_CH2_Interrupt_Handler:
 CTC_CH3_Interrupt_Handler:
+
+
+blockstart:
+		; jsr 	SetupXMODEM_TXandRX
+		call 	printSTRBelow
+		defb    "\r\n"
+		defb	"blockstart : start reading the blocks  !\r\n"
+
+		pop 	AF
+		reti 
+
+
+showtimeout:
+		call 	printSTRBelow
+		defb    "\r\n"
+		defb	"A timout on XMODEM occured !\r\n"
+
+		pop 	AF
+		reti 
+
 
 bit_test9:
 	db	0x01,0x02,0x80,0x40
@@ -419,7 +451,6 @@ SC9H:
 
 ;********************************************************************************************
 ;********************************************************************************************	
-		xdef 	RAM_Start
 		xref  	RDATA,RDATA_END,TB_length
 
 		;--------------------------------------------------

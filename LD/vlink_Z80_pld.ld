@@ -1,17 +1,6 @@
 	/*
-	*------------------------------------------------------------
-	*                                  ___ ___ _
-	*  ___ ___ ___ ___ ___       _____|  _| . | |_
-	* |  _| . |_ -|  _| . |     |     | . | . | '_|
-	* |_| |___|___|___|___|_____|_|_|_|___|___|_,_|
-	*                     |_____|     firmware v1.2
 	* ------------------------------------------------------------
-	* Copyright (c)2020 Ross Bamford
-	* See top-level LICENSE.md for licence information.
-	*
-	* Link script for code that is loaded by the serial-receive
-	* boot loader.
-	* ------------------------------------------------------------
+	*	Linker script for Z80-512K
 	*/
 
 	
@@ -28,8 +17,8 @@
 
 	
 	/* ROM absolute addresses */
-	PROVIDE(_FIRMWARE       = 0x00FC0000);  /* firmware address             */
-	PROVIDE(_FIRMWARE_REV   = 0x00FC0400);  /* firmware revision code       */
+	/*PROVIDE(_FIRMWARE       = 0x00FC0000);  /* firmware address             */
+	/*PROVIDE(_FIRMWARE_REV   = 0x00FC0400);  /* firmware revision code       */
 
 	PROVIDE(_String_HEAP	= 0xF000);
 	
@@ -47,6 +36,34 @@
 	PROVIDE(_Z80_BankCS  	= 0x30);		/*	 30 - 3F   */
 	PROVIDE(_8Bitsout 		= 0x40);		/*	 40 - 4F  */
 	PROVIDE(_CE_RST_BANK 	= 0x80);		/*	 80 - 8F  */
+
+	PROVIDE( SRAM_VAR_END = 0xFFF0 );
+	PROVIDE( SRAM_VAR_START =  _String_HEAP);
+	PROVIDE( HEAP_SIZE 	 	= SRAM_VAR_END-SRAM_VAR_START);
+
+	Textbufsize				=		0x40;			; /*text input buffer */
+	PROVIDE( Textbuf		= _String_HEAP);		; /*text buffer */
+
+	PROVIDE( S1x			=	0x40 + _String_HEAP);  	/*Textbuf + Textbufsize */
+	PROVIDE( S2x			=	0x80 + _String_HEAP);  	/*Textbuf + Textbufsize */
+
+	cur_resp_size	=		40;
+	PROVIDE( cur_resp		=		0xC0 + _String_HEAP);		/*	; response from cursor */
+	PROVIDE( T_BUFFER 		=		0xE0 + _String_HEAP);		/*;16-BYTE BUFFER */
+	PROVIDE( COPY_BUFFER 	=		0x10 + _String_HEAP);		/*;16-BYTE BUFFER */
+
+	PROVIDE( SP_value		=		0x20+ _String_HEAP);
+	PROVIDE( reg16_value	=		0x24+ _String_HEAP);
+	PROVIDE( num_chars		=		0x28+ _String_HEAP);
+	PROVIDE( bufferSize		=		0x64		);						/*;SIZE OF INPUT BUFFER */
+	PROVIDE( inBuffer		=		0x30+ _String_HEAP);			/*	;INPUT BUFFER */
+	PROVIDE( inBufferEnd	=		0x30 + bufferSize + _String_HEAP);      		/*;END OF INPUT BUFFER */
+	PROVIDE( outBufferSize	=		160	);							/*	;SIZE OF OUTPUT BUFFER */
+	PROVIDE( outBuffer		=		0xA0 + _String_HEAP);	         	 	/*;OUTPUT BUFFER */
+	PROVIDE( endOutBuffer	=		0xA0 + outBufferSize + _String_HEAP);	/*		END OF OUTPUT BUFFER */
+
+	PROVIDE( list_len		=		0x48	);				/*	 length of command pointer list */
+	PROVIDE( Comm_Ptr_list	=		0x200 + _String_HEAP); 	/*	 command pointer list */
 
 
 	SECTIONS

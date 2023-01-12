@@ -938,7 +938,6 @@ GetOutStatus:
 		ret						; carry = 1 if buffer full, 0 if not
 			; INITIALIZE DART, Interrupt system
 InitBuffers:
-		di						; disable interrupts
 			; initialize buffer counters and pointers. interrupt flag
 		sub		A
 		ld		(OutINTExpect),A	; indicate no output interruptS
@@ -973,6 +972,7 @@ InitBuffers:
 		ld		(CTC_CH2_I_Vector),HL		;STORE CTC channel 2 VECTOR
 		ld		HL,CTC_CH3_Interrupt_Handler
 		ld		(CTC_CH3_I_Vector),HL		;STORE CTC channel 3 VECTOR
+
 
 
 		ret
