@@ -56,7 +56,6 @@ PLD_PCB_Start:
 		
 		call	S_head_tail			; save input heads and tails
 
-
 		; call	sh_test
 		;call 	Flash_WR_Test
 		;ld		HL,$2010
@@ -64,14 +63,14 @@ PLD_PCB_Start:
 
 		call	CRLF
 		call 	printSTRBelow
-	defb    "\r\n\n"
-	defb	"##########################################################\r\n"
-	defb	"The Z80 Board Awakened 2023\r\n"
-	defb	"    git: @@GIT_VERSION@@\r\n"
-	defb	"    build: @@DATE@@\r\n"
-	defb	"\r\n"
-	defb	"Mix CTC/DART interrupt.\r\n"
-	defb	"\0"
+		defb   	 "\r\n\n"
+		defb	"##########################################################\r\n"
+		defb	"The Z80 Board Awakened 2023\r\n"
+		defb	"    git: @@GIT_VERSION@@\r\n"
+		defb	"    build: @@DATE@@\r\n"
+		defb	"\r\n"
+		defb	"Mix CTC/DART interrupt.\r\n"
+		defb	"\0"
 
 
 		call	CRLF
@@ -87,14 +86,31 @@ next_line:
 		; inc 	A
 		; ld 		(0x8800),A
 
-		ld 		iy,MsgText1
-		call	WriteLine
+		sub  	A
+		ld 		(0x8800),A
+
+		call 	RX_EMP
+		call 	TX_EMP
+
+		call 	printSTRBelow
+		DB 		"Hello, enter command: >_", 0Dh, 0Ah, 00
+
 ;************
 		ld 		hl,Textbuf
-		call	ReadLine 			;to textbuf  (A=length of input string)
-		
-		; call 	DumpRegisters 
+		; call	ReadLine 			;to textbuf  (A=length of input string)
 
+		call 	printSTRBelow
+		DB 		"   start XMODEM ctrl-a s ...", 0Dh, 0Ah, 00
+
+awaitstart:
+
+		halt	; wait for  CTC to clock
+
+		jr 		C,next_line
+				
+		jr 		awaitstart		
+
+		; call 	DumpRegisters
 
 		ld		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
 		ld		DE,Textbuf			;DE = 32767
@@ -185,24 +201,26 @@ CTC_CH1_Interrupt_Handler:
 		; inc 	A
 		; ld 		(0x8800),A
 
-
 		ld 		A,'C'
 		out 	(DART_A_D),A			; send the 'C' character after ~ 1 sec
 
-		ld 		a,(0x8800)
+
+
+		ld 		A,(0x8800)
 		inc 	A
 		ld 		(0x8800),A
 
+		out 	(portB_Data),A
 
 		cp 		30						; Z is set 
-		jr 		z,showtimeout				; check if lopp should timeout...
+		jp 		P,showtimeout			; check if lopp should timeout... A>30
 
-		in		A,(DART_A_C)			;read RRx ;test next test char available
+		in		A,(DART_A_C)			; read RRx ;test next test char available
 		bit 	0,A						; char available ?
-		jr 		z,blockstart			; test if minicom has begun sending Z=0...
-
-		; NZ is set
+		jr 		NZ,blockstart			; test if minicom has begun sending Z=0...
+		ccf								; clear carry - > wait for next.
 		pop 	AF
+		ei
 		reti
 
 ;------------------------------------------------------------------------------
@@ -224,18 +242,26 @@ blockstart:
 		; jsr 	SetupXMODEM_TXandRX
 		call 	printSTRBelow
 		defb    "\r\n"
-		defb	"blockstart : start reading the blocks  !\r\n"
+		defb	"blockstart : start reading the blocks  !", 0Dh, 0ah, 00
 
+		call 	SetupXMODEM_TXandRX
+
+		scf								; set carry flag 
 		pop 	AF
+		ei
 		reti 
 
 
 showtimeout:
 		call 	printSTRBelow
 		defb    "\r\n"
-		defb	"A timout on XMODEM occured !\r\n"
+		defb	"A timout on XMODEM occured !", 0Dh, 0ah, 00
+		sub  	A
+		ld 		(0x8800),A
 
+		scf								; set carry flag 
 		pop 	AF
+		ei
 		reti 
 
 

@@ -3,7 +3,7 @@
 		include 	"Z80_Params_.inc"
  
 		xref 	PLD_PCB_Start
-		xdef 	RAM_Start,SetupXMODEM_TXandRX
+		xdef 	RAM_Start,SetupXMODEM_TXandRX,RX_EMP,TX_EMP,TX_NAK,TX_ACK,DART_A_DI,DART_A_EI,DART_A_RESET
 ;********************************************************		
 ;		Routines in order to read data via XMODEM on DART chA
 ;********************************************************		
@@ -172,7 +172,7 @@ SetupXMODEM_TXandRX:
 		ld 		HL,6000h		;set lower destination address of file
 		call	DART_A_EI
 		call	A_RTS_ON
-		call 	TX_NAK			;NAK indicates ready for transmisDARTn to host
+		; call 	TX_NAK			;NAK indicates ready for transmisDARTn to host
 
 
 REC_BLOCK:
@@ -198,11 +198,11 @@ REC_BLOCK:
 
 		;check return code of block reception (e holds return code)
 		ld		a,e
-		cp		0				;block finished, no error
+		cp		NUL				;block finished, no error
 		jp		z,l_210
-		cp		2				;eot found
+		cp		STX				;eot found
 		jp		z,l_211
-		cp		3				;chk sum error
+		cp		ETX				;chk sum error
 		jp		z,l_613
 		ld		a,10h
 		jp		l_612
