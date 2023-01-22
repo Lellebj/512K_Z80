@@ -11,15 +11,16 @@
 			section Samples
 
 
-			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, BN2DEC,BN2DEC_S,DEC2BN,MFILL, BLKMOV,STRCMP,CONCAT,POS,COPY,DELETE,INSERT_STR
+			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, BN2DEC,BN2DEC_S,DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
 			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
-			xref	Textbuf, inBufferEnd,inBuffer
+			xref	Textbuf, inBufferEnd,inBuffer,cleanInBuffer,cleanOutBuffer,InitInterrupt
 			
 			xref	st2g1,st1g2,steq,subst
 			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
-			xref	sourctext1,sourctext2,endtext,src_size, printSTRBelow
+			xref	sourctext1,sourctext2,endtext,src_size, writeSTRBelow
 		
 		xdef 	PLD_PCB_Start
+		xref 	A_RTS_OFF,A_RTS_ON
 
 
 	;***************************************************************
@@ -46,11 +47,11 @@ PLD_PCB_Start:
 
 		call	Init_RAM_HEAP			; put zero values to addr $F000 - $F200
 
-		CALL 	InitBuffers			;INITIALIZE DART. INTERRUPT SYSTEM
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE DART. INTERRUPT SYSTEM
 
 		call	PIO_Init
 		
-		call 	CTC_Init
+		; call 	CTC_Init
 
 		call 	DART_Init
 		
@@ -62,8 +63,8 @@ PLD_PCB_Start:
 		;call	Flash_SE_Erase
 
 		call	CRLF
-		call 	printSTRBelow
-		defb   	 "\r\n\n"
+		call 	writeSTRBelow
+		defb   	"\0\r\n"
 		defb	"##########################################################\r\n"
 		defb	"The Z80 Board Awakened 2023\r\n"
 		defb	"    git: @@GIT_VERSION@@\r\n"
@@ -74,9 +75,8 @@ PLD_PCB_Start:
 
 
 		call	CRLF
-		; call	CRLF
 
-		; call	printSTRBelow_CRLF
+		; call	writeSTRBelow_CRLF
 		; db		"  PIO init: D0-3 outputs ! ",0
 
 next_line:
@@ -89,28 +89,179 @@ next_line:
 		sub  	A
 		ld 		(0x8800),A
 
-		call 	RX_EMP
-		call 	TX_EMP
+		; call 	RX_EMP
+		; call 	TX_EMP
 
-		call 	printSTRBelow
-		DB 		"Hello, enter command: >_", 0Dh, 0Ah, 00
+
+
+		call 	writeSTRBelow
+		DB 		0,"Hello, enter command: >_", 00
+
+		ld 		hl,Textbuf
+		call 	ReadLine
+
+		call 	writeSTRBelow
+		DB 		0,"Eentered !",CR,LF,00
+
+		ld 		iy,Textbuf
+		call	WriteLineCRNL
+
+		;***  	compare input
+		; ld 		HL,Textbuf
+		; ld 		DE,command_list+2
+		call	strCompare
+
+		ld 		HL,Textbuf
+		; call 	skipPriorDelimit
+		call	skipCharsUntilDelim
+
+		call 	DumpRegisters
+		jr 		z,shequal
+
+		call 	writeSTRBelow_CRLF
+ 		DB 		0,"NOT EQUAL !",00
+		jp 		next_line
+
+shequal:
+		call 	writeSTRBelow_CRLF
+		DB 		0,"IS EQUAL !", 00
+		jp 		next_line
+
+		ld		HL,$6000
+		ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
+		ld		A,01
+		ld		(prevPacketByte01),A 				; store of packet numbers
+
+		call 	SetupXMODEM_TXandRX					 
+
+;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+;---------------------------------------------------------------------------------
+;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+
+;		skipPriorDelimit 		; increase A0 until non delimiter (NZ) or #0 (Z) 
+;		***		store string value in textarea and reference in table
+;		skipCharsUntilDelim		; increase A0 until blank (NZ) or #0 (Z) 
+;		***		read/store either address or lvalue and store in table
+; 		isDelimit(S)  is char in (A0) any of the delimiters specified in (A1) ? =>Z, else ~Z
+; 		Parameters returned; A0 - Address of char
+
+;isDelimit:
+
+
+;delimChars:
+;		db   ' _-,=',0,0		
+
+;		***************************************************
+;		***	decode input line;
+;		*** <cmd>    "TEXT"  	$xxyyzz  xxyyzz
+;		*** command textstring 	address	 lvalue
+;		************************************************************
+;		*** commParseTable:
+;		*** 00 : W : offset in jumptable
+;		***	02 : W : address/value index	
+;		*** 04 : L : address 1
+;		*** 08 : L : address 2
+;		*** 14 : L : value1
+;		*** 18 : L : value2
+;		*** 24 : L : text1 pointer
+;		*** 28 : L : text2 pointermonitor
+;		*** 34 : L : temp text pointer
+;		***	38 : textspace
+;		***
+;		***--------------------------------------
+
+;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+;---------------------------------------------------------------------------------
+;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+
+
+
+delimChars:
+		db   ' _-,=',0,0	
+				; 		isDelimit(S)  is char in (HL) any of the delimiters specified ? =>Z, else ~Z
+				; 		if char in (HL) is '0' ->  set C, else NC
+				; 		Parameters returned; HL - Address of char
+	
+
+isDelimit:
+		push 	DE
+				; HL points to string, DE points to delimiters
+		ld 		DE,delimChars
+		ld 		a,(HL) 			; char from string
+		or 		a 				; is a (DE) = 0 ?
+		jr 		z,exitZero
+
+		cp 		CR 				; check if A = 'CR'
+		jr 		z,exitZero
+nxtdelim:
+
+		ld 		A,(DE)			; actual delimiter
+		cp 		(HL)			; check present delimiter
+		jr 		z,exitDelim		; Z set
+
+
+		inc  	DE				; next delimiter
+		ld  	A,(DE)
+		or 		A 				; =0? 		
+		jr 		nz,nxtdelim     ; if no -> next delimiter
+		inc 	a 				; clear Z flag
+exitDelim:
+		scf	
+		ccf						; clear Carry (Z is set if (HL) is delimiter, cleared otherwise)
+		pop 	DE
+		ret
+
+exitZero:
+		; carry flag always cleared.
+		inc 	a 			; clear Z flag
+		scf 				; set Carry-char = '0'
+		pop 	DE
+		ret
+
+
+skipPriorDelimit:
+				; increase HL until non delimiter (NZ) or #0 (Z) 
+				; HL points to acutal pos in 'Textbuf'
+		inc 	HL 				; skip past string length or next char	
+		call	isDelimit		;delimiters specified ? =>Z, else ~Z
+								;char in (HL) is '0' ->  set C, else NC
+
+		ld 		a,(HL)			; A = value of actl. char						
+		ret 	C 				; end of string '0' or 'CR' found
+
+		ret 	NZ 				; NZ -> (HL) points to non delimiter
+		jr 		skipPriorDelimit
+
+
+skipCharsUntilDelim:
+				; increase HL until delimiter (NZ) or #0 (Z) 
+		inc 	HL 				; skip past string length or next char		
+		call	isDelimit		;delimiters specified ? =>Z, else ~Z
+								;char in (HL) is '0' ->  set C, else NC
+		ld 		a,(HL)			; A = value of actl. char						
+		ret 	C				; end of string '0' or 'CR' found
+		ret  	Z				; Z -> (HL) points to delimiter
+		jr 		skipCharsUntilDelim
+
+awaitstart: 
+		call 	writeSTRBelow
+		DB 		0,"awaitstart: !",CR,LF,00
+
+
+		call 	RX_EMP
+		halt
+
+
+		ld 		A,'C'
+		out 	(DART_A_D),A			; send the 'C' character after ~ 1 sec
+
+
+		jr 		awaitstart		
+
 
 ;************
 		ld 		hl,Textbuf
 		; call	ReadLine 			;to textbuf  (A=length of input string)
-
-		call 	printSTRBelow
-		DB 		"   start XMODEM ctrl-a s ...", 0Dh, 0Ah, 00
-
-awaitstart:
-
-		halt	; wait for  CTC to clock
-
-		jr 		C,next_line
-				
-		jr 		awaitstart		
-
-		; call 	DumpRegisters
 
 		ld		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
 		ld		DE,Textbuf			;DE = 32767
@@ -133,32 +284,24 @@ awaitstart:
 		ld 		iy,Textbuf
 		call	WriteLineCRNL
 
-		jr 		next_line
+		jp 		next_line
 ;********************************************************************************************
 
-; _DI 		equ 	$80		; D7 - 1 enables interrupt
-; _Counter 	equ 	$40		; D6 - 1 Counter Mode (no prescaler)		0 - Timer Mode  
-; _Prescaler equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
-; _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
-; _CLK_TRG_Start 	equ $08 ; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
-; _TC_Followequ 	$04		; D2 - 1 time constant follows
-; _Reset 	equ 	$02		; D1 - 1 Software reset
-; _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
-		
 
 
 CTC_Init:
 		;init CH 0 and 1
-		ld 	 A,_Rising|_Prescaler|_TC_Follow|_Reset|_CW
+		ld 	 A,_Rising|_Timer|_Prescaler|_TC_Follow|_Reset|_CW
 		out		(CH0),A 		; CH0 is on hold now
 		ld		A,109			; time constant (prescaler; 126; 93; 6MHz -> 1 sec peroid) 232/101; 
-		; ld		A,126			; time constant (prescaler; 109; 66; 3,684MHz -> 1 sec peroid; 
+		; ld		A,126			; time constant (prescaler; 109; 66; 3,684MHz -> 1 sec peroid;   
+									; time constant (prescaler; 109; 198; 3,684MHz -> 3, sec peroid;  
 		out		(CH0),A			; and loaded into channel 0
 		
 		
-		ld	A,_INT_EN|_Counter|_Prescaler|_Rising|_TC_Follow|_Reset|_CW	
+		ld	A,_Counter|_Rising|_TC_Follow|_Reset|_CW	
 		out		(CH1),A			; CH1 counter
-		ld		A,66			; time constant 66 defined
+		ld		A,198			; time constant 66 defined
 		out		(CH1),A			; and loaded into channel 2
 	
 		ld 		HL,CTC_CH0_I_Vector          (F410)
@@ -201,11 +344,6 @@ CTC_CH1_Interrupt_Handler:
 		; inc 	A
 		; ld 		(0x8800),A
 
-		ld 		A,'C'
-		out 	(DART_A_D),A			; send the 'C' character after ~ 1 sec
-
-
-
 		ld 		A,(0x8800)
 		inc 	A
 		ld 		(0x8800),A
@@ -217,7 +355,7 @@ CTC_CH1_Interrupt_Handler:
 
 		in		A,(DART_A_C)			; read RRx ;test next test char available
 		bit 	0,A						; char available ?
-		jr 		NZ,blockstart			; test if minicom has begun sending Z=0...
+		call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
 		ccf								; clear carry - > wait for next.
 		pop 	AF
 		ei
@@ -238,24 +376,11 @@ CTC_CH2_Interrupt_Handler:
 CTC_CH3_Interrupt_Handler:
 
 
-blockstart:
-		; jsr 	SetupXMODEM_TXandRX
-		call 	printSTRBelow
-		defb    "\r\n"
-		defb	"blockstart : start reading the blocks  !", 0Dh, 0ah, 00
-
-		call 	SetupXMODEM_TXandRX
-
-		scf								; set carry flag 
-		pop 	AF
-		ei
-		reti 
-
 
 showtimeout:
-		call 	printSTRBelow
-		defb    "\r\n"
-		defb	"A timout on XMODEM occured !", 0Dh, 0ah, 00
+		call 	writeSTRBelow_CRLF
+		defb    "\0\r\n"
+		defb	"A timout on XMODEM occured !",00
 		sub  	A
 		ld 		(0x8800),A
 
@@ -291,15 +416,15 @@ halt_loop:
 
 command_list:
 
-		db		ETX,1,"list",0
-		db		ETX,2,"dm",0
-		db		ETX,3,"pc",0
-		db		ETX,4,"cm",0
-		db		ETX,5,"$",0
-		db		ETX,6,"exe",0
-		db		ETX,7,"go",0
-		db		ETX,8,"++",0
-		db		ETX,9,"--",0
+		db		ETX,1,5,"load",0Dh,0
+		db		ETX,2,3,"dm",0Dh,0
+		db		ETX,3,3,"pc",0Dh,0
+		db		ETX,4,3,"cm",0Dh,0
+		db		ETX,5,2,"$",0Dh,0
+		db		ETX,6,4,"exe",0Dh,0
+		db		ETX,7,3,"go",0Dh,0
+		db		ETX,8,3,"++",0Dh,0
+		db		ETX,9,3,"--",0Dh,0
 		db		ETB
 
 
@@ -330,14 +455,14 @@ textloop:
 
 
 		; test copy
-		LD		HL,Str4			; SOURCE STRING
-		LD		DE,COPY_BUFFER	;	DESTINATION STRING
+		; LD		HL,Str4			; SOURCE STRING
+		; LD		DE,COPY_BUFFER	;	DESTINATION STRING
 		
-		LD		C,4				; STARTING INDEX FOR COPYING
+		; LD		C,4				; STARTING INDEX FOR COPYING
 
-		LD		B,6				; NUMBER OF BYTES TO COPY
-		LD		A, 25			; MAXIMUM LENGTH OF SUBSTRING
-		CALL 	COPY			; COPY SUBSTRING
+		; LD		B,6				; NUMBER OF BYTES TO COPY
+		; LD		A, 25			; MAXIMUM LENGTH OF SUBSTRING
+		; CALL 	COPY			; COPY SUBSTRING
 
 		; ld 		iy,COPY_BUFFER
 		; rst		8				;WriteLineCRNL ; print the copy string

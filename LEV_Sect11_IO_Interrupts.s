@@ -720,14 +720,14 @@
 			; 							No parameters
 			; 						InitBuffers
 			; 							No parameters
-			; 		Exit :          ReadChar
+			; 		Exit :          ReadChar(INCH)
 			; 							Register A = character
-			; 						RetInpStatus
+			; 						RetInpStatus(INST)
 			; 							Carry = 0 if input buffer is empty,
 			; 							1 if character is available
-			; 						WriteChar
+			; 						WriteChar(OUTCH)
 			; 							No parameters
-			; 						OUT5T
+			; 						OUTST
 			; 							Carry = 0 if output buffer is not
 			; 							full. 1 if it is full
 			; 						InitBuffers
@@ -772,9 +772,9 @@
 		; Section IOLIB
 
 
-		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf
-		GLOBAL	S_head_tail, inBufferEnd, inBuffer, printSTRBelow, printSTRBelow_CRLF
-		GLOBAL	PIO_Init,CTC_Init,DART_Init
+		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
+		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey
+		GLOBAL	PIO_Init,CTC_Init,DART_Init,InitInterrupt
 
 
 			;ARBITRARY DART PORT ADDRESSES
@@ -789,18 +789,32 @@
 		;REGISTERS USED: AF.DE.HL
 		;***************************************
 
+waitForKey:
+		ld 		A,FF
+		ld 		(inbufferDeactivate),A
+
+		halt		; wait for key interrupt
+
+		ld 		A,00
+		ld 		(inbufferDeactivate),A
+
+
+		ret
+
+
+
 ReadLine:
 R_LOOP:
 		CALL	ReadChar				;READ CHARACTER
 		PUSH	AF
 		CALL	WriteChar				;ECHO CHARACTER
 		POP		AF
-		CP		CRChar				;IS CHARACTER AN CR?
+		CP		CRChar					;IS CHARACTER AN CR?
 		JR		NZ,R_LOOP				;STAY IN LOOP IF NOT
 
 		call	CRNL
 			; copy from inbuf to cursor buffer...
-
+waitEntry:
 		call	S_head_tail			; save input heads and tails
 
 
@@ -808,7 +822,7 @@ R_LOOP:
 		ld 		de,(Comm_Ptr_list+2)		; next item in list
 		or 		a				; clear carry
 		SBC		hl,de 			; number of chars in string (in L)
-		ld 		b,l			; store in B
+		ld 		b,l				; store in B
 
 			; detect wraparound (hl)<(de)
 		jp 		P,cont2			;positive result 	(hl)>(de)
@@ -849,7 +863,7 @@ cont1:
 
 ReadChar:
 		CALL	RetInpStatus	;get input status. return. carry = 1 if data available
-		JR		NC,ReadChar		;WAIT IF NO CHARACTER AVAILABLE
+		JR		NC,ReadChar		;wait if no character available
 		DI                      ;disable interrupts
 		LD		HL,inBufCount			;reduce input buffer count by 1
 		DEC		(HL)
@@ -860,7 +874,7 @@ ReadChar:
 		LD		A,C
 		EI						;Reenable interrupts
 		RET
-			;RETURN INPUT STATUS (CARRY    =1   IF INPUT DATA IS AVAILABLE)
+			;return input status (carry    =1   if input data is available)
 RetInpStatus:
 		LD		A, (inBufCount)		;Test input buffer count
 		OR		A				;Clear carry always
@@ -873,12 +887,12 @@ RetInpStatus:
 S_head_tail:
 
 		ld 		ix,Comm_Ptr_list+2
-				ld b,list_len-2
+		ld 		b,list_len-2
 bmve:
-				ld 	a,(ix)
-				ld 	(ix+2),A
-				dec	ix
-				djnz bmve		; shift data upwards...
+		ld 		a,(ix)
+		ld 		(ix+2),A
+		dec		ix
+		djnz 	bmve		; shift data upwards...
 
 		LD		HL, (inHeadAdr)		;GET   CHARACTER FROM HEAD OF INPUT BUFFER
 		ld 		(Comm_Ptr_list),HL
@@ -886,7 +900,7 @@ bmve:
 			; Write line from address in iy (until char = 00)
 WriteLine:
 		; ld 		b,(iy)		; get length
-		; inc		iy			; Dont check length, skip first len byte 22.05.01
+		inc		iy			; First pos point to str length, Dont check length, skip first len byte 22.05.01
 nxtchr:
 		ld 		a,(iy)
 		or		A			; = 0 ??
@@ -895,7 +909,8 @@ nxtchr:
 		call	WriteChar
 		pop 	hl
 		inc		iy
-		djnz	nxtchr
+		; djnz	nxtchr
+		jr 		nxtchr
 		ret					; return on maxlength
 			; WriteLine from address (iy) (until char = 00)and add CRLF 
 WriteLineCRNL:
@@ -938,19 +953,34 @@ GetOutStatus:
 		ret						; carry = 1 if buffer full, 0 if not
 			; INITIALIZE DART, Interrupt system
 InitBuffers:
-			; initialize buffer counters and pointers. interrupt flag
+			; initialize buffer counters and pointers.
 		sub		A
 		ld		(OutINTExpect),A	; indicate no output interruptS
 		ld		(inBufCount),A		; buffer counters = 0
 		ld		(OutBufCount),A
+		call	cleanInBuffer
+		call	cleanOutBuffer
+		call 	InitInterrupt		; init interrupt vectors
+		ret
+
+cleanInBuffer:
+		sub		A
+		ld		(inBufCount),A		; buffer counters = 0
+		ld 		(inbufferDeactivate),A  ; clear flag for input buffer update...
 		ld		HL,inBuffer			; all buffer pointers = base address
 		ld		(inHeadAdr),HL
 		ld		(inTailAdr),HL
+		ret
+cleanOutBuffer:
+		sub		A
+		ld		(OutBufCount),A
 		ld		HL,outBuffer
 		ld		(outHeadAdr),HL
 		ld		(outTailAdr),HL
-
+		ret
+InitInterrupt:
 			;INITIALIZE INTERRUPT VECTORS (DART)
+			; initialize . interrupt flag
 		ld		A,DART_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE
 		ld		I,A             ;SET INTERRUPT VECTOR IN zao
 		im		2               ; INTERRUPT MODE 2 - VECTORS IN TABLE
@@ -989,8 +1019,13 @@ ReadINTHandler:
 		push	DE
 		push   	HL
 
+
 		in		A,(DART_A_D)		; read data from dart
 		ld		C,A					; save data in register c
+		ld 		a,(inbufferDeactivate)
+		cp 		00 					; =0 		
+		jr 		nz,exitRHandler
+
 		ld		HL,inBufCount		; any room in input buffer?
 		ld		A, (HL)
 		cp		bufferSize
@@ -1261,14 +1296,14 @@ OutINTExpect:	DS	1					;output interrupt expected
 ; instruction invoking this subroutine to the console.
 ; Clobbers AF, C
 ;##############################################################
-printSTRBelow:
+writeSTRBelow:
         ex      (sp),iy                 ; iy = @ of string to print
 		call	WriteLine
         inc     iy                      ; point past the end of the string
         ex      (sp),iy
         ret
 
-printSTRBelow_CRLF:
+writeSTRBelow_CRLF:
         ex      (sp),iy                 ; iy = @ of string to print
 		call	WriteLineCRNL
         inc     iy                      ; point past the end of the string
@@ -1280,8 +1315,8 @@ printSTRBelow_CRLF:
 ; Clobbers AF, C
 ;##############################################################
 puts_crlf:
-        call    printSTRBelow
-        defb    '\r\n\0'
+        call    writeSTRBelow
+        defb    '\0\r\n\0'
         ret
 
 

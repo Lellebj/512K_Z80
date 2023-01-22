@@ -24,7 +24,7 @@ debug:		equ	0		; Set to 1 to show debug printing, else 0
 ;############################################################################
 	section	Samples
 	global 	gpio_out_cache
-	EXTERN	puts, puts_crlf, printSTRBelow, spi_read8, spi_ssel_true, spi_ssel_false, spi_write_str, hexdump
+	EXTERN	puts, puts_crlf, writeSTRBelow, spi_read8, spi_ssel_true, spi_ssel_false, spi_write_str, hexdump
 ;############################################################################
 include		"Z80_Params_.inc"
 
@@ -77,7 +77,7 @@ stacktop:	equ	0
 	;call	test_80clks		; required prior to a CMD0
 	;call	test_cmd0		; see if we can wake up an SD card
 
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"\r\n\nTests done\r\n\0"
 
 	; Spin loop here because there is nothing else to do
@@ -113,7 +113,7 @@ test_80clks_loop:
 ; Test the spi_ssel_true and spi_ssel_false routines
 ;##############################################################################
 test_ssel:
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"test_ssel\r\n\0"
 
 	call	spi_ssel_true		; 8-clk, SSEL=0, 8-clk
@@ -125,7 +125,7 @@ test_ssel:
 ; Test writing of data bit patterns.
 ;##############################################################################
 test_bits:
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"test_bits\r\n\0"
 
 	ld	hl,bit_test1		; buffer address
@@ -150,10 +150,10 @@ bit_test1:
 ; Test reading a byte.
 ;##############################################################################
 test_read:
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"test_read\r\n\0"
 
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"A=0x\0"
 
 	call	spi_read8		; read 8 bits into A
@@ -170,12 +170,12 @@ test_read:
 ; This command puts the SD card into SPI mode and goes into an idle state.
 ;##############################################################################
 test_cmd0:
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"test_cmd0\r\n\0"
 
 	call	spi_ssel_true		; 8-clk, SSEL=0, 8-clk
 	
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"CMD0=\0"
 	ld	hl,test_cmd0_msg	; buffer to dump
 	ld	bc,6			; buffer length
@@ -191,7 +191,7 @@ test_cmd0:
 test_cmd0_loop:
 	push	bc			; save the retry counter value
 
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"R1=\0"
 
 	; Read a R1 response message
@@ -209,12 +209,12 @@ test_cmd0_loop:
 	djnz	test_cmd0_loop		; R1 response is bad keep reading until B is zero 
 
 	; max retries exceeded, bail out
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"CMD0 failed after max retries!\r\n\0"
 	jp	test_cmd0_done
 
 test_cmd0_success:
-	call	printSTRBelow
+	call	writeSTRBelow
 	db	"CMD0 success!\r\n\0"
 
 test_cmd0_done:

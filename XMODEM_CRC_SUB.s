@@ -4,6 +4,7 @@
  
 		xref 	PLD_PCB_Start
 		xdef 	RAM_Start,SetupXMODEM_TXandRX,RX_EMP,TX_EMP,TX_NAK,TX_ACK,DART_A_DI,DART_A_EI,DART_A_RESET
+		xdef 	A_RTS_OFF,A_RTS_ON
 ;********************************************************		
 ;		Routines in order to read data via XMODEM on DART chA
 ;********************************************************		
@@ -14,6 +15,9 @@
 RAM_Start:
 		jp 		PLD_PCB_Start
 
+;********************************************************************************************
+;********************************************************************************************
+;********************************************************************************************
 
 DART_A_EI:
 		;enable DART channel A RX
@@ -44,9 +48,9 @@ A_RTS_ON:
 	
 DART_A_DI:
 		;disable DART channel A RX
-		ld		a,003h			;write into WR0: select WR3
+		ld		a,WR3			;write into WR0: select WR3
 		out		(DART_A_C),A
-		ld		a,0C0h			;RX 8bit, auto enable off, RX off
+		ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
 		out		(DART_A_C),A
 		;Channel A RX inactive
 		ret
@@ -127,7 +131,8 @@ SetupXMODEM_TXandRX:
 
 		; DART interrupt vector table
 
-		ld		HL,RX_CHA_AVAILABLE       ; ON INTERRUPT PAGE
+
+		ld		HL,BYTE_AVAILABLE       	; ON INTERRUPT PAGE
 		ld		(DART_Int_Read_Vec),HL		;STORE READ VECTOR
 		; ld		HL,WriteINTHandler
 		; ld		(DART_Int_WR_Vec),HL		;STORE WRITE VECTOR
@@ -164,6 +169,10 @@ SetupXMODEM_TXandRX:
 		; ld		a,10h			;write into WR2: cmd line int vect (see int vec table)
 		; out 	(DART_B_C),A 	;bits D3,D2,D1 are changed according to RX condition	
 	
+		;  	Stop CTC channel 1 from sending interrupts.
+		ld	A,_Counter|_Rising|_Reset|_CW	
+		out		(CH1),A			; CH1 counter
+
 
 		; SETUP 2
 		sub		a
@@ -172,21 +181,23 @@ SetupXMODEM_TXandRX:
 		ld 		HL,6000h		;set lower destination address of file
 		call	DART_A_EI
 		call	A_RTS_ON
-		; call 	TX_NAK			;NAK indicates ready for transmisDARTn to host
+		call 	TX_NAK			;'C' indicates CRC mode ready for transmisDARTn to host
 
 
 REC_BLOCK:
 		;set block transfer mode
-		ld		a,21h			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		ld		a,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
 								;_EN_INT_Nx_Char|WR1
 		out		(DART_A_C),A
-		ld		a,10101000b		;wait active, interrupt on first RX character
-								;_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char
+		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
 		out		(DART_A_C),A		;buffer overrun is a spec RX condition
 
 		ei
+
 		call	A_RTS_ON
+
 		halt					;await first rx char
+
 		call	A_RTS_OFF
 		
 		ld		a,WR1			;write into WR0: select WR1
@@ -200,9 +211,9 @@ REC_BLOCK:
 		ld		a,e
 		cp		NUL				;block finished, no error
 		jp		z,l_210
-		cp		STX				;eot found
+		cp		$02				;eot found (end of transmission)
 		jp		z,l_211
-		cp		ETX				;chk sum error
+		cp		$03				;chk sum error
 		jp		z,l_613
 		ld		a,10h
 		jp		l_612
@@ -240,14 +251,14 @@ DLD_END:
 		ret
 
 
-
+		;  	interrupt service routine during file transfer
 BYTE_AVAILABLE:
 EXP_SOH_EOT:
 		in		A,(DART_A_D)			;read RX byte into A
 l_205:
-		cp		01h					;check for SOH
+		cp		SOH					;check for SOH
 		jp		z,EXP_BLK_NR
-		cp		04h					;check for EOT
+		cp		EOT					;check for EOT
 		jp		nz,L_2020
 		ld		e,2h
 		reti
@@ -259,7 +270,7 @@ l_205:
 
 		;await block number
 EXP_BLK_NR:
-		in		A,(DART_A_D)			;read RX byte into A	
+		in		A,(DART_A_D)		;read RX byte into A	
 		cp		C					;check for match of block nr
 		jp		nz,L_2020
 
@@ -271,7 +282,7 @@ EXP_BLK_NR:
 		ld		E,A					;E holds cpl of block nr to expect
 
 EXP_CPL_BLK_NR:
-		in		A,(DART_A_D)			;read RX byte into A
+		in		A,(DART_A_D)		;read RX byte into A
 		cp		E					;check for cpl of block nr
 		jp		nz,L_2020
 
@@ -281,7 +292,7 @@ EXP_CPL_BLK_NR:
 		ld		B,80h				;defines block size 128byte
 
 EXP_DATA:
-		in		A,(DART_A_D)			;read RX byte into A
+		in		A,(DART_A_D)		;read RX byte into A
 		ld		(HL),A				;update
 		add		A,D
 		ld		D,A					;checksum in D
@@ -292,9 +303,9 @@ EXP_DATA:
 
 
 EXP_CHK_SUM:
-		in		A,(DART_A_D)			;read RX byte into A
+		in		A,(DART_A_D)		;read RX byte into A
 		;
-		ld		a,045h				;for debug only
+		;ld		a,045h				;for debug only
 
 		cp		D					;check for checksum match	
 		jp		z,L_2021
@@ -332,6 +343,19 @@ TX_NAK:
 
 TX_ACK:
 		ld		 a,ACK				;send AK to host
+		out		(DART_A_D),A
+		call	TX_EMP
+		RET
+
+
+TX_C:
+		ld		 a,'C'				;send 'C' to host
+		out		(DART_A_D),A
+		call	TX_EMP
+		RET
+
+TX_X:
+		ld		 a,'X'				;send 'C' to host
 		out		(DART_A_D),A
 		call	TX_EMP
 		RET

@@ -773,7 +773,7 @@ DONE_11A:
 
 
 		xdef 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF
-		xdef	S_head_tail, EIBUF, IBUF, printSTRBelow
+		xdef	S_head_tail, EIBUF, IBUF, writeSTRBelow
 
 
 			;ARBITRARY DART PORT ADDRESSES
@@ -1244,7 +1244,7 @@ OutBufCount:	DS	1					;NUMBER OF CHARACTERS IN OUTPUT BUFFER
 ; instruction invoking this subroutine to the console.
 ; Clobbers AF, C
 ;##############################################################
-printSTRBelow:
+writeSTRBelow:
         ex      (sp),iy                 ; hl = @ of string to print
 		call	WriteLineCRNL
         inc     iy                      ; point past the end of the string
@@ -1257,7 +1257,7 @@ printSTRBelow:
 ; Clobbers AF, C
 ;##############################################################
 puts_crlf:
-        call    printSTRBelow
+        call    writeSTRBelow
         defb    '\r\n\0'
         ret
 

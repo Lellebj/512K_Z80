@@ -45,25 +45,25 @@
 	PROVIDE( Textbuf		= _String_HEAP);		; /*text buffer */
 
 	PROVIDE( S1x			=	0x40 + _String_HEAP);  	/*Textbuf + Textbufsize */
-	PROVIDE( S2x			=	0x80 + _String_HEAP);  	/*Textbuf + Textbufsize */
+	PROVIDE( commParseTable =	0x80 + _String_HEAP);  	/*command parser table, size $80-$100=$80 (128 bytes) */
 
-	cur_resp_size	=		40;
-	PROVIDE( cur_resp		=		0xC0 + _String_HEAP);		/*	; response from cursor */
-	PROVIDE( T_BUFFER 		=		0xE0 + _String_HEAP);		/*;16-BYTE BUFFER */
-	PROVIDE( COPY_BUFFER 	=		0x10 + _String_HEAP);		/*;16-BYTE BUFFER */
+	PROVIDE( T_BUFFER 		=	0x100 + _String_HEAP);		/*;16-BYTE BUFFER */
 
-	PROVIDE( SP_value		=		0x20+ _String_HEAP);
-	PROVIDE( reg16_value	=		0x24+ _String_HEAP);
-	PROVIDE( num_chars		=		0x28+ _String_HEAP);
-	PROVIDE( bufferSize		=		0x64		);						/*;SIZE OF INPUT BUFFER */
-	PROVIDE( inBuffer		=		0x30+ _String_HEAP);			/*	;INPUT BUFFER */
-	PROVIDE( inBufferEnd	=		0x30 + bufferSize + _String_HEAP);      		/*;END OF INPUT BUFFER */
-	PROVIDE( outBufferSize	=		160	);							/*	;SIZE OF OUTPUT BUFFER */
-	PROVIDE( outBuffer		=		0xA0 + _String_HEAP);	         	 	/*;OUTPUT BUFFER */
-	PROVIDE( endOutBuffer	=		0xA0 + outBufferSize + _String_HEAP);	/*		END OF OUTPUT BUFFER */
+	PROVIDE( SP_value		=	0x120+ _String_HEAP);
+	PROVIDE( reg16_value	=	0x124+ _String_HEAP);
+	PROVIDE( num_chars		=	0x128+ _String_HEAP);
+	PROVIDE( bufferSize		=	0x64		);				/*;SIZE OF INPUT BUFFER */
+	PROVIDE( inBuffer		=	0x130+ _String_HEAP);			/*	;INPUT BUFFER */
+	PROVIDE( inBufferEnd	=	0x194+ _String_HEAP);      		/*;END OF INPUT BUFFER */
+	PROVIDE( inbufferDeactivate = 0x196); 					/* if > 0: do not update inbuffer at char read */			
+	PROVIDE( outBufferSize	=	160	);							/*	;SIZE OF OUTPUT BUFFER */
+	PROVIDE( outBuffer		=	0x200+ _String_HEAP);	         	 	/*;OUTPUT BUFFER */
+	PROVIDE( endOutBuffer	=	0x2F0+ _String_HEAP);	/*		END OF OUTPUT BUFFER */
 
-	PROVIDE( list_len		=		0x48	);				/*	 length of command pointer list */
-	PROVIDE( Comm_Ptr_list	=		0x200 + _String_HEAP); 	/*	 command pointer list */
+	PROVIDE( list_len		=	0x48	);				/*	 length of command pointer list */
+	PROVIDE( Comm_Ptr_list	=	0x300 + _String_HEAP); 	/*	 command pointer list */
+	PROVIDE( packetBaseAddress = 	0x400 + _String_HEAP);
+	PROVIDE( prevPacketByte01	=	0x500 + _String_HEAP);	
 
 
 	SECTIONS

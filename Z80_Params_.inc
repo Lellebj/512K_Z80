@@ -46,10 +46,10 @@ DART_Int_Spec_Vec	EQU     DART_Int_Vec+14		;DART CHANNEL A SPECIAL RECEIVE INTER
 WR0 equ 0
 _Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
 _Ch_Reset		equ 3<<3			; 18
-_EN_INT_Nx_Char	equ 4<<3			; 20  000 0100  -> 010 0000
-_Reset_TxINT_Pend equ 5<<3			; 28   000 0101 ->  010 1000
-_Error_Reset 	equ 6<<3			; 30	
-_Ret_F_Int		equ 7<<3			; 38  0000111  ->  0011 1000
+_EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
+_Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
+_Error_Reset 	equ $30				; (30)	
+_Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
 
 ;Write register 1
 WR1 equ 1
@@ -69,6 +69,7 @@ WR2 equ 2
 ;Write register 3
 WR3 equ 3
 _Rx_Enable 			equ $01
+_Rx_Disable 		equ $00
 _Auto_Enable		equ $20
 _RX_5_bits			equ $00
 _RX_6_bits			equ $40
@@ -110,6 +111,7 @@ CH3		equ 	_Z80CTC_Base+3
 
 _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
 _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
+_Timer 		equ 	$00
 _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
 _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
 _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE

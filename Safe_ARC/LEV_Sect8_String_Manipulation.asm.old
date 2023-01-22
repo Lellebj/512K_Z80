@@ -3,7 +3,7 @@
 
 		include "Z80_Params_.inc"
 
-		GLOBAL STRCMP,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size
+		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size
 		
 		; String Manipulation
 		; 8A    String Compare    288
@@ -15,7 +15,7 @@
 
 		;****************************************************************************************************************
 		;****************************************************************************************************************
-		; String Compare (STRCMP)                                                                                      8A
+		; String Compare (strCompare)                                                                                      8A
 		;     Compares two strings and sets the Carry and
 		;                                                         Registers Used: AF, BC, DE, HL
 		; Zero flags appropriately. The Zero flag is set to I
@@ -54,40 +54,40 @@
 		;****************************************************************************************************************
 
 
-STRCMP:
-					;DETERMINE WHICH STRING IS SHORTER
-					;LENGTH OF SHORTER = NUMBER OF BYTES TO COMPARE
-		LD		A,(HL)				;SAVE LENGTH OF STRING 1
+strCompare:
+					;determine which string is shorter
+					;length of shorter = number of bytes to compare
+		LD		A,(HL)				;save length of string 1
 		LD		(LENS1),A
-		LD		A, (DE)				;SAVE LENGTH OF STRING 2
+		LD		A, (DE)				;save length of string 2
 		LD		(LENS2),A
-		CP		(HL)				;COMPARE TO LENGTH OF STRING 1
-		JR		C,BEGCMP			; ,JUMP IF STR I NG 2 I S SHORTER
-		LD		A, (HL)				;ELSE STRING 1 IS SHORTER
-					;COMPARE STRINGS THROUGH LENGTH OF SHORTER
-BEGCMP:
-		OR		A					;TEST LENGTH OF SHORTER STRING
-		JR		Z,CMPLEN			;COMPARE LENGTHS
-									; IF LENGTH IS ZERO
-		LD		B,A					;B = NUMBER OF BYTES TO COMPARE
-		EX		DE,HL				;DE = STRING 1
-									;HL = STRING 2
-CMPLP:
-		INC		HL					;INCREMENT TO NEXT BYTES
+		CP		(HL)				;compare to length of string 1
+		JR		C,str2ISshorter			; ,jump if str i ng 2 i s shorter
+		LD		A, (HL)				;else string 1 is shorter
+					;compare strings through length of shorter
+str2ISshorter:
+		OR		A					;test length of shorter string
+		JR		Z,cmpLength			;compare lengths
+									; if length is zero
+		LD		B,A					;b = number of bytes to compare
+		EX		DE,HL				;de = string 1
+									;hl = string 2
+cmpLoop:
+		INC		HL					;increment to next bytes
 		INC		DE
-		LD		A,(DE)              ;GET A BYTE OF STRING 1
-		CP		(HL)				;COMPARE TO BYTE OF STRING 2
-		RET		NZ					;RETURN WITH FLAGS SET IF BYTES NOT EQUAL
-		DJNZ	CMPLP				;CONTINUE THROUGH ALL BYTES
-			; STRINGS SAME THROUGH LENGTH OF SHORTER
-			; SO USE LENGTHS TO SET FLAGS
-CMPLEN: LD		A,(LENS1)			;COMPARE LENGTHS
+		LD		A,(DE)              ;get a byte of string 1
+		CP		(HL)				;compare to byte of string 2
+		RET		NZ					;return with flags set if bytes not eqUAL
+		DJNZ	cmpLoop				;continue through all bytes
+			; strings same through length of shorter, so use lengths to set flags
+cmpLength:
+		LD		A,(LENS1)			;compare lengths
 		LD		HL,LENS2
 		CP		(HL)
-		RET							; RETURN WITH FLAGS SET OR CLEARED
+		RET							; return with flags set or cleared
 		; DATA
-LENS1:	DS		1					;LENGTH OF STRING 1
-LENS2:	DS		1					;LENGTH OF STRING 2
+LENS1:	DS		1					;length of string 1
+LENS2:	DS		1					;length of string 2
 
 		; 5AMPLE EXECUTION:
 
@@ -95,7 +95,7 @@ LENS2:	DS		1					;LENGTH OF STRING 2
 SC8A:
 		LD		HL,S1				;BASE ADDRESS OF STRING 1
 		LD		DE,S2				;BASE ADDRESS OF STRING 2
-		CALL	STRCMP				;COMPARE STRINGS
+		CALL	strCompare				;COMPARE STRINGS
 									;COMPARING "STRING 1" AND "STRING 2"
 									; RESULTS IN STRING 1 LESS THAN
 									; STRING 2. SO Z=O.C=1
@@ -343,7 +343,7 @@ SLP1:
 		;TRY TO MATCH SUBSTRING STARTING AT INDEX
 		;MATCH INVOLVES COMPARING CORRESPONDING CHARACTERS
 		; ONE AT A TIME
-CMPLP_8C:
+cmpLoop_8C:
 		LD		A, (DE)			;GET A CHARACTER OF SUBSTRING
 		CP		(HL)			;COMPARE TO CHARACTER OF STRING
 		JR		NZ,SLP2			; ,JUMP IF NOT SAME
@@ -351,7 +351,7 @@ CMPLP_8C:
 		JR		Z,FOUND			; ,JUMP IF SUBSTRING FOUND
 		INC		HL				; PROCEED TO NEXT CHARACTERS
 		INC		DE
-		JR		CMPLP_8C
+		JR		cmpLoop_8C
 		; ARRIVE HERE IF MATCH FAILS, SUBSTRING NOT YET FOUND
 SLP2:	
 		DJNZ	SLP1			;TRY NEXT HIGHER INDEX IF

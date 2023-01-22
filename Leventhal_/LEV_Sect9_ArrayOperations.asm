@@ -1496,10 +1496,10 @@ COMPARE:
            PUSH    HL               ;SAVE BASE ADDRESS
            PUSH    BC               ;SAVE SIZE OF VALUE
            ;COMPARE MEMORY AND TEST VALUE
-CMPLP:
+cmpLoop:
            CPI
            JR      NZ,CMPER        ;JUMP IF NOT EQUAL
-           JP      PE,CMPLP        ;CONTINUE THROUGH ENTIRE AREA
+           JP      PE,cmpLoop        ;CONTINUE THROUGH ENTIRE AREA
                                    ; NOTE CPI CLEARS P/V FLAG IF IT
                                    ; DECREMENTS BC TO 0
            ,NO ERRORS FOUND, SO CLEAR CARRY

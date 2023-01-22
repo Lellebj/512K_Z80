@@ -80,3 +80,14 @@ Z80PLD.map
 2063-Z80-cpm-main/retro/README.md
 2063-Z80-cpm-main/retro/retro.asm
 Safe_ARC/XMODEM_SUB.s
+Safe_ARC/LEV_Sect8_String_Manipulation.asm.old
+Safe_ARC/LEV_Sect9_ArrayOperations.asm.old
+Safe_ARC/LEV_Sect11_IO_Interrupts.asm.old
+Safe_ARC/spi_test.asm.old
+Safe_ARC/train-z96_gpl.asm
+Safe_ARC/Z80_PLD_PCB_.asm.old
+Safe_ARC/LEV_Sect8_String_Manipulation.asm.old
+Safe_ARC/LEV_Sect9_ArrayOperations.asm.old
+Safe_ARC/LEV_Sect11_IO_Interrupts.asm.old
+Safe_ARC/spi_test.asm.old
+Safe_ARC/Z80_PLD_PCB_.asm.old

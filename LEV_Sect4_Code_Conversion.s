@@ -1013,8 +1013,8 @@ all_flags:
 		ld 		iy,S1x
 		rst		8				;WriteLineCRNL
 
-		call 	ReadChar
-		rst		20h
+		call 	waitForKey
+		call 	CRLF
 
 
 		ex		af,af'
