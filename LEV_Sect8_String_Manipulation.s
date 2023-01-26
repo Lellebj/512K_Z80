@@ -104,6 +104,82 @@ SC8A:
 S1:		DB		20H					;string 1
 S2:		DB		20H					;string 2
 
+	;****************************************************************************************************************
+	;****************************************************************************************************************
+
+		GLOBAL 		isDelimit,skipPriorDelimit,skipCharsUntilDelim
+
+
+delimChars:
+		db   ' _-,=',CR,0,0	
+				; 		isDelimit(S)  is char in (HL) any of the delimiters specified ? =>Z, else ~Z
+				; 		if char in (HL) is '0' ->  set C, else NC
+				; 		Parameters returned; HL - Address of char
+	
+
+isDelimit:
+		push 	DE
+				; HL points to string, DE points to delimiters
+		ld 		DE,delimChars
+		ld 		a,(HL) 			; char from string
+		or 		a 				; is a (DE) = 0 ?
+		jr 		z,exitZero
+
+nxtdelim:
+
+		ld 		A,(DE)			; actual delimiter
+		cp 		(HL)			; check present delimiter
+		jr 		z,exitDelim		; Z set
+
+
+		inc  	DE				; next delimiter
+		ld  	A,(DE)
+		or 		A 				; =0? 		
+		jr 		nz,nxtdelim     ; if no -> next delimiter
+		inc 	a 				; clear Z flag
+exitDelim:
+		scf	
+		ccf						; clear Carry (Z is set if (HL) is delimiter, cleared otherwise)
+		pop 	DE
+		ret
+
+exitZero:
+		; carry flag always cleared.
+		inc 	a 			; clear Z flag
+		scf 				; set Carry-char = '0'
+		pop 	DE
+		ret
+
+
+skipPriorDelimit:
+				; increase HL until non delimiter (NZ) or #0 (C) 
+				; HL points to acutal pos in 'Textbuf'
+		inc 	HL 				; skip past string length or next char	
+		call	isDelimit		;delimiters specified ? =>Z, else ~Z
+								;char in (HL) is '0' ->  set C, else NC
+
+		ld 		a,(HL)			; A = value of actl. char						
+		ret 	C 				; end of string '0' or 'CR' found
+
+		ret 	NZ 				; NZ -> (HL) points to non delimiter
+		jr 		skipPriorDelimit
+
+
+skipCharsUntilDelim:
+				; increase HL until delimiter (NZ) or #0 (Z) 
+		inc 	HL 				; skip past string length or next char		
+		call	isDelimit		;delimiters specified ? =>Z, else ~Z
+								;char in (HL) is '0' ->  set C, else NC
+		ld 		a,(HL)			; A = value of actl. char						
+		ret 	C				; end of string '0' or 'CR' found
+		ret  	Z				; Z -> (HL) points to delimiter
+		jr 		skipCharsUntilDelim
+
+
+	;****************************************************************************************************************
+	;****************************************************************************************************************
+
+
 
 
 				;****************************************************************************************************************

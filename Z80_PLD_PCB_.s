@@ -92,6 +92,7 @@ next_line:
 		; call 	RX_EMP
 		; call 	TX_EMP
 
+		call 	initCommParseTable
 
 
 		call 	writeSTRBelow
@@ -100,39 +101,107 @@ next_line:
 		ld 		hl,Textbuf
 		call 	ReadLine
 
-		call 	writeSTRBelow
-		DB 		0,"Eentered !",CR,LF,00
-
 		ld 		iy,Textbuf
 		call	WriteLineCRNL
 
 		;***  	compare input
 		; ld 		HL,Textbuf
 		; ld 		DE,command_list+2
-		call	strCompare
+		; call	strCompare
 
 		ld 		HL,Textbuf
-		; call 	skipPriorDelimit
-		call	skipCharsUntilDelim
+		call 	skipPriorDelimit			; set (HL) first char
 
-		call 	DumpRegisters
-		jr 		z,shequal
+		jp 		C,inputerror 				; end encountered; no command (empty line)	
 
-		call 	writeSTRBelow_CRLF
- 		DB 		0,"NOT EQUAL !",00
+		push 	HL
+		pop  	DE							; typed command start in DE
+
+		; ***	Search command in 'command_list:'
+		;  		DE = typed command first char in DE (Textbuf)
+		ld 		HL,command_list+1			; first char in first command in the list
+
+scanCommandList:
+		ld 		C,(HL)						; command # in C
+		inc 	HL 							; (HL)=first char
+		ld 		B,(HL)						; # chars in command in list
+		inc 	HL 							; (HL)=first char
+		push 	DE 							; save start of typed string (DE) for later
+
+findCommandInList:
+		ld 		a,(DE)						; next typed char
+		cp		(HL)
+		jr 		nz,findNextITEM				; different chars-> test next item in list
+		inc 	DE
+		inc 	HL  
+		djnz 	findCommandInList
+		
+		; ***	test char (DE); should be a delimiter...
+		ex 		DE,HL
+		call 	isDelimit
+						;delimiters found ? =>Z, else ~Z
+						;char in (HL) is '0' ->  set C, else NC
+		ex 		DE,HL
+
+		; call 	writeSTRBelow
+		; DB 		0,"pop 	HL.. !",CR,LF,00
+		; call 	DumpRegisters
+
+		jr 		nz,findNextITEM    			; command match but is longer (more chars) cp list					
+		; ***	All char do match...
+
+		jp 		matchInList
+
+findNextITEM:
+		; ***	find next ITEM or LISTEND
+		ld 		a,(HL)
+		cp		ITEM
+		jr 		z,nextInList
+
+		cp 		LISTEND
+		jr 		NZ,.cont
+		inc 	sp
+		inc 	sp
+		jr 		inputerror
+
+.cont:	inc 	HL
+		jr 		findNextITEM
+
+nextInList:
+		inc 	HL
+		pop 	DE 						; DE start of typed string (again)
+		jr 		scanCommandList
+
+
+inputerror:
+		call 	writeSTRBelow
+		DB 		0,"Input Semantic Error... !",CR,LF,00
 		jp 		next_line
 
-shequal:
-		call 	writeSTRBelow_CRLF
-		DB 		0,"IS EQUAL !", 00
-		jp 		next_line
 
-		ld		HL,$6000
-		ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
-		ld		A,01
-		ld		(prevPacketByte01),A 				; store of packet numbers
 
-		call 	SetupXMODEM_TXandRX					 
+command_list:
+
+		db		ITEM,1,4,"load",STEND,1,1,1,0
+		db		ITEM,2,2,"dm",	STEND,1,1,1,0
+		db		ITEM,3,2,"pc",	STEND,1,1,1,0
+		db		ITEM,4,2,"cm",	STEND,1,1,1,0
+		db		ITEM,5,1,"$",	STEND,1,1,1,0
+		db		ITEM,6,3,"exe",	STEND,1,1,1,0
+		db		ITEM,7,2,"go",	STEND,1,1,1,0
+		db		ITEM,8,2,"++",	STEND,1,1,1,0
+		db		ITEM,9,2,"--",	STEND,1,1,1,0
+		db		ITEM,10,1,"nop",	STEND,1,1,1,0
+		db		LISTEND
+
+
+		; ld		HL,$6000
+		; ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
+		; ld		A,01
+		; ld		(prevPacketByte01),A 				; store of packet numbers
+
+		; call 	SetupXMODEM_TXandRX					 
+	
 
 ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
 ;---------------------------------------------------------------------------------
@@ -145,12 +214,7 @@ shequal:
 ; 		isDelimit(S)  is char in (A0) any of the delimiters specified in (A1) ? =>Z, else ~Z
 ; 		Parameters returned; A0 - Address of char
 
-;isDelimit:
-
-
-;delimChars:
-;		db   ' _-,=',0,0		
-
+;		commParseTable
 ;		***************************************************
 ;		***	decode input line;
 ;		*** <cmd>    "TEXT"  	$xxyyzz  xxyyzz
@@ -158,15 +222,15 @@ shequal:
 ;		************************************************************
 ;		*** commParseTable:
 ;		*** 00 : W : offset in jumptable
-;		***	02 : W : address/value index	
+;		***	01 : W : string index	
+;		***	02 : W : address index	
+;		***	03 : W : lvalue index	
 ;		*** 04 : L : address 1
-;		*** 08 : L : address 2
-;		*** 14 : L : value1
-;		*** 18 : L : value2
-;		*** 24 : L : text1 pointer
-;		*** 28 : L : text2 pointermonitor
-;		*** 34 : L : temp text pointer
-;		***	38 : textspace
+;		*** 06 : L : address 2
+;		*** 08 : L : lvalue1
+;		*** 0A : L : lvalue2
+;		*** 10 : L : text1   (F090-F0BF)
+;		*** 40 : L : text2 	 (F0C0-F0FF)	
 ;		***
 ;		***--------------------------------------
 
@@ -174,74 +238,89 @@ shequal:
 ;---------------------------------------------------------------------------------
 ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
 
+		; call	skipCharsUntilDelim			; set (HL) to first delimiter
+		; push 	HL
+		; pop  	BC							; typed command end+1 in BC
 
+		; ***	Prepares the commParseTable. Consumes HL,B,A
+initCommParseTable:
+		ld 		HL,commParseTable
 
-delimChars:
-		db   ' _-,=',0,0	
-				; 		isDelimit(S)  is char in (HL) any of the delimiters specified ? =>Z, else ~Z
-				; 		if char in (HL) is '0' ->  set C, else NC
-				; 		Parameters returned; HL - Address of char
-	
+		ld 		B,$80
+		sub 	A 					; clear A.
+.icpt:
+		ld 		(HL),A
+		inc 	HL
+		djnz 	.icpt
 
-isDelimit:
-		push 	DE
-				; HL points to string, DE points to delimiters
-		ld 		DE,delimChars
-		ld 		a,(HL) 			; char from string
-		or 		a 				; is a (DE) = 0 ?
-		jr 		z,exitZero
-
-		cp 		CR 				; check if A = 'CR'
-		jr 		z,exitZero
-nxtdelim:
-
-		ld 		A,(DE)			; actual delimiter
-		cp 		(HL)			; check present delimiter
-		jr 		z,exitDelim		; Z set
-
-
-		inc  	DE				; next delimiter
-		ld  	A,(DE)
-		or 		A 				; =0? 		
-		jr 		nz,nxtdelim     ; if no -> next delimiter
-		inc 	a 				; clear Z flag
-exitDelim:
-		scf	
-		ccf						; clear Carry (Z is set if (HL) is delimiter, cleared otherwise)
-		pop 	DE
 		ret
 
-exitZero:
-		; carry flag always cleared.
-		inc 	a 			; clear Z flag
-		scf 				; set Carry-char = '0'
-		pop 	DE
-		ret
+;---------------------------------------------------------------------------------
+;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
 
 
-skipPriorDelimit:
-				; increase HL until non delimiter (NZ) or #0 (Z) 
-				; HL points to acutal pos in 'Textbuf'
-		inc 	HL 				; skip past string length or next char	
-		call	isDelimit		;delimiters specified ? =>Z, else ~Z
-								;char in (HL) is '0' ->  set C, else NC
+matchInList:
+		; ***	Command found. Then, check for string input "<string>"
+		; ***	DE points to first delimiter after command 
+						;delimiters found ? =>Z, else ~Z
+						;char in (HL) is '0' ->  set C, else NC
 
-		ld 		a,(HL)			; A = value of actl. char						
-		ret 	C 				; end of string '0' or 'CR' found
+		inc 	sp
+		inc 	sp
+		ld 		IX,commParseTable
+		ld 		(IX),C 					; store the command number in (commParseTable)
+		call 	writeSTRBelow_CRLF
+		DB 		0,"Match in List  see (C).. !",CR,LF,00
 
-		ret 	NZ 				; NZ -> (HL) points to non delimiter
-		jr 		skipPriorDelimit
+		ld 		H,D
+		ld		L,E						; HL -> first char after command
+		call 	skipPriorDelimit 			; look for next char (  '"' ?)
+		jp 		C,temp_finish
+
+		ld 		A,(HL)
+		cp 		'"'							; beginning of string ?
+		jr 		NZ,checkaddress
+		; ***	extract string 
+		inc 	HL 				; skip '"' (HL)-> first char
+
+		ld 		D,H
+		ld		E,L						; DE -> first char after '"' <source>
+		call 	skipCharsUntilDelim			; find second '"'
+		dec 	HL 						; skip first delimiter (ev. CR)
+		dec 	HL 						; skip second '"'
+
+		and 	A
+		sbc 	HL,DE 					; amount of chars...
+		ld 		B,H						; amount of chars...
+		ld 		C,L						; amount of chars...
+		inc 	BC
+
+		ld 		HL,$F090			; address for first string
+		ld 		A,(HL)
+		or 		A 					; =0?
+		jr 		Z, .strone
+		ld 		HL,$F0C0			; address for second string
+		ld 		A,(HL)
+		or  	A					; =0 ?
+		jp 		NZ,inputerror			; too many strings
+.strone:
+		ex 		DE,HL 				; HL = <source>, DE = <dest>, size = BC
+		ldir 						; make the copy
+		ex		DE,HL
+		inc 	DE 					; (DE) past the second '"'
+		call 	DumpRegisters
+
+		jr 		matchInList
 
 
-skipCharsUntilDelim:
-				; increase HL until delimiter (NZ) or #0 (Z) 
-		inc 	HL 				; skip past string length or next char		
-		call	isDelimit		;delimiters specified ? =>Z, else ~Z
-								;char in (HL) is '0' ->  set C, else NC
-		ld 		a,(HL)			; A = value of actl. char						
-		ret 	C				; end of string '0' or 'CR' found
-		ret  	Z				; Z -> (HL) points to delimiter
-		jr 		skipCharsUntilDelim
+
+checkaddress:
+
+temp_finish:
+		call 	writeSTRBelow
+		DB 		0,"Finish parsing !",CR,LF,00
+		jp 		next_line
+
 
 awaitstart: 
 		call 	writeSTRBelow
@@ -410,22 +489,6 @@ halt_loop:
 ;*******************************************************************************     
 
 
-
-
-
-
-command_list:
-
-		db		ETX,1,5,"load",0Dh,0
-		db		ETX,2,3,"dm",0Dh,0
-		db		ETX,3,3,"pc",0Dh,0
-		db		ETX,4,3,"cm",0Dh,0
-		db		ETX,5,2,"$",0Dh,0
-		db		ETX,6,4,"exe",0Dh,0
-		db		ETX,7,3,"go",0Dh,0
-		db		ETX,8,3,"++",0Dh,0
-		db		ETX,9,3,"--",0Dh,0
-		db		ETB
 
 
 textloop:

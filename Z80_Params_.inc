@@ -182,6 +182,9 @@ FS			EQU		1Ch
 GS			EQU		1Dh
 RS			EQU		1Eh
 US			EQU		1Fh
+ITEM		EQU		1Ch
+STEND		EQU		1Dh
+LISTEND		EQU		1Eh
 SP			EQU		20h
 
 

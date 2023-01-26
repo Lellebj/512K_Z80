@@ -923,6 +923,7 @@ CRLF:
 
 			;Write character
 WriteChar:
+		push 	DE
 		push 	HL				; save the reg  for hexdump...
 		PUSH	AF				;SAVE CHARACTER TO OUTPUT
 			;wait for output buffer not full, then store next character
@@ -942,7 +943,8 @@ WaitOutBuff:
 		or		A
 		call	Z,CharToDart			; output character immediately if
 										; output interrupt not expected
-		pop 	HL						
+		pop 	HL		
+		pop 	DE				
 		ei						;reenable interrupts
 		ret
 			;output status (carry=1 if buffer is full)
@@ -1304,7 +1306,7 @@ writeSTRBelow:
         ret
 
 writeSTRBelow_CRLF:
-        ex      (sp),iy                 ; iy = @ of string to print
+       ex      (sp),iy                 ; iy = @ of string to print
 		call	WriteLineCRNL
         inc     iy                      ; point past the end of the string
         ex      (sp),iy
