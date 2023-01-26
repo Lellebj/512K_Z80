@@ -3,7 +3,8 @@
 
 		include "Z80_Params_.inc"
 
-		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size
+		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size,isHex
+		xref	isDelimit
 		
 		; String Manipulation
 		; 8A    String Compare    288
@@ -175,6 +176,33 @@ skipCharsUntilDelim:
 		ret  	Z				; Z -> (HL) points to delimiter
 		jr 		skipCharsUntilDelim
 
+
+isHex:
+		; ***	Check if characters are HEX ? 
+		; ***	from (HL)  .. 0..9,A..F -> NC  others -> C
+		ld 		A,(HL)
+		sub 	'0'
+		jp 		M,setCarry 			; less than '0'
+		cp 		10						
+		jp 		P,checkAF			; bigger than '9'
+		jp 		nextChar			; char between 0..9 -> OK
+
+checkAF:
+		and 	~$20				; clear bit 5  ($DF) mask to Upper case
+
+		sub 	7		
+		cp 		$0A
+		jp 		M,setCarry			; less than 'A'
+		cp 		$10		
+		jp 		P,setCarry			; bigger than 'F'
+		jp		nextChar			; char between A..F -> OK
+setCarry:
+		scf
+		ret							; return with Carry, some chars are NOT HEX
+nextChar:	
+		scf
+		ccf
+		ret							; return without Carry, chars are HEX
 
 	;****************************************************************************************************************
 	;****************************************************************************************************************

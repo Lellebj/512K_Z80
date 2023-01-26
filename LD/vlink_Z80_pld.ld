@@ -46,12 +46,19 @@
 
 	PROVIDE( S1x			=	0x40 + _String_HEAP);  	/*Textbuf + Textbufsize */
 	PROVIDE( commParseTable =	0x80 + _String_HEAP);  	/*command parser table, size $80-$100=$80 (128 bytes) */
+	PROVIDE( commAdr1 =			0x84 + _String_HEAP);  	/*command address 1  4 byte*/  
+	PROVIDE( commAdr2 =			0x88 + _String_HEAP);  	/*command address 2  4 byte*/
+	PROVIDE( commLvl1 =			0x90 + _String_HEAP);  	/*command lValue 1   16 byte*/
+	PROVIDE( commLvl2 =			0xA0 + _String_HEAP);  	/*command lValue 2 	 16 byte*/
+	PROVIDE( commStr1 =			0xB0 + _String_HEAP);  	/*command string 1 	 40 byte*/
+	PROVIDE( commStr2 =			0xD8 + _String_HEAP);  	/*command string 2 	 40 byte*/
 
 	PROVIDE( T_BUFFER 		=	0x100 + _String_HEAP);		/*;16-BYTE BUFFER */
 
 	PROVIDE( SP_value		=	0x120+ _String_HEAP);
 	PROVIDE( reg16_value	=	0x124+ _String_HEAP);
-	PROVIDE( num_chars		=	0x128+ _String_HEAP);
+	PROVIDE( PCvalue		=	0x126+ _String_HEAP);		/* actual PC value , 2 bytes */
+	PROVIDE( PCinpFlag		=	0x128+ _String_HEAP);		/* indicates input of typed address 2 byte */
 	PROVIDE( bufferSize		=	0x64		);				/*;SIZE OF INPUT BUFFER */
 	PROVIDE( inBuffer		=	0x130+ _String_HEAP);			/*	;INPUT BUFFER */
 	PROVIDE( inBufferEnd	=	0x194+ _String_HEAP);      		/*;END OF INPUT BUFFER */

@@ -4,7 +4,7 @@
 		include "Z80_Params_.inc"
 		
 		GLOBAL 	BN2BCD,BCD2BN, BN2HEX,Bin2Hex8,Bin2Hex16,HEX2BN,BN2DEC,DEC2BN,LC2UC
-		GLOBAL	DumpRegisters,MFILL,BLKMOV
+		GLOBAL	DumpRegisters,MFILL,BLKMOV,putDEtoScreen
 
 
 		; Code Conversion
@@ -237,10 +237,10 @@ AddToT_Buf:
 				; C0nversi0n (HEX2BN)                                                                                          4D
 
 				; C0nverts tw0 ASCII characters (represent-
-				; ing tw0 hexadecimal digits) t0 0ne byte 0f                   Registers Used: AF, B
+				; ing two hexadecimal digits) t0 one byte 0f                   Registers Used: AF, B
 				; binary data.                                                 Executi0n Time: 148 cycles plus tw0 extra cycles f0r
 				; 															each n0n-decimal digit
-				; Pr0cedure: The pr0gram c0nverts each ASCII
+				; Pr0cedure: The program c0nverts each ASCII
 				; 															Pr0gram Size: 24 bytes
 				; character separately t0 a hexadecimal digit. This            Data Mem0ry Required: N0ne
 				; inv0lves a simple subtracti0n 0f 3016 (ASCII 0)
@@ -272,30 +272,30 @@ AddToT_Buf:
 
 
 HEX2BN:
-			LD		A,L					;GET L0W CHARACTER
-			CALL	A2HEX				;C0NVERT IT T0 HEXADECIMAL
-			LD		B,A					;SAVE HEX VALUE IN B
-			LD		A,H					;GET HIGH CHARACTER
-			CALL	A2HEX				; C0NVERT IT T0 HEXADECIMAL
-			RRCA						;SHIFT HEX VALUE T0 UPPER 4 BITS
+			LD		A,L					;get l0w character
+			CALL	A2HEX				;c0nvert it t0 hexadecimal
+			LD		B,A					;save hex value in b
+			LD		A,H					;get high character
+			CALL	A2HEX				; c0nvert it t0 hexadecimal
+			RRCA						;shift hex value t0 upper 4 bits
 			RRCA
 			RRCA
 			RRCA
-			OR      B					;0R IN L0W HEX VALUE
+			OR      B					;or in low hex value
 			RET
 
 			;---------------------------------------
-			; SUBR0UTINE: A2HEX
-			; PURP0SE: C0NVERT ASCII DIGIT T0 A HEX DIGIT
-			; ENTRY: A = ASCII HEXADECIMAL DIGIT
-			;EXIT: A = BINARY VALUE 0F ASCII DIGIT
-			;REGISTERS USED: A,F
+			; subr0utine: a2hex
+			; purp0se: c0nvert ascii digit t0 a hex digit
+			; entry: a = ascii hexadecimal digit
+			;exit: a = binary value 0f ascii digit
+			;registers used: a,f
 			;--------------------------------------
 A2HEX:
-			SUB		'0'					;SUBTRACT ASCII 0FFSET
+			SUB		'0'					;subtract ascii 0ffset
 			CP		10
-			JR		C,A2HEX1			;BRANCH IF A IS A DECIMAL DIGIT
-			SUB		7					;ELSE SUBTRACT 0FFSET F0R LETTERS
+			JR		C,A2HEX1			;branch if a is a decimal digit
+			SUB		7					;else subtract 0ffset f0r letters
 A2HEX1:
 			RET
 
@@ -920,6 +920,20 @@ SC4I:
 			LD		A,081H                        ; EBCDIC .' a'"
 			CALL	EB2ASC                        ; ASCII "'a'" = 061H
 			JR		SC4I
+
+
+;*************************************************************************************************
+;*************************************************************************************************
+
+putDEtoScreen:
+		; Binary to HEX  BN2HEX   DE->(HL)
+		ld 		hl,T_BUFFER
+		inc		hl
+		call	Bin2Hex16			;result in T_buffer
+		ld 		iy,T_BUFFER
+		call	WriteLine
+		ret
+
 
 ;*************************************************************************************************
 ;*************************************************************************************************

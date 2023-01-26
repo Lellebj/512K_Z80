@@ -17,7 +17,7 @@
 			
 			xref	st2g1,st1g2,steq,subst
 			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
-			xref	sourctext1,sourctext2,endtext,src_size, writeSTRBelow
+			xref	sourctext1,sourctext2,endtext,src_size, writeSTRBelow,isHex
 		
 		xdef 	PLD_PCB_Start
 		xref 	A_RTS_OFF,A_RTS_ON
@@ -95,8 +95,26 @@ next_line:
 		call 	initCommParseTable
 
 
+		; 	*** Print prompt text to screen, value of PC and content in memory
+		ld 		DE,(PCvalue)
+		ld  	A,'['
+		call 	WriteChar
+
+		; ***	Address in parenthesis
+		call	putDEtoScreen
+
 		call 	writeSTRBelow
-		DB 		0,"Hello, enter command: >_", 00
+		DB 		0,"] = ", 00
+
+		; ***	Value of the bytes in address (2 bytes) to screen
+		ld 		HL,(PCvalue)
+		ld 		D,(HL)
+		inc 	HL
+		ld 		E,(HL)
+		call	putDEtoScreen
+
+		call 	writeSTRBelow
+		DB 		0," ,enter command: >_", 00
 
 		ld 		hl,Textbuf
 		call 	ReadLine
@@ -108,6 +126,10 @@ next_line:
 		; ld 		HL,Textbuf
 		; ld 		DE,command_list+2
 		; call	strCompare
+
+	;***************************************************************
+	;	Find /Identify command:
+	;***************************************************************
 
 		ld 		HL,Textbuf
 		call 	skipPriorDelimit			; set (HL) first char
@@ -160,22 +182,31 @@ findNextITEM:
 
 		cp 		LISTEND
 		jr 		NZ,.cont
-		inc 	sp
-		inc 	sp
-		jr 		inputerror
+
+		ld 		A,$FF
+		ld 		(PCinpFlag),A			; indicate ev. typed address to change PCV or bytes ...
+		pop 	HL					; HL start of typed string (again)
+		ld 		A,(HL)
+		jp 		checkaddress			; No more commands to check, check if address entered , '$'
+										; or direct input of bytes.....
 
 .cont:	inc 	HL
 		jr 		findNextITEM
 
 nextInList:
-		inc 	HL
+		inc 	HL						; points to item #
 		pop 	DE 						; DE start of typed string (again)
 		jr 		scanCommandList
 
 
+	;***************************************************************
+	;	Semantic error occurred in input :
+	;***************************************************************
+
 inputerror:
 		call 	writeSTRBelow
 		DB 		0,"Input Semantic Error... !",CR,LF,00
+		; call 	DumpRegisters
 		jp 		next_line
 
 
@@ -186,12 +217,11 @@ command_list:
 		db		ITEM,2,2,"dm",	STEND,1,1,1,0
 		db		ITEM,3,2,"pc",	STEND,1,1,1,0
 		db		ITEM,4,2,"cm",	STEND,1,1,1,0
-		db		ITEM,5,1,"$",	STEND,1,1,1,0
-		db		ITEM,6,3,"exe",	STEND,1,1,1,0
-		db		ITEM,7,2,"go",	STEND,1,1,1,0
-		db		ITEM,8,2,"++",	STEND,1,1,1,0
-		db		ITEM,9,2,"--",	STEND,1,1,1,0
-		db		ITEM,10,1,"nop",	STEND,1,1,1,0
+		db		ITEM,5,3,"exe",	STEND,1,1,1,0
+		db		ITEM,6,2,"go",	STEND,1,1,1,0
+		db		ITEM,7,2,"++",	STEND,1,1,1,0
+		db		ITEM,8,2,"--",	STEND,1,1,1,0
+		db		ITEM,9,1,"nop",	STEND,1,1,1,0
 		db		LISTEND
 
 
@@ -221,16 +251,13 @@ command_list:
 ;		*** command textstring 	address	 lvalue
 ;		************************************************************
 ;		*** commParseTable:
-;		*** 00 : W : offset in jumptable
-;		***	01 : W : string index	
-;		***	02 : W : address index	
-;		***	03 : W : lvalue index	
-;		*** 04 : L : address 1
-;		*** 06 : L : address 2
-;		*** 08 : L : lvalue1
-;		*** 0A : L : lvalue2
-;		*** 10 : L : text1   (F090-F0BF)
-;		*** 40 : L : text2 	 (F0C0-F0FF)	
+;		*** 00 : W : offset in jumptable  (F080)
+;		*** 04 : L : address 1  (F084-F087)
+;		*** 08 : L : address 2  (F088-F08B)
+;		*** 10 : L : lvalue1  (F090-F09F)
+;		*** 20 : L : lvalue2  (F0A0-F0AF)
+;		*** 57 : L : text1   (F0B0-F0D7)
+;		*** 58 : L : text2 	 (F0D8-F0FF)	
 ;		***
 ;		***--------------------------------------
 
@@ -244,6 +271,9 @@ command_list:
 
 		; ***	Prepares the commParseTable. Consumes HL,B,A
 initCommParseTable:
+		ld 		A,0
+		ld 		(PCinpFlag),A
+		ld 		(PCinpFlag+1),A
 		ld 		HL,commParseTable
 
 		ld 		B,$80
@@ -258,6 +288,9 @@ initCommParseTable:
 ;---------------------------------------------------------------------------------
 ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
 
+	;***************************************************************
+	;	Command identified -> now search for stringh :
+	;***************************************************************
 
 matchInList:
 		; ***	Command found. Then, check for string input "<string>"
@@ -267,18 +300,18 @@ matchInList:
 
 		inc 	sp
 		inc 	sp
-		ld 		IX,commParseTable
-		ld 		(IX),C 					; store the command number in (commParseTable)
+		ld 		HL,commParseTable
+		ld 		(HL),C 					; store the command number in (commParseTable)
 		call 	writeSTRBelow_CRLF
-		DB 		0,"Match in List  see (C).. !",CR,LF,00
+		DB 		0,"Found a valid command  see (C).. !",CR,LF,00
 
 		ld 		H,D
-		ld		L,E						; HL -> first char after command
+		ld		L,E						; DE -> HL -> first char after command
 		call 	skipPriorDelimit 			; look for next char (  '"' ?)
-		jp 		C,temp_finish
+		jp 		C,temp_finish				; C set from 'skipPriorDelimit'
 
 		ld 		A,(HL)
-		cp 		'"'							; beginning of string ?
+		cp 		'"'							; beginning of string ?̣
 		jr 		NZ,checkaddress
 		; ***	extract string 
 		inc 	HL 				; skip '"' (HL)-> first char
@@ -287,7 +320,13 @@ matchInList:
 		ld		E,L						; DE -> first char after '"' <source>
 		call 	skipCharsUntilDelim			; find second '"'
 		dec 	HL 						; skip first delimiter (ev. CR)
+		ld 		A,(HL)
+		cp 		'"' 					; found second '"' ??
+		jp 		NZ,inputerror
 		dec 	HL 						; skip second '"'
+	;***************************************************************
+	;	copy string to  'commParseTable'
+	;***************************************************************
 
 		and 	A
 		sbc 	HL,DE 					; amount of chars...
@@ -295,11 +334,11 @@ matchInList:
 		ld 		C,L						; amount of chars...
 		inc 	BC
 
-		ld 		HL,$F090			; address for first string
+		ld 		HL,commStr1			; address for first string
 		ld 		A,(HL)
 		or 		A 					; =0?
 		jr 		Z, .strone
-		ld 		HL,$F0C0			; address for second string
+		ld 		HL,commStr2			; address for second string
 		ld 		A,(HL)
 		or  	A					; =0 ?
 		jp 		NZ,inputerror			; too many strings
@@ -308,19 +347,123 @@ matchInList:
 		ldir 						; make the copy
 		ex		DE,HL
 		inc 	DE 					; (DE) past the second '"'
-		call 	DumpRegisters
 
 		jr 		matchInList
 
 
+	;***************************************************************
+	;	Check if address is specified in input 
+	;***************************************************************
+
 
 checkaddress:
+		ld 		(PCinpFlag+1),A		; if value '(PCinpFlag+1)' == '$' -> address input
+ 		cp 		'$'				; identified string ??
+		ld 		A,0
+		jr 		NZ,getLvalue
+		inc 	HL 				; skip past '$'
+
+chkADR1:
+	; ***		Check where to store address...
+		ld 		IX,commAdr1
+		or 		(IX)			; check if zero ? (already stored)
+		jr 		NZ,chkADR2
+		jr 		makeASCIItoHEX
+chkADR2:
+		ld 		IX,commAdr2
+		or 		(IX)			; check if zero ? (already stored)
+		jp 		NZ,inputerror	; error : No more addresses to store
+		jr 		makeASCIItoHEX
+
+getLvalue:
+		ld 		IX,commLvl1
+		or 		(IX)			; check if zero ? (already stored)
+		jr 		NZ,chkLVL2
+		jr 		makeASCIItoHEX
+
+chkLVL2:
+		ld 		IX,commLvl2
+		or 		(IX)			; check if zero ? (already stored)
+		jp 		NZ,inputerror	; error : No more addresses to store
+
+
+makeASCIItoHEX:
+		ld 		D,H
+		ld		E,L						; DE -> first char after '$' <source>
+		call 	skipCharsUntilDelim			; find next delimiter or CR
+		ld 		A,(HL)
+
+	;***************************************************************
+	;	copy string to  'commParseTable', IX points to dest address.
+	;***************************************************************
+
+		and 	A						; clear C
+		sbc 	HL,DE 					; amount of chars...->HL ( H=0)
+
+		bit 	0,L 					; even or odd (=1)?
+		jp 		NZ,inputerror
+
+		ld 		B,L 					; char counter
+
+		ex 		DE,HL					; HL -> first char after '$' <source>	
+nextByte:
+		call 	isHex					; return with Carry, some chars are NOT HEX
+		jp 		C,inputerror			; non HEX char
+		sla 	A
+		sla 	A
+		sla 	A
+		sla 	A
+		ld 		C,A
+		inc 	HL
+		dec 	B
+		call 	isHex					; return with Carry, some chars are NOT HEX
+		jp 		C,inputerror			; non HEX char
+		or 		C						; put together on byte in A
+		inc 	HL
+		ld 		(IX),A
+		inc 	IX
+		djnz 	nextByte
+
+		ld  	A,(PCinpFlag)
+		or  	A 						; =0 -> normal parameter save
+		jr 	   	Z,normalParam
+
+		ld  	A,(PCinpFlag+1) 		; address input for PCV ?
+		cp 		'$' 					; adress flag ?
+		jr 		Z,changePCVal
+		; ***	Store Bytes from LVL1 to (PCval) 
+
+
+		; ***	reset flag
+		ld 		A,0
+		ld 		(PCinpFlag),A
+		ld 		(PCinpFlag+1),A
+
+changePCVal:
+		; ***	Change PCvalue from 'commAdr1'
+		ld 		HL,(commAdr1)
+		ld 		A,H
+		ld 		H,L
+		ld 		L,A
+		ld 		(PCvalue),HL
+		; ***	reset flag
+		ld 		A,0
+		ld 		(PCinpFlag),A
+		ld 		(PCinpFlag+1),A
+
+normalParam:
+		call 	DumpRegisters
+
 
 temp_finish:
 		call 	writeSTRBelow
 		DB 		0,"Finish parsing !",CR,LF,00
+		; call 	DumpRegisters
 		jp 		next_line
 
+	;***************************************************************
+	;	Check if LVALUE is specified in input 
+	;***************************************************************
 
 awaitstart: 
 		call 	writeSTRBelow
