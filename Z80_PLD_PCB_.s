@@ -36,8 +36,8 @@ DO_Debug:	equ	1		; Set to 1 to show debug printing, else 0
 PLD_PCB_Start:	
 
 
-		ld 	A,$01
-		out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+		; ld 	A,$01
+		; out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
 
 		; ld 	A,$00
 		; out (_CE_RST_BANK),A 		;// set bank register (HC374) in high imp. defaults to bank #0
@@ -134,7 +134,7 @@ next_line:
 		ld 		HL,Textbuf
 		call 	skipPriorDelimit			; set (HL) first char
 
-		jp 		C,inputerror 				; end encountered; no command (empty line)	
+		jp 		C,temp_finish 				; end encountered; no command (empty line)	
 
 		push 	HL
 		pop  	DE							; typed command start in DE
@@ -159,19 +159,20 @@ findCommandInList:
 		djnz 	findCommandInList
 		
 		; ***	test char (DE); should be a delimiter...
-		ex 		DE,HL
-		call 	isDelimit
-						;delimiters found ? =>Z, else ~Z
-						;char in (HL) is '0' ->  set C, else NC
-		ex 		DE,HL
+		; ex 		DE,HL
+		; call 	isDelimit
+		; 				;delimiters found ? =>Z, else ~Z
+		; 				;char in (HL) is '0' ->  set C, else NC
+		; ex 		DE,HL
 
 		; call 	writeSTRBelow
 		; DB 		0,"pop 	HL.. !",CR,LF,00
 		; call 	DumpRegisters
 
-		jr 		nz,findNextITEM    			; command match but is longer (more chars) cp list					
-		; ***	All char do match...
+		; jr 		nz,findNextITEM    			; command match but is longer (more chars) cp list					
 
+		; ***	Found a matching command, All char do match...
+		; 		(HL) points to first after command
 		jp 		matchInList
 
 findNextITEM:
@@ -183,6 +184,7 @@ findNextITEM:
 		cp 		LISTEND
 		jr 		NZ,.cont
 
+		; ***	Command list did not match; check if direct address '$' or byte input
 		ld 		A,$FF
 		ld 		(PCinpFlag),A			; indicate ev. typed address to change PCV or bytes ...
 		pop 	HL					; HL start of typed string (again)
@@ -204,26 +206,41 @@ nextInList:
 	;***************************************************************
 
 inputerror:
+		push   	HL
 		call 	writeSTRBelow
-		DB 		0,"Input Semantic Error... !",CR,LF,00
-		; call 	DumpRegisters
+		DB 		0,"Input Semantic Error... ! :__ ",00
+		pop 	DE
+		call 	putDEtoScreen
+		call 	CRLF
+		call 	DumpRegisters
 		jp 		next_line
 
+command_addresses:
+		defw 	00
+		defw 	p_load
+		defw 	p_dumpmem
+		defw 	p_pc
+		defw 	p_clearmem
+		defw 	p_exe
+		defw 	p_go
+		defw 	p_incDecPC
+		defw 	p_incDecPC
 
 
 command_list:
+;		*** command textstring 	address	 lvalue
 
-		db		ITEM,1,4,"load",STEND,1,1,1,0
-		db		ITEM,2,2,"dm",	STEND,1,1,1,0
-		db		ITEM,3,2,"pc",	STEND,1,1,1,0
-		db		ITEM,4,2,"cm",	STEND,1,1,1,0
-		db		ITEM,5,3,"exe",	STEND,1,1,1,0
-		db		ITEM,6,2,"go",	STEND,1,1,1,0
-		db		ITEM,7,2,"++",	STEND,1,1,1,0
-		db		ITEM,8,2,"--",	STEND,1,1,1,0
-		db		ITEM,9,1,"nop",	STEND,1,1,1,0
+		db		ITEM,1,4,"load",STEND,%101,0
+		db		ITEM,2,2,"dm",	STEND,%001,0
+		db		ITEM,3,2,"pc",	STEND,%000,0
+		db		ITEM,4,2,"cm",	STEND,%000,0
+		db		ITEM,5,3,"exe",	STEND,%000,0
+		db		ITEM,6,2,"go",	STEND,%000,0
+		db		ITEM,7,2,"++",	STEND,%000,0
+		db		ITEM,8,2,"--",	STEND,%000,0
+		db		ITEM,9,1,"nop",	STEND,%000,0
 		db		LISTEND
-
+commListLen  equ   9
 
 		; ld		HL,$6000
 		; ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
@@ -301,54 +318,57 @@ matchInList:
 		inc 	sp
 		inc 	sp
 		ld 		HL,commParseTable
-		ld 		(HL),C 					; store the command number in (commParseTable)
+		ld 		(HL),C 					; store the command number in (commParseTable, F080)
 		call 	writeSTRBelow_CRLF
 		DB 		0,"Found a valid command  see (C).. !",CR,LF,00
-
 		ld 		H,D
-		ld		L,E						; DE -> HL -> first char after command
+		ld		L,E		
+		dec 	HL							; DE -> HL -> last char before delimiter
+paramLoopEntry:	
+
 		call 	skipPriorDelimit 			; look for next char (  '"' ?)
-		jp 		C,temp_finish				; C set from 'skipPriorDelimit'
+		jp 		C,executeCommand			; C set from 'skipPriorDelimit', no command parameters
 
 		ld 		A,(HL)
+
 		cp 		'"'							; beginning of string ?̣
-		jr 		NZ,checkaddress
+		jr 		NZ,checkaddress				;  NZ -> (HL) points to non delimiter
 		; ***	extract string 
-		inc 	HL 				; skip '"' (HL)-> first char
+		inc 	HL 							; skip '"' (HL)-> first char
 
 		ld 		D,H
-		ld		E,L						; DE -> first char after '"' <source>
+		ld		E,L							; DE -> first char after '"' <source>
 		call 	skipCharsUntilDelim			; find second '"'
-		dec 	HL 						; skip first delimiter (ev. CR)
+		dec 	HL 							; skip first delimiter (ev. CR)
 		ld 		A,(HL)
-		cp 		'"' 					; found second '"' ??
+		cp 		'"' 						; found second '"' ??
 		jp 		NZ,inputerror
-		dec 	HL 						; skip second '"'
+		dec 	HL 							; skip second '"'
 	;***************************************************************
 	;	copy string to  'commParseTable'
 	;***************************************************************
 
 		and 	A
-		sbc 	HL,DE 					; amount of chars...
-		ld 		B,H						; amount of chars...
-		ld 		C,L						; amount of chars...
+		sbc 	HL,DE 						; amount of chars...
+		ld 		B,H							; amount of chars...
+		ld 		C,L							; amount of chars...
 		inc 	BC
 
-		ld 		HL,commStr1			; address for first string
+		ld 		HL,commStr1				; address for first string
 		ld 		A,(HL)
-		or 		A 					; =0?
+		or 		A 						; =0?
 		jr 		Z, .strone
-		ld 		HL,commStr2			; address for second string
+		ld 		HL,commStr2				; address for second string
 		ld 		A,(HL)
-		or  	A					; =0 ?
+		or  	A						; =0 ?
 		jp 		NZ,inputerror			; too many strings
 .strone:
-		ex 		DE,HL 				; HL = <source>, DE = <dest>, size = BC
-		ldir 						; make the copy
-		ex		DE,HL
-		inc 	DE 					; (DE) past the second '"'
+		ex 		DE,HL 					; HL = <source>, DE = <dest>, size = BC
+		ldir 							; make the copy
+		; ex		DE,HL
+		inc 	HL 						; (HL) past the second '"'
 
-		jr 		matchInList
+		jr 		paramLoopEntry
 
 
 	;***************************************************************
@@ -357,40 +377,53 @@ matchInList:
 
 
 checkaddress:
-		ld 		(PCinpFlag+1),A		; if value '(PCinpFlag+1)' == '$' -> address input
- 		cp 		'$'				; identified string ??
+		; ***	A = (HL), first char after delimiter
+	call 	DumpRegisters
+		ld 		(PCinpFlag+1),A			; if value '(PCinpFlag+1)' == '$' -> address input
+ 		cp 		'$'						; identified string ??
 		ld 		A,0
-		jr 		NZ,getLvalue
-		inc 	HL 				; skip past '$'
+		jr 		NZ,getLvalue			; first value of A (PCinpFlag+1) is '$' ??
+		inc 	HL 						; skip past '$'
 
 chkADR1:
 	; ***		Check where to store address...
+
 		ld 		IX,commAdr1
+		ld 		A,0
 		or 		(IX)			; check if zero ? (already stored)
 		jr 		NZ,chkADR2
 		jr 		makeASCIItoHEX
 chkADR2:
+
 		ld 		IX,commAdr2
+		ld 		A,0
 		or 		(IX)			; check if zero ? (already stored)
 		jp 		NZ,inputerror	; error : No more addresses to store
 		jr 		makeASCIItoHEX
 
 getLvalue:
 		ld 		IX,commLvl1
+		ld 		A,0
 		or 		(IX)			; check if zero ? (already stored)
+	call 	DumpRegisters
 		jr 		NZ,chkLVL2
 		jr 		makeASCIItoHEX
 
 chkLVL2:
 		ld 		IX,commLvl2
+		ld 		A,0
 		or 		(IX)			; check if zero ? (already stored)
+	call 	DumpRegisters
 		jp 		NZ,inputerror	; error : No more addresses to store
 
 
 makeASCIItoHEX:
+		; ***	copy from command line to adr or lvalue in table
+		; ***	only two bytes (four chars)....
+		; 		IX point to destination...
 		ld 		D,H
 		ld		E,L						; DE -> first char after '$' <source>
-		call 	skipCharsUntilDelim			; find next delimiter or CR
+		call 	skipCharsUntilDelim			; find next delimiter or CR ; adr in HL
 		ld 		A,(HL)
 
 	;***************************************************************
@@ -398,37 +431,48 @@ makeASCIItoHEX:
 	;***************************************************************
 
 		and 	A						; clear C
-		sbc 	HL,DE 					; amount of chars...->HL ( H=0)
+		sbc 	HL,DE 					; amount of chars...->HL ( H=0); DE -> first char after '$' <source>
 
-		bit 	0,L 					; even or odd (=1)?
-		jp 		NZ,inputerror
+		; ***	Do not check even or odd...
+		; bit 	0,L 					; even or odd (=1)?
+		; jp 		NZ,inputerror
 
 		ld 		B,L 					; char counter
+		ld 		HL,00					;  
 
 		ex 		DE,HL					; HL -> first char after '$' <source>	
-nextByte:
-		call 	isHex					; return with Carry, some chars are NOT HEX
-		jp 		C,inputerror			; non HEX char
-		sla 	A
-		sla 	A
-		sla 	A
-		sla 	A
-		ld 		C,A
-		inc 	HL
-		dec 	B
-		call 	isHex					; return with Carry, some chars are NOT HEX
-		jp 		C,inputerror			; non HEX char
-		or 		C						; put together on byte in A
-		inc 	HL
-		ld 		(IX),A
-		inc 	IX
-		djnz 	nextByte
 
+nextHalfByte:
+
+		call 	isHex					; return with Carry, value in A is NOT HEX
+		jp 		C,inputerror			; 		; return with Carry, value in A is NOT HEX
+
+		sla 	E						; shift left E-> Carry
+		rl 		D 						; Carry -> rotate left D
+		sla 	E						; shift left E-> Carry
+		rl 		D 						; Carry -> rotate left D
+		sla 	E						; shift left E-> Carry
+		rl 		D 						; Carry -> rotate left D
+		sla 	E						; shift left E-> Carry
+		rl 		D 						; Carry -> rotate left D
+		or      E  						; A OR E(0..3) are zero
+		ld 		E,A
+
+		ld 		(IX),E					; store E value [big endian]
+		ld 		(IX+1),D				; store D value [big endian]
+
+		inc 	HL
+		; inc 	IX
+		djnz 	nextHalfByte
+		;***	HL should point to first delimiter...
+
+byteEnd:
 		ld  	A,(PCinpFlag)
 		or  	A 						; =0 -> normal parameter save
-		jr 	   	Z,normalParam
+	call 	DumpRegisters
+		jp 	   	Z,paramLoopEntry
 
-		ld  	A,(PCinpFlag+1) 		; address input for PCV ?
+		ld  	A,(PCinpFlag+1) 		; address input for PCValue ?
 		cp 		'$' 					; adress flag ?
 		jr 		Z,changePCVal
 		; ***	Store Bytes from LVL1 to (PCval) 
@@ -441,19 +485,23 @@ nextByte:
 
 changePCVal:
 		; ***	Change PCvalue from 'commAdr1'
+		push 	HL
 		ld 		HL,(commAdr1)
-		ld 		A,H
-		ld 		H,L
-		ld 		L,A
 		ld 		(PCvalue),HL
+		pop 	HL 						; restore value of first delimiter
 		; ***	reset flag
 		ld 		A,0
 		ld 		(PCinpFlag),A
 		ld 		(PCinpFlag+1),A
+		jp 		paramLoopEntry 				; loop and check for more parameters
 
-normalParam:
+executeCommand:	
+		; ***	execute commands (and arguments)
 		call 	DumpRegisters
 
+		call 	JPTable01
+		
+		; jp 		paramLoopEntry 				; loop and check for more parameters
 
 temp_finish:
 		call 	writeSTRBelow
@@ -464,6 +512,82 @@ temp_finish:
 	;***************************************************************
 	;	Check if LVALUE is specified in input 
 	;***************************************************************
+
+JPTable01:
+		ld 		A,(commParseTable) 			; retrieve command number
+		or 	  	A 							; error if 0
+		jp 		Z,inputerror
+		cp 		commListLen
+		ccf 						;complement carry for error indicator
+
+		jp      C,inputerror
+
+		push  	HL
+		sla 	A 							; multiply *2
+		ld 		HL,command_addresses
+
+		add		A, L						; addition to avoid disturbing
+		ld 		L,A							; another register pair
+		ld		A,0
+		adc		A,H
+		ld		H, A						; access routine address
+
+										;obtain routine address from table and transfer 
+										;control to it, leaving all register pairs unchanged
+		
+		ld 		A,(HL)
+
+		inc 	HL
+		ld 		H,(HL)
+		ld 		L,A
+
+		ex 		(SP),HL					;restore old HL, push routine address
+		ret 							; jump to routine
+
+		; exx
+		; ld		HL,$0077
+		; exx	
+		; call DumpRegisters
+
+
+
+p_load:
+		ret
+p_dumpmem:
+		ret
+p_pc:
+		ret
+p_clearmem:
+		ret
+p_exe:
+		ret
+p_go:
+		ret
+p_incDecPC:
+		ld 		HL,commLvl1
+		ld 		A,0
+		ld 		E,(HL)
+		inc 	HL
+		ld 		D,(hl) 				; DE = (commLvl1)
+		; ***	if both D and E is 0 -> DE = 1 		; no param -> A=1
+		cp 		E
+		jr 		NZ,.justOne
+		cp 		D
+		jr 		NZ,.justOne
+		ld 		DE,1
+.justOne:
+		ld 		A,(commParseTable)
+		ld 		HL,(PCvalue)
+		cp 		7 					; ++ (increase) ??
+		jr  	nz,.sub
+		add 	HL,DE 				; increase HL (PCvalue) with DE
+		jr 		.common
+.sub:
+		and 	A					; clear C
+		sbc 	HL,DE 				; decrease HL (PCvalue) with DE
+.common:
+		ld 		(PCvalue),HL
+		ret
 
 awaitstart: 
 		call 	writeSTRBelow
@@ -908,20 +1032,6 @@ chkTX2:
 		halt
 		inc A
 		jr Rtll			
-
-
-
-.boot_msg:
-	db	'\r\n\n'
-	db	'##############################################################################\r\n'
-	db	'Z80 Retro Board 2063.3 -- sd_test.asm\r\n'
-	db	'      git: @@GIT_VERSION@@\r\n'
-	db	'    build: @@DATE@@\r\n'
-	db	'\0'
-
-
-
-
 
 
 

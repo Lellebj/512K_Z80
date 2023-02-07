@@ -805,12 +805,12 @@ waitForKey:
 
 ReadLine:
 R_LOOP:
-		CALL	ReadChar				;READ CHARACTER
-		PUSH	AF
-		CALL	WriteChar				;ECHO CHARACTER
-		POP		AF
-		CP		CRChar					;IS CHARACTER AN CR?
-		JR		NZ,R_LOOP				;STAY IN LOOP IF NOT
+		call	ReadChar				;read character
+		push	AF
+		call	WriteChar				;echo character
+		pop		AF
+		cp		CRChar					;is character an cr?
+		jr		NZ,R_LOOP				;stay in loop if not
 
 		call	CRNL
 			; copy from inbuf to cursor buffer...

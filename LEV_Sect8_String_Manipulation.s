@@ -112,7 +112,7 @@ S2:		DB		20H					;string 2
 
 
 delimChars:
-		db   ' _-,=',CR,0,0	
+		db   ' _&/#,=',CR,0,0	
 				; 		isDelimit(S)  is char in (HL) any of the delimiters specified ? =>Z, else ~Z
 				; 		if char in (HL) is '0' ->  set C, else NC
 				; 		Parameters returned; HL - Address of char
@@ -198,11 +198,11 @@ checkAF:
 		jp		nextChar			; char between A..F -> OK
 setCarry:
 		scf
-		ret							; return with Carry, some chars are NOT HEX
+		ret							; return with Carry, value in A is NOT HEX
 nextChar:	
 		scf
 		ccf
-		ret							; return without Carry, chars are HEX
+		ret							; return without Carry, value in A is HEX
 
 	;****************************************************************************************************************
 	;****************************************************************************************************************

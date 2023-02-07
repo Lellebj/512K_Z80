@@ -57,8 +57,9 @@
 
 	PROVIDE( SP_value		=	0x120+ _String_HEAP);
 	PROVIDE( reg16_value	=	0x124+ _String_HEAP);
-	PROVIDE( PCvalue		=	0x126+ _String_HEAP);		/* actual PC value , 2 bytes */
-	PROVIDE( PCinpFlag		=	0x128+ _String_HEAP);		/* indicates input of typed address 2 byte */
+	PROVIDE( validCommand	=	0x126+ _String_HEAP);		/* command number found 1 byte */
+	PROVIDE( PCvalue		=	0x128+ _String_HEAP);		/* actual PC value , 2 bytes */
+	PROVIDE( PCinpFlag		=	0x12A+ _String_HEAP);		/* indicates input of typed address 2 byte */
 	PROVIDE( bufferSize		=	0x64		);				/*;SIZE OF INPUT BUFFER */
 	PROVIDE( inBuffer		=	0x130+ _String_HEAP);			/*	;INPUT BUFFER */
 	PROVIDE( inBufferEnd	=	0x194+ _String_HEAP);      		/*;END OF INPUT BUFFER */
