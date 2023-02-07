@@ -1,4 +1,12 @@
-    section Functions
+		include "Z80_Params_.inc"
+
+	ifndef ONESECTION
+		section Functions
+	else
+		section singleAssembly
+	endif
+
+
         GLOBAL  Flash_WR_Test,Flash_SE_Erase
 
 ;********************************************************************************************
@@ -27,6 +35,7 @@ Flash_WR_Test:
 ;********************************************************************************************
 ;********************************************************************************************	
 Flash_SE_Erase:
+		; ***	erase the sector that contain the address of HL
 		ld	A,$00
 		out (_Z80_BankCS),A			;// clear '64K_SRAM' signal
 

@@ -37,7 +37,7 @@ Build/512K_Z80.bin.EEtestprog
 Build/512K_Z80.bin.Functions
 Build/512K_Z80.bin.INT_IM1
 Build/512K_Z80.bin.IOLIB
-Build/512K_Z80.bin.Samples
+Build/512K_Z80.bin.Monitor
 Build/512K_Z80.bin.SD_HELLO
 Build/512K_Z80.bin.SD_SPI_FUNC
 Build/*.o

@@ -64,20 +64,8 @@
 	PROVIDE( generalFlags	=	0x12E + _String_HEAP);		/* indicates general flags, 2 byte */
 	PROVIDE( bufferSize		=	0x64		);				/*;SIZE OF INgeneral flags,  */
 	PROVIDE( inBuffer  		 =	0x130 + _String_HEAP);			/*	INPUT BUFFER */
-	PROVIDE( inBufferEnd	=	0x194 + _String_HEAP);      	/*;END OF INPUT BUFFER */
-	PROVIDE( inbufferDeactivate = 0x196+ _String_HEAP); 		/* if > 0: do not update inbuffer at char read */			
-	PROVIDE( memBankID		= 	0x198 + _String_HEAP); 			/* memoryBank value  b7-flash on/off b4-6:EEPBank b0-3:RAMBank */	
-
-	PROVIDE( inHeadAdr		=	0x19A + _String_HEAP);			/*	address of oldest character in input buffer DS	2	*/
-	PROVIDE( inTailAdr		=	0x19C + _String_HEAP);			/*	address of newest character in input buffer DS	2	*/
-	PROVIDE( inBufCount		=	0x19E + _String_HEAP);			/*	number of characters in input buffer DS	1	*/
-	PROVIDE( outHeadAdr		=	0x1A0 + _String_HEAP);			/*	address of oldest character in output buffer	DS	2	*/
-	PROVIDE( outTailAdr		=	0x1A2 + _String_HEAP);			/*	address of newest character in output buffer	DS	2	*/
-	PROVIDE( OutBufCount	=	0x1A4 + _String_HEAP);			/*	number of characters in output buffer	DS	1	*/
-	PROVIDE( OutINTExpect	=	0x1A6 + _String_HEAP);			/*	output interrupt expected	DS	1	*/
-														/*; (0 = no interrupt expected.
-														; ff = interrupt expected)*/
-
+	PROVIDE( inBufferEnd	=	0x194 + _String_HEAP);      		/*;END OF INPUT BUFFER */
+	PROVIDE( inbufferDeactivate = 0x196+ _String_HEAP); 			/* if > 0: do not update inbuffer at char read */			
 	PROVIDE( outBufferSize	=	160	);							/*	;SIZE OF OUTPUT BUFFER */
 	PROVIDE( outBuffer		=	0x200+ _String_HEAP);	         	 	/*;OUTPUT BUFFER */
 	PROVIDE( endOutBuffer	=	0x2F0+ _String_HEAP);	/*		END OF OUTPUT BUFFER */
@@ -123,27 +111,25 @@
 			_EEprog_end = .;
 			} > EEPROM
 
-/*
-		singleAssembly	_RAMSTART :
+
+		singleAssembly	_RAMSTART : 
 		{
-			KEEP( *.o(singleAssembly))  :
+			KEEP( *.o (singleAssembly))  :
 			_singleAssemblySRam_end  = .;
 		}	> RAM
-*/
 
 
-		Monitor	_RAMSTART  :
+		Monitor	_RAMSTART  :  
 		{
 			KEEP( *.o(Monitor))
 			_MainSRam_end  = .;
 		}	> RAM
 
 
-		Functions	ALIGN (0x400)  :
+		Functions	ALIGN (0x800)  :
 		/* Functions	_FUNCTIONS : */
 		{
-			KEEP ( *.o (Functions)) ;
-
+			KEEP ( *.o (Functions))
 			_Funk_end = .;
 		} 	> RAM
 
@@ -170,6 +156,8 @@
 			_HEAP_end = .;
 		} 	> RAM
 */
+		
+	
 
 	_end = .;
 

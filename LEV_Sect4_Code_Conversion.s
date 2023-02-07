@@ -1,7 +1,14 @@
 	
-		Section Functions	
-
 		include "Z80_Params_.inc"
+	
+	ifndef ONESECTION
+		section	Functions	
+
+	else
+		section singleAssembly
+	endif
+
+
 		
 		GLOBAL 	BN2BCD,BCD2BN, BN2HEX,Bin2Hex8,Bin2Hex16,HEX2BN,BN2DEC,DEC2BN,LC2UC
 		GLOBAL	DumpRegisters,MFILL,BLKMOV,putDEtoScreen
@@ -175,51 +182,54 @@ Bin2Hex16:
 			;  output 4 chars to textbuf (HL),
 			;	output:  HL-> end of string '0'
 			;**********************************
-
+			push 	DE
 			call	cnv_byte
+			jr      entr8
 Bin2Hex8:
 			;**************************************
 			;  input in E
 			;  output 2 chars to textbuf (HL)
 			;	output:  HL-> end of string '0'
 			;**********************************
-			ld		D,E					; move low byte to D
+			push  	DE
+entr8:		ld		D,E					; move low byte to d
 			call	cnv_byte
-			xor 	A			; reset A
-			ld 		(hl),A		; put 0 to end of chars, (HL)-> end of chars
+			xor 	A			; reset a
+			ld 		(hl),A		; put 0 to end of chars, (hl)-> end of chars
+			pop 	DE
 			ret
 
 
 cnv_byte:	ld 		A,D
-			rra							;M0VE HIGH NIBBLE T0 L0W NIBBLE
+			rra								;move high nibble to low nibble
 			rra
 			rra							
 			rra
-			and		0FH				;GET HIGH NIBBLE
-         	call	AddToT_Buf				;C0NVERT HIGH NIBBLE T0 ASCII
+			and		0FH						;get high nibble
+         	call	AddToT_Buf				;convert high nibble to ascii
 			ld 		A,D
-			and		0FH				;GET low NIBBLE
-         	call	AddToT_Buf				;C0NVERT low NIBBLE T0 ASCII
+			and		0FH						;get low nibble
+         	call	AddToT_Buf				;convert low nibble to ascii
 			ret
 
            ;-----------------------------------
-           ; SUBR0UTI AddToT_Buf
-           ; PURP0SE:    C0NVERT A HEXADECIMAL DIGIT T0 ASCI I
-           ; ENTRY: A = BINARY DATA IN L0WER NIBBLE
-           ;EXIT: A = ASCII CHARACTER
-           ;REGISTERS USED: A,F
+           ; subr0uti addtot_buf
+           ; purp0se:    c0nvert a hexadecimal digit t0 asci i
+           ; entry: a = binary data in l0wer nibble
+           ;exit: a = ascii character
+           ;registers used: a,f
            ;-----------------------------------
            
 AddToT_Buf:
-			CP		10
-			JR		C,.AT1				;JUMP IF HIGH NIBBLE < 10
-			ADD		A,7					; ELSE ADD 7 S0 AFTER ADD I NG .' 0" THE
-										; CHARACTER WILL BE IN 'A' .. 'F'
+			cp		10
+			jr		C,.AT1				;jump if high nibble < 10
+			add		A,7					; else add 7 s0 after add i ng .' 0" the
+										; character will be in 'a' .. 'f'
 .AT1:
-			ADD		A,'0'				;ADD ASCII 0 T0 MAKE A CHARACTER
+			add		A,'0'				;add ascii 0 t0 make a character
 			ld		(hl),A				; add the char to text buffer
 			inc 	hl
-			RET
+			ret
 
 
         ;    SAMPLE EXECUTI0N:
@@ -982,25 +992,25 @@ DumpRegisters:
 		ld		ix,(SP_value)		; ix  points to stack
 
 		ld 		iy,RegLabels1
-		rst		8h				; writeline CRLF
+		call 	WriteLineCRNL
 
 		ld		hl,S1x
 		call	display_4_registers
-		rst		20h				;CRLF
+		call  	CRLF
 
 		ld 		iy,RegLabels2
-		rst		8h				; writeline CRLF
+		call 	WriteLineCRNL
 
 		ld		hl,S1x
 		call	display_4_registers
-		rst		20h				;CRLF
+		call 	CRLF
 
 		ld 		iy,RegLabels3
-		rst		8h			; writeline CRLF
+		call	WriteLineCRNL
 
 		ld		hl,S1x
 		call	display_4_registers
-		rst		20h				;CRLF
+		call 	CRLF
 
 			; display status flags  	DB		38," S Z X H X P N C",0
 		ld		A,(ix+16)
@@ -1025,20 +1035,20 @@ all_flags:
 		ld 		(hl),a				; set end of string
 		call	adjust_txtbuf_length
 		ld 		iy,S1x
-		rst		8				;WriteLineCRNL
+		call 	WriteLineCRNL
 
 		call 	waitForKey
 		call 	CRLF
 
 
-		ex		af,af'
 		exx
+		ex		af,af'
 		pop	hl
 		pop	de
 		pop	bc
 		pop af
-		ex	af,af'
 		exx
+		ex	af,af'
 		pop hl
 		pop	de
 		pop	BC
@@ -1095,7 +1105,7 @@ display_regs:
 		ld 		(hl),A
 
 		ld 		iy,S1x
-		rst		8				;WriteLineCRNL
+		call	WriteLineCRNL
 		ret
 
 
@@ -1129,13 +1139,13 @@ display_n_8registers:
 		ld 		(hl),A
 
 		ld 		iy,S1x
-		rst		8				;WriteLineCRNL
+		call 	WriteLineCRNL
 		ret
 
 
 ;********************************************************************************************
 ;********************************************************************************************	
-
+		global 	add_space
 
 		; set new length in string pos 0 (HL)-> end of string
 
@@ -1288,6 +1298,7 @@ DOLEFT:
 
 
 
+		align 4
 
 
 

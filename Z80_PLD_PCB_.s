@@ -8,13 +8,16 @@
 ;		section MainSRam			; main program in sram
 ;********************************************************		
 
-			section Samples
+	
+		section	Monitor
+
 
 
 			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, BN2DEC,BN2DEC_S,DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
 			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
 			xref	Textbuf, inBufferEnd,inBuffer,cleanInBuffer,cleanOutBuffer,InitInterrupt
-			
+			xref	dumpMemory
+
 			xref	st2g1,st1g2,steq,subst
 			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
 			xref	sourctext1,sourctext2,endtext,src_size, writeSTRBelow,isHex
@@ -36,26 +39,41 @@ DO_Debug:	equ	1		; Set to 1 to show debug printing, else 0
 PLD_PCB_Start:	
 
 
-		; ld 	A,$01
-		; out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
 
-		; ld 	A,$00
-		; out (_CE_RST_BANK),A 		;// set bank register (HC374) in high imp. defaults to bank #0
 		; jp 	RTestprog
+		ld 		A,$33
+		out 	(gpio_out),A
 
 
+		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
+		ld		DE,SRAM_VAR_START		; defined in linker script
+		ld		hl,zero_byte
+		
+		ld 		BC,HEAP_SIZE			; defined in linker script
 
-		call	Init_RAM_HEAP			; put zero values to addr $F000 - $F200
+.cl_vars:
+		ldi
+		dec 	hl
+		jp		PE,.cl_vars			; 		P/V is set if BC – 1 ≠ 0; otherwise, it is reset.
+
+		ld 		($F120),SP
+		ld 		A,$AA
+		out 	(gpio_out),A
 
 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE DART. INTERRUPT SYSTEM
-
+			; initialize buffer counters and pointers.
+	 
 		call	PIO_Init
 		
-		; call 	CTC_Init
+		call 	CTC_Init
+		ld 		A,$CC
+		out 	(gpio_out),A
 
 		call 	DART_Init
 		
 		call	S_head_tail			; save input heads and tails
+		ld 		A,$81
+		out 	(gpio_out),A
 
 		; call	sh_test
 		;call 	Flash_WR_Test
@@ -80,17 +98,6 @@ PLD_PCB_Start:
 		; db		"  PIO init: D0-3 outputs ! ",0
 
 next_line:
-		; ld 		a,(0x8800)
-		; ; ld 		A,3
-		; out 	(portB_Data),A
-		; inc 	A
-		; ld 		(0x8800),A
-
-		sub  	A
-		ld 		(0x8800),A
-
-		; call 	RX_EMP
-		; call 	TX_EMP
 
 		call 	initCommParseTable
 
@@ -121,6 +128,8 @@ next_line:
 
 		ld 		iy,Textbuf
 		call	WriteLineCRNL
+		; ld 		A,5
+		; out 	(portA_Data),A
 
 		;***  	compare input
 		; ld 		HL,Textbuf
@@ -133,6 +142,8 @@ next_line:
 
 		ld 		HL,Textbuf
 		call 	skipPriorDelimit			; set (HL) first char
+		; ld 		A,7
+		; out 	(portA_Data),A
 
 		jp 		C,temp_finish 				; end encountered; no command (empty line)	
 
@@ -142,6 +153,8 @@ next_line:
 		; ***	Search command in 'command_list:'
 		;  		DE = typed command first char in DE (Textbuf)
 		ld 		HL,command_list+1			; first char in first command in the list
+		; ld 		A,9
+		; out 	(portA_Data),A
 
 scanCommandList:
 		ld 		C,(HL)						; command # in C
@@ -174,6 +187,7 @@ findCommandInList:
 		; ***	Found a matching command, All char do match...
 		; 		(HL) points to first after command
 		jp 		matchInList
+zero_byte:	db  0
 
 findNextITEM:
 		; ***	find next ITEM or LISTEND
@@ -212,7 +226,7 @@ inputerror:
 		pop 	DE
 		call 	putDEtoScreen
 		call 	CRLF
-		call 	DumpRegisters
+	call DumpRegisters	
 		jp 		next_line
 
 command_addresses:
@@ -225,7 +239,10 @@ command_addresses:
 		defw 	p_go
 		defw 	p_incDecPC
 		defw 	p_incDecPC
-
+		defw 	p_FON
+		defw 	p_FOFF
+		defw 	p_epwr
+		defw 	p_epse
 
 command_list:
 ;		*** command textstring 	address	 lvalue
@@ -238,9 +255,16 @@ command_list:
 		db		ITEM,6,2,"go",	STEND,%000,0
 		db		ITEM,7,2,"++",	STEND,%000,0
 		db		ITEM,8,2,"--",	STEND,%000,0
-		db		ITEM,9,1,"nop",	STEND,%000,0
+		db		ITEM,9,5,"f-on",	STEND,%000,0
+		db		ITEM,9,8,"flash-on",	STEND,%000,0
+		db		ITEM,10,6,"f-off",	STEND,%000,0
+		db		ITEM,10,9,"flash-off",	STEND,%000,0
+		db		ITEM,11,4,"epwr",	STEND,%000,0
+		db		ITEM,12,4,"epse",	STEND,%000,0
+
+		db		ITEM,12,1,"nop",	STEND,%000,0
 		db		LISTEND
-commListLen  equ   9
+commListLen  equ   15
 
 		; ld		HL,$6000
 		; ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
@@ -378,9 +402,9 @@ paramLoopEntry:
 
 checkaddress:
 		; ***	A = (HL), first char after delimiter
-	call 	DumpRegisters
+
 		ld 		(PCinpFlag+1),A			; if value '(PCinpFlag+1)' == '$' -> address input
- 		cp 		'$'						; identified string ??
+		cp 		'$'						; identified string ??
 		ld 		A,0
 		jr 		NZ,getLvalue			; first value of A (PCinpFlag+1) is '$' ??
 		inc 	HL 						; skip past '$'
@@ -389,31 +413,27 @@ chkADR1:
 	; ***		Check where to store address...
 
 		ld 		IX,commAdr1
-		ld 		A,0
-		or 		(IX)			; check if zero ? (already stored)
+		; ld 		A,0
+		cp 		(IX)			; check if zero ? (already stored)
 		jr 		NZ,chkADR2
 		jr 		makeASCIItoHEX
 chkADR2:
 
 		ld 		IX,commAdr2
-		ld 		A,0
-		or 		(IX)			; check if zero ? (already stored)
+		; ld 		A,0
+		cp 		(IX)			; check if zero ? (already stored)
 		jp 		NZ,inputerror	; error : No more addresses to store
 		jr 		makeASCIItoHEX
 
 getLvalue:
 		ld 		IX,commLvl1
-		ld 		A,0
-		or 		(IX)			; check if zero ? (already stored)
-	call 	DumpRegisters
+		cp 		(IX)			; check if zero ? (already stored)
 		jr 		NZ,chkLVL2
 		jr 		makeASCIItoHEX
 
 chkLVL2:
 		ld 		IX,commLvl2
-		ld 		A,0
-		or 		(IX)			; check if zero ? (already stored)
-	call 	DumpRegisters
+		cp 		(IX)			; check if zero ? (already stored)
 		jp 		NZ,inputerror	; error : No more addresses to store
 
 
@@ -468,8 +488,7 @@ nextHalfByte:
 
 byteEnd:
 		ld  	A,(PCinpFlag)
-		or  	A 						; =0 -> normal parameter save
-	call 	DumpRegisters
+		or  	A 						; check Z; =0 -> normal parameter save
 		jp 	   	Z,paramLoopEntry
 
 		ld  	A,(PCinpFlag+1) 		; address input for PCValue ?
@@ -479,9 +498,10 @@ byteEnd:
 
 
 		; ***	reset flag
-		ld 		A,0
-		ld 		(PCinpFlag),A
-		ld 		(PCinpFlag+1),A
+		; ld 		A,0
+		; ld 		(PCinpFlag),A
+		; ld 		(PCinpFlag+1),A
+		jp 		paramLoopEntry 				; loop and check for more parameters
 
 changePCVal:
 		; ***	Change PCvalue from 'commAdr1'
@@ -489,17 +509,22 @@ changePCVal:
 		ld 		HL,(commAdr1)
 		ld 		(PCvalue),HL
 		pop 	HL 						; restore value of first delimiter
-		; ***	reset flag
-		ld 		A,0
-		ld 		(PCinpFlag),A
-		ld 		(PCinpFlag+1),A
 		jp 		paramLoopEntry 				; loop and check for more parameters
 
 executeCommand:	
 		; ***	execute commands (and arguments)
-		call 	DumpRegisters
+		
+		ld 		A,(PCinpFlag)
+		or 		A   					; check if zero  
+		jr 		NZ,.noJump
 
 		call 	JPTable01
+.noJump:
+		; ***	reset flag
+		ld 		A,0
+		ld 		(PCinpFlag),A
+		ld 		(PCinpFlag+1),A
+
 		
 		; jp 		paramLoopEntry 				; loop and check for more parameters
 
@@ -554,6 +579,8 @@ JPTable01:
 p_load:
 		ret
 p_dumpmem:
+		call 	dumpMemory
+
 		ret
 p_pc:
 		ret
@@ -588,6 +615,52 @@ p_incDecPC:
 .common:
 		ld 		(PCvalue),HL
 		ret
+
+p_FON:
+		; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0)
+
+		call 	setIC620HighImp
+
+
+		call 	writeSTRBelow
+		DB 		0,"FL_ON: Test print after __CE_RST_BANK: !",CR,LF,00
+		ret
+
+p_FOFF:
+		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1)
+		call 	disable
+		ld A,1
+		out (_CE_RST_BANK),A		;IC620 (HC374) goes active.. all signals = inp A.
+		ld 	A,$80	
+		out (_Z80_BankCS),A			; set bank register number 0 and 64K_SRAM=1	
+
+		call 	writeSTRBelow
+		DB 		0,"FL_OFF: Test print after __CE_RST_BANK: !",CR,LF,00
+
+
+		ret
+
+
+p_epwr:
+		; *** 	testwrite to EEPROM
+		call 	Flash_WR_Test
+		ret
+
+
+p_epse:
+		; *** 	erase the sector that contain the address of HL
+
+		push	HL
+		ld 		HL,$2010
+		call 	Flash_SE_Erase
+		pop 	HL
+		ret
+
+
+
+;********************************************************************************************     
+;********************************************************************************************     
+
 
 awaitstart: 
 		call 	writeSTRBelow
@@ -795,7 +868,7 @@ textloop:
 		; CALL 	COPY			; COPY SUBSTRING
 
 		; ld 		iy,COPY_BUFFER
-		; rst		8				;WriteLineCRNL ; print the copy string
+		; call 		WriteLineCRNL ; print the copy string
 
 
 		; test DELETE
@@ -807,7 +880,7 @@ textloop:
 		CALL 	DELETE 			; DELETE CHARACTERS
 									; DELETING 4 CHARACTERS STARTING AT INDEX 1
 		; ld 		iy,Str0
-		; rst		8				;WriteLineCRNL ; print the copy string
+		; call 		WriteLineCRNL ; print the copy string
 
 
 		;test INSERT
@@ -1033,6 +1106,6 @@ chkTX2:
 		inc A
 		jr Rtll			
 
-
+		align 4
 
 .end

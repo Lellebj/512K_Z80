@@ -10,8 +10,6 @@
 ; HD44780_main_init = $3000
 
 
-
-
 ; PIO addressess...
 portA_Contr:	equ _Z80PIO_Base + 1
 portB_Contr:	equ _Z80PIO_Base + 3
@@ -251,7 +249,6 @@ SP			EQU		20h
 ;****************************************************************************
 
 
-flash_disable:		equ	0x70		; dummy-read from this port to disable the FLASH
 
 gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
 gpio_out:		equ		portA_Data		; GP output port (repl with PIO A)
@@ -259,13 +256,13 @@ gpio_out:		equ		portA_Data		; GP output port (repl with PIO A)
 
 
 ; Define the memory size to be used for the CP/M configuration
-MEM:    equ 60
+; MEM:    equ 60
 
 ; The CPM origin will be at: (MEM-7)*1024
 ; This screwy convention is due to the way that that the CP/M origin is defined.
-CPM_BASE:	equ	(MEM-7)*1024
+; CPM_BASE:	equ	(MEM-7)*1024
 
-LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
+; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
 
-stacktop: equ	LOAD_BASE	; So the SD loader does not overwrite!
+stacktop: equ	0xFFF0	
 

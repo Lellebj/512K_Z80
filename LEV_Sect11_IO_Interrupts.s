@@ -1,6 +1,15 @@
 
 		INCLUDE "Z80_Params_.inc"
-		Section IOLIB
+
+			
+	ifndef ONESECTION
+		Section Functions
+
+	else
+		section singleAssembly
+	endif
+
+
 					
 				
 					; Interrupts
@@ -1005,8 +1014,6 @@ InitInterrupt:
 		ld		HL,CTC_CH3_Interrupt_Handler
 		ld		(CTC_CH3_I_Vector),HL		;STORE CTC channel 3 VECTOR
 
-
-
 		ret
 DART_Init:		
 		;INITIALIZE I/O PORTS
@@ -1021,11 +1028,10 @@ ReadINTHandler:
 		push	DE
 		push   	HL
 
-
 		in		A,(DART_A_D)		; read data from dart
 		ld		C,A					; save data in register c
 		ld 		a,(inbufferDeactivate)
-		cp 		00 					; =0 		
+		cp 		$00 					; =0 		
 		jr 		nz,exitRHandler
 
 		ld		HL,inBufCount		; any room in input buffer?
@@ -1239,15 +1245,16 @@ DARTINT:
 								; FUNCTION)
 		DB	0               ; END OF TABLE
 		; DATA SECTION
-inHeadAdr:	DS	2					; address of oldest character in input buffer
-inTailAdr:	DS	2					; address of newest character in input buffer
-inBufCount:	DS	1					;number of characters in input buffer 
-outHeadAdr:	DS	2					;address of oldest character in output buffer
-outTailAdr:	DS	2					;address of newest character in output buffer
-OutBufCount:	DS	1				;number of characters in output buffer
-OutINTExpect:	DS	1					;output interrupt expected
-								; (0 = no interrupt expected.
-								; ff = interrupt expected)
+		; Moved to linker script 
+; inHeadAdr:	DS	2					; address of oldest character in input buffer
+; inTailAdr:	DS	2					; address of newest character in input buffer
+; inBufCount:	DS	1					;number of characters in input buffer 
+; outHeadAdr:	DS	2					;address of oldest character in output buffer
+; outTailAdr:	DS	2					;address of newest character in output buffer
+; OutBufCount:	DS	1				;number of characters in output buffer
+; OutINTExpect:	DS	1					;output interrupt expected
+; 								; (0 = no interrupt expected.
+; 								; ff = interrupt expected)
 
 
 		; SAMPLE EXECUTION:
@@ -1349,4 +1356,5 @@ PIO_Init:
 		out (portB_Data), a
 	ret
 
+		align 4
 

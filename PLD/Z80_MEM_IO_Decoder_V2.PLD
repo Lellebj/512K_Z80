@@ -42,7 +42,7 @@ PIN 23    =   CE_PIO 							; /*								*/
 !CE_DART =      !Z80_IOREQ & Z80_M1 &!A4 &  A5 & !A6 & !A7 ;          /* 20 - 2F	*/
 CE_BankCS  =    !Z80_IOREQ & Z80_M1 & A4 &  A5 & !A6 & !A7 ;          /* noninverted to suit the HC374 chip (pin 11) 30 - 3F    */
 CE_8Bitout =    !Z80_IOREQ & Z80_M1 &!A4 & !A5 &  A6 & !A7 ;          /* noninverted to suit the HC374 chip (pin 11) 40 - 4F */
-CE_RSTBANK	=	!Z80_IOREQ & Z80_M1 &!A4 & !A5 & !A6 &  A7 ;	/*puts bank CS in high imp mode, resetting bank SRAM/FLASH to 0  (80)*/    
+CE_RSTBANK	=	!Z80_IOREQ & Z80_M1 &!A4 & !A5 & !A6 &  A7 ;	    /*puts bank CS in high imp mode, resetting bank SRAM/FLASH to 0  (80)*/    
 
 PIO_M1		=	Z80_M1 & Z80_RESET;						/* PIO special M1 comb with RESET  */
 /*----------------------------------------

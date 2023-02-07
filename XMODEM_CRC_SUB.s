@@ -9,8 +9,11 @@
 ;		Routines in order to read data via XMODEM on DART chA
 ;********************************************************		
 
-
-		section Samples
+	ifndef ONESECTION
+		section Functions
+	else
+		section singleAssembly
+	endif
 
 RAM_Start:
 		jp 		PLD_PCB_Start

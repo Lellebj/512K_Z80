@@ -1,9 +1,16 @@
 
-		Section Functions	
-
 		include "Z80_Params_.inc"
 
-		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size,isHex
+	
+	ifndef ONESECTION
+		section	Functions	
+
+	else
+		section singleAssembly
+	endif
+
+
+		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size,isHex,isChar,dumpMemory
 		xref	isDelimit
 		
 		; String Manipulation
@@ -177,29 +184,32 @@ skipCharsUntilDelim:
 		jr 		skipCharsUntilDelim
 
 
+	;****************************************************************************************************************
+	;****************************************************************************************************************
+
 isHex:
 		; ***	Check if characters are HEX ? 
 		; ***	from (HL)  .. 0..9,A..F -> NC  others -> C
 		ld 		A,(HL)
 		sub 	'0'
-		jp 		M,setCarry 			; less than '0'
+		jp 		M,.setCarry 			; less than '0'
 		cp 		10						
-		jp 		P,checkAF			; bigger than '9'
-		jp 		nextChar			; char between 0..9 -> OK
+		jp 		P,.checkAF			; bigger than '9'
+		jp 		.nextChar			; char between 0..9 -> OK
 
-checkAF:
+.checkAF:
 		and 	~$20				; clear bit 5  ($DF) mask to Upper case
 
 		sub 	7		
 		cp 		$0A
-		jp 		M,setCarry			; less than 'A'
+		jp 		M,.setCarry			; less than 'A'
 		cp 		$10		
-		jp 		P,setCarry			; bigger than 'F'
-		jp		nextChar			; char between A..F -> OK
-setCarry:
+		jp 		P,.setCarry			; bigger than 'F'
+		jp		.nextChar			; char between A..F -> OK
+.setCarry:
 		scf
 		ret							; return with Carry, value in A is NOT HEX
-nextChar:	
+.nextChar:	
 		scf
 		ccf
 		ret							; return without Carry, value in A is HEX
@@ -207,6 +217,27 @@ nextChar:
 	;****************************************************************************************************************
 	;****************************************************************************************************************
 
+isChar:
+		; ***	Check if characters are Char ? 
+		; ***	from (HL)  $21 .. $-7E -> NC  others -> C
+		ld 		A,(HL)
+		cp	 	$21
+		jp 		M,.setCarry 		; less than '!'
+		cp 		$7F						
+		jp 		P,.setCarry			; bigger than '~'
+		jr 		.nextChar			; char between A..F -> OK
+.setCarry:
+		ld 		A,'.'				; set resulting char = '.' in NOT char
+		scf
+		ret							; return with Carry, value in A is NOT char
+.nextChar:	
+		scf
+		ccf
+		ret							; return without Carry, value in A is char
+
+
+	;****************************************************************************************************************
+	;****************************************************************************************************************
 
 
 
@@ -1083,6 +1114,172 @@ Init_RAM_HEAP:
 		ret
 zero_byte:	db  0
 ;********************************************************************************************
+;***************************************************************************************************
+;***************************************************************************************************
+
+		; 		dump memory content to screen. alt 1  dm 100  < without address>
+		; 										alt 2  dm $1234,100  < with address>
+
+
+dumpMemory:
+		; ***	Dump memory from either lvl1 or PCval and lvl2 or lvl1 bytes
+		xref 	add_space
+
+		; check if lvl2 is zero  
+
+		ld 		HL,commAdr1
+		call	checkZero16 			; check if (commAdr1)=0 2 bytes -> Z 
+		jr 		NZ,.adrSizeTyped 		; dump memory ; address and size are typed
+
+		; ***	Only size typed, address from PCvalue
+		ld 		HL,(PCvalue)				; HL = start address
+		ld 		(commAdr1),HL 			; temp storage of PCvalue
+
+.adrSizeTyped:
+		; ***	both address and size typed
+		ld 		DE,commAdr1				; DE = start address
+		ld 		BC,commLvl1				; BC = number of bytes
+
+		ld  	A,(DE)
+		and 	$F0 					; adjust to nearest 16 byte block
+		ld 		(DE),A
+		ld 		DE,(commAdr1)			; HL = start address
+
+		ld 		BC,(commLvl1) 			; get the size...  divide by $10
+		srl 	B 
+		RR 		C
+		srl 	B 
+		RR 		C
+		srl 	B 
+		RR 		C
+		srl 	B 
+		RR 		C					; BC = number of lines, nearest higher 16 byte block
+
+display_BC_bytes:
+		push 	bc					; save the line counter
+
+		ld 		HL,dumpText+1		; new buffer for text output
+
+
+		call	Bin2Hex16			;address in DE -> result added to (HL)-> to last 0x00. hl updatd (+4)
+		
+		ld  	A,':'
+		ld 		(HL),A  
+		inc 	HL
+		push 	DE 			; store adress of first char
+
+		xor 	A						; clear A
+		ld 		(generalFlags),A 		; indicate first round , hexvalues
+		call 	displayBytes
+		pop 	DE					; pop back address of first char.
+ 
+		ld 		A,'|'
+				ld 		(HL),A  
+		inc 	HL
+
+
+		ld 		A,$0F
+		ld 		(generalFlags),A 		; indicate second round , chars
+		call 	displayBytes
+	
+		ld 		A,'|'
+				ld 		(HL),A  
+		inc 	HL
+
+		xor 	a
+		ld 		(hl),A
+
+		ld 		iy,dumpText
+		call	WriteLineCRNL
+
+		pop 	bc						; pop back the line counter
+		dec 	bc 						; decrease # lines...
+		ld  	A,0
+		cp    	B
+		jr 		NZ,display_BC_bytes
+		cp 		C
+		jr 		NZ,display_BC_bytes
+
+
+
+		ret
+
+
+
+displayBytes:
+
+		ld 		b,$10
+displayLoop:
+		ld 		A,B
+		push 	BC			; save the # byte counter
+	
+		cp 		$08			; is B ( A-8) 8 bytes ?
+		ld 		A,$01
+		jr 		NZ,.noextraSpace
+		add 	$03 	
+.noextraSpace:
+		ld 		B,A
+			; add (b) spaces to (hl), advance hl	
+		call	add_space
+
+		ld  	A,(generalFlags)
+		or  	A 				; check if zero ->  first round - Hex values
+		jr  	Z,firstRound
+
+		; ***	print out the ascii characters.
+		; ***	if val isChar	
+
+		ex 		DE,HL 				; HL -> memory bytes
+		call 	isChar				; is (HL) char ? return with Carry-> value in A is always '.'
+		ex 		DE,HL				; swithch HL back to text buf dumpText		
+		
+		ld 		(HL),A
+		inc 	HL
+		inc 	DE
+ 		pop 	bc					; pop back the # byte counter
+		djnz 	displayLoop			; display (b) bytes  with spaces...
+
+		ret 
+
+
+
+firstRound:		
+		push 	DE
+		ld		A,(DE)				; get value from memory to E..?
+		ld 		E,A
+
+		call	Bin2Hex8			;result added to (HL)-> to last 0x00. hl updatd (+4)
+		
+		pop 	DE
+		inc 	DE
+
+
+		pop 	bc					; pop back the # byte counter
+		djnz 	displayLoop			; display (b) bytes  with spaces...
+
+		ret 
+
+checkZero16:
+		; ***	check if (HL),(HL+1) = 0 ?		
+		ld 		A,00
+		cp 		(HL)				; ix zero		
+		ret 	NZ	
+		inc 	HL
+		cp 		(HL)				; is zero ?	
+		dec  	HL	
+		ret							; return with either Z or NZ
+
+
+
+dumpText: DC	$80 00
+
+
+;***************************************************************************************************
+;***************************************************************************************************
+;***************************************************************************************************
+
+
+
 
 		;section 	STR_HEAP 
 		;	space for string constants
@@ -1122,6 +1319,7 @@ endtext:
 String_HEAP_end:
 
 
+		align 4
 
 
 .END
