@@ -77,6 +77,14 @@
 	PROVIDE( OutINTExpect	=	0x1A6 + _String_HEAP);			/*	output interrupt expected	DS	1	*/
 														/*; (0 = no interrupt expected.
 														; ff = interrupt expected)*/
+	PROVIDE( TempVar1		=	0x1B1 + _String_HEAP);			/*	Temp1	DS	1	*/
+	PROVIDE( TempVar2		=	0x1B2 + _String_HEAP);			/*	Temp2	DS	1	*/
+	PROVIDE( TempVar3		=	0x1B3 + _String_HEAP);			/*	Temp3	DS	1	*/
+	PROVIDE( TempVar4		=	0x1B4 + _String_HEAP);			/*	Temp4	DS	1	*/
+	PROVIDE( TempVar5		=	0x1B5 + _String_HEAP);			/*	Temp5	DS	1	*/
+	PROVIDE( TempVar6		=	0x1B6 + _String_HEAP);			/*	Temp6	DS	1	*/
+	PROVIDE( TempVar7		=	0x1B7 + _String_HEAP);			/*	Temp7	DS	1	*/
+	PROVIDE( TempVar8		=	0x1B8 + _String_HEAP);			/*	Temp8	DS	1	*/
 
 	PROVIDE( outBufferSize	=	160	);							/*	;SIZE OF OUTPUT BUFFER */
 	PROVIDE( outBuffer		=	0x200+ _String_HEAP);	         	 	/*;OUTPUT BUFFER */

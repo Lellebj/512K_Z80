@@ -782,7 +782,7 @@
 
 
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
-		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey
+		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey,RetInpStatus
 		GLOBAL	PIO_Init,CTC_Init,DART_Init,InitInterrupt
 
 
@@ -1027,7 +1027,7 @@ ReadINTHandler:
 		push	BC
 		push	DE
 		push   	HL
-
+	
 		in		A,(DART_A_D)		; read data from dart
 		ld		C,A					; save data in register c
 		ld 		a,(inbufferDeactivate)
@@ -1210,7 +1210,7 @@ DARTINT:
 
 		;iNITIALIZE BAUD RATE CONTROL
 		db	_Reset_STAT_INT|4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
-		db	_Stop_1_bit|_X32_Clock_mode
+		db	_Stop_1_bit|_X1_Clock_mode
 								;BIT 0 = 0 (NO PARITY)
 								;BIT 1 = 0 (DON'T CARE)
 								;BITS 3,2 = 01 (1 1/2 STOP BITS)
@@ -1219,7 +1219,7 @@ DARTINT:
 	
 		; INITIALIZE RECEIVE CONTROL
 		db	03		;SELECT WRITE REGISTER 3
-		db	_Rx_Enable|_RX_8_bits|_Auto_Enable
+		db	_Rx_Enable|_RX_8_bits
 								;BIT 0 = 1 (RECEIVE ENABLE)
 								; BITS 4,3,2,1 = 0 (DON-'T CARE)
 								;BIT 5 = 0 (NO AUTO ENABLE)

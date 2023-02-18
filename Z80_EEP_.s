@@ -6,7 +6,7 @@ EPS1:
 
 		include 	"Z80_Params_.inc"
 		xref	RAM_Start,PLD_PCB_Start, SC5B,SC4C,SC8B, WriteLineCRNL, WriteLine, ReadLine, CRLF,DumpRegisters
-				GLOBAL 	setEEPBank,setSRAMBank,connectFLASH,disconnectFLASH,setIC620HighImp
+				GLOBAL 	setEEPBank,setSRAMBank,connectFLASH,disconnectFLASH,disableIC620_OE,enableIC620_OE
 
 		xref	stacktop
 
@@ -89,26 +89,47 @@ TB_length	equ 	RDATA_END-RDATA
 
 
 setBanks:
-		ld 		A,$80					; set bit 7 - SRAM64 set
-		ld 		(memBankID),A			; clear memory banks
+		; ld 		A,$80					; set bit 7 - SRAM64 set
+		; ld 		(memBankID),A			; clear memory banks
 		
 		call 	EEPIO_Init
 		ld 		A,$55
 		out 	(gpio_out),A
 
-		call 	connectFLASH			; start from FLASH
 		xor 	A
+		ld 		(memBankID),A
 		call 	setEEPBank				; FLASH bank #0
 		xor 	A
 		call 	setSRAMBank				; ram bank #0
 		ld 		A,$77
 		out 	(gpio_out),A
 
+		call 	connectFLASH			; start from FLASH
+
+		call 	enableIC620_OE 			; enable the outputs.
+
 		jp		PLD_PCB_Start
 
 
 ;********************************************************************************************
 ;********************************************************************************************	
+setSRAMBank:
+		; ***	set the SRAM bank ID; Bank ID in A
+		push 	HL
+		push 	BC
+		ld 		HL,memBankID
+		and 	$0F 				; clear all bits but 0-3
+
+		ld 		B,A
+		ld 		A,(HL)				; get the actl. mem Bank ID
+		and 	$F0  				; zero bits 0-3
+		or 		B					; put new SRAM bank ID in A...
+		ld 		(HL),A				; store new value
+		jr 		putBank
+
+;********************************************************************************************
+;********************************************************************************************	
+
 setEEPBank:
 		; ***	set the EEPROM bank ID; Bank ID in A
 		push 	HL
@@ -126,8 +147,6 @@ setEEPBank:
 		or 		B					; put new EEP bank ID in A...
 		ld 		(HL),A				; store new value
 putBank:
-		ld 		A,1
-		out 	(_CE_RST_BANK),A	;IC620 (HC374) goes active.. all signals = inp A.
 		ld 		A,(HL)	
 		out 	(_Z80_BankCS),A		; set bank register number 0 and 64K_SRAM=1	
 		pop 	BC
@@ -161,28 +180,24 @@ disconnectFLASH:
 ;********************************************************************************************
 ;********************************************************************************************	
 
-setSRAMBank:
-		; ***	set the SRAM bank ID; Bank ID in A
-		push 	HL
-		push 	BC
-		ld 		HL,memBankID
-		and 	$0F 				; clear all bits but 0-3
 
-		ld 		B,A
-		ld 		A,(HL)				; get the actl. mem Bank ID
-		and 	$F0  				; zero bits 0-3
-		or 		B					; put new SRAM bank ID in A...
-		ld 		(HL),A				; store new value
-		jr 		putBank
-
-
+disableIC620_OE:
+		; ***	Set IC620 pin 1 high
+		ld A,0
+		out (_CE_RST_BANK),A			;IC620 (HC374) goes to high impedance.. all signals = GND
+		; ld 	A,$00					; FLASH memory is lower 32k and SRAM upper 32k
+		; out (_Z80_BankCS),A			; set bank register number 0 and 64K_SRAM=0	
+		; ld 	A,$01
+		; out (_CE_RST_BANK),A		; set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+		ret
 
 
 ;********************************************************************************************
 ;********************************************************************************************	
 
-setIC620HighImp:
-		ld A,0
+enableIC620_OE: 
+		; ***	Set IC620 pin 1 low
+		ld A,1
 		out (_CE_RST_BANK),A			;IC620 (HC374) goes to high impedance.. all signals = GND
 		; ld 	A,$00					; FLASH memory is lower 32k and SRAM upper 32k
 		; out (_Z80_BankCS),A			; set bank register number 0 and 64K_SRAM=0	

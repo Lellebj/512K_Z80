@@ -4,17 +4,12 @@
  
 		xref 	PLD_PCB_Start
 		xdef 	RAM_Start,SetupXMODEM_TXandRX,RX_EMP,TX_EMP,TX_NAK,TX_ACK,DART_A_DI,DART_A_EI,DART_A_RESET
-		xdef 	A_RTS_OFF,A_RTS_ON
+		xdef 	A_RTS_OFF,A_RTS_ON,DART_A_TXRX_INToff,DART_A_TXon,DART_A_RXon,DART_A_TXRX_INTon,TX_C,TX_X
 ;********************************************************		
 ;		Routines in order to read data via XMODEM on DART chA
 ;********************************************************		
 
-	ifndef ONESECTION
 		section Functions
-	else
-		section singleAssembly
-	endif
-
 RAM_Start:
 		jp 		PLD_PCB_Start
 
@@ -30,12 +25,47 @@ DART_A_EI:
 		out		(DART_A_C),A	Channel A RX active
 		RET
 
+
+DART_A_TXRX_INToff:
+		;enable DART channel A RX
+		ld		A,WR1			;write into WR0: select WR1
+		out		(DART_A_C),A
+		ld		A,00h			;RX and TX interrupt off
+		out		(DART_A_C),A	Channel A RX 
+		RET
+
+DART_A_TX_INTon:
+		;enable DART channel A RX
+		ld		A,WR1							;write into WR0: select WR1
+		out		(DART_A_C),A
+		ld		A,_Tx_INT_EN		 			;TX interrupt on
+		out		(DART_A_C),A	Channel A RX active
+		RET
+
+DART_A_RX_INTon:
+		;enable DART channel A RX
+		ld		A,WR1							;write into WR0: select WR1
+		out		(DART_A_C),A
+		ld		A,_Int_All_Rx_Char_NP		 			;TX interrupt on
+		out		(DART_A_C),A	Channel A RX active
+		RET
+
+DART_A_TXRX_INTon:
+		;enable DART channel A RX
+		ld		A,WR1							;write into WR0: select WR1
+		out		(DART_A_C),A
+		ld		A,_Tx_INT_EN|_Int_All_Rx_Char_NP		 			;RX and TX interrupt on
+		out		(DART_A_C),A	Channel A RX active
+		RET
+
+
 A_RTS_OFF:
 		;signaling the host go or nogo for reception
 		ld		a,005h			;write into WR0: select WR5
 		out		(DART_A_C),A
-		ld		a,0E8h			;DTR active, TX 8bit, BREAK off, TX on, RTS inactive
-		out		(DART_A_C),A 	
+		ld		a,_Tx_8bits_char|_Tx_Enable 				;TX 8bit, BREAK off, TX on, RTS inactive
+		ld		a,0E8h			
+		out		(DART_A_C),A 
 		ret 
 		
 		
@@ -43,7 +73,8 @@ A_RTS_ON:
 		; signaling the host go or nogo for reception
 		ld		a,005h			;write into WR0: select WR5
 		out		(DART_A_C),A
-		ld		a,0EAh			;DTR active, TX 8bit, BREAK off, TX on, RTS active
+		; ld		a,_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
+		ld		a,0EAh	
 		out		(DART_A_C),A 
 		ret 
 		
@@ -123,7 +154,6 @@ TX_EMP:
 		jp		z,TX_EMP
 		ret
 	
-temp0: DEFW  1015h			;holds number of unsuccessful block transfers/block during download	
 
 ;**************************************************************************
 ;**				SetupXMODEM_TX and RX:									**
@@ -134,7 +164,6 @@ SetupXMODEM_TXandRX:
 
 		; DART interrupt vector table
 
-
 		ld		HL,BYTE_AVAILABLE       	; ON INTERRUPT PAGE
 		ld		(DART_Int_Read_Vec),HL		;STORE READ VECTOR
 		; ld		HL,WriteINTHandler
@@ -143,6 +172,9 @@ SetupXMODEM_TXandRX:
 		; ld		(DART_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
 		ld		HL,SPEC_RX_CONDITON
 		ld		(DART_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
+
+		ld 		HL,$1015
+		ld 		(TempVar2),HL			;holds number of unsuccessful block transfers/block during download	
 
 
 		; ld		a,_Ch_Reset|WR0
@@ -153,13 +185,12 @@ SetupXMODEM_TXandRX:
 		; out		(DART_A_C),A 
 	
 
-		
+		 ;write into WR0: select WR5		
 		; ld		a,WR5			;write into WR0: select WR5
 		; out		(DART_A_C),A
 		; ld		a,0E8h			;DTR active, TX 8bit, BREAK off, TX on, RTS inactive
-		; out 	(DART_A_C),A
+		; out 		(DART_A_C),A
 		
-		 ;write into WR0: select WR5
 		; ld 		a,WR1			;write into WR0: select WR1
 		; out		(DART_B_C),A
 		; ld		a,00000100b		;no interrupt in CH B, special RX condition affects vect
@@ -170,7 +201,7 @@ SetupXMODEM_TXandRX:
 		; ld		a,WR2			;write into WR0: select WR2
 		; out		(DART_B_C),A
 		; ld		a,10h			;write into WR2: cmd line int vect (see int vec table)
-		; out 	(DART_B_C),A 	;bits D3,D2,D1 are changed according to RX condition	
+		; out 		(DART_B_C),A 	;bits D3,D2,D1 are changed according to RX condition	
 	
 		;  	Stop CTC channel 1 from sending interrupts.
 		ld	A,_Counter|_Rising|_Reset|_CW	
@@ -179,10 +210,10 @@ SetupXMODEM_TXandRX:
 
 		; SETUP 2
 		sub		a
-		ld		(temp0),A		;reset bad blocks counter
+		ld		(TempVar2),A		;reset bad blocks counter
 		ld		C,1h			;C holds first block nr to expect
-		ld 		HL,6000h		;set lower destination address of file
-		call	DART_A_EI
+		ld 		HL,$B000		;set lower destination address of file
+		call	DART_A_TXRX_INTon
 		call	A_RTS_ON
 		call 	TX_NAK			;'C' indicates CRC mode ready for transmisDARTn to host
 
@@ -224,7 +255,7 @@ l_210:
 		call	TX_ACK			 ;when no error
 		inc		C				;prepare next block to receive
 		sub		A
-		ld		(temp0),A		;clear bad block counter
+		ld		(TempVar2),A		;clear bad block counter
 		jp		REC_BLOCK
 
 	
@@ -241,9 +272,9 @@ l_613:
 		ld		DE,0080h		;subtract 80h
 		sbc 	HL,DE 			;from HL, so HL is reset to block start address
 
-		ld		A,(temp0)		;count bad blocks in temp0
+		ld		A,(TempVar2)		;count bad blocks in TempVar2
 		inc		A
-		ld		(temp0),A
+		ld		(TempVar2),A
 		cp		09h
 		jp		z,l_612			;abort download after 9 attempts to transfer a block
 		jp 		REC_BLOCK		;repeat block reception
@@ -345,14 +376,14 @@ TX_NAK:
 
 
 TX_ACK:
-		ld		 a,ACK				;send AK to host
+		ld		 A,ACK				;send AK to host
 		out		(DART_A_D),A
 		call	TX_EMP
-		RET
+		ret
 
 
 TX_C:
-		ld		 a,'C'				;send 'C' to host
+		ld		 A,'C'				;send 'C' to host
 		out		(DART_A_D),A
 		call	TX_EMP
 		RET

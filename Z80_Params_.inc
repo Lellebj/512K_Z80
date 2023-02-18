@@ -251,8 +251,8 @@ SP			EQU		20h
 
 
 gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
-gpio_out:		equ		portA_Data		; GP output port (repl with PIO A)
-
+gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
+gpioB:			equ		portB_Data
 
 
 ; Define the memory size to be used for the CP/M configuration

@@ -38,9 +38,6 @@ DO_Debug:	equ	1		; Set to 1 to show debug printing, else 0
 
 PLD_PCB_Start:	
 
-
-
-		; jp 	RTestprog
 		ld 		A,$33
 		out 	(gpio_out),A
 
@@ -226,7 +223,6 @@ inputerror:
 		pop 	DE
 		call 	putDEtoScreen
 		call 	CRLF
-	call DumpRegisters	
 		jp 		next_line
 
 command_addresses:
@@ -241,9 +237,9 @@ command_addresses:
 		defw 	p_incDecPC
 		defw 	p_FON
 		defw 	p_FOFF
-		defw 	p_epwr
-		defw 	p_epse
-
+		defw 	p_epwr			; write data to EEPROM
+		defw 	p_epse			; sector erase
+		defw 	p_xmod			; transfer files via x-modem
 command_list:
 ;		*** command textstring 	address	 lvalue
 
@@ -261,6 +257,7 @@ command_list:
 		db		ITEM,10,9,"flash-off",	STEND,%000,0
 		db		ITEM,11,4,"epwr",	STEND,%000,0
 		db		ITEM,12,4,"epse",	STEND,%000,0
+		db		ITEM,13,4,"xmod",	STEND,%000,0
 
 		db		ITEM,12,1,"nop",	STEND,%000,0
 		db		LISTEND
@@ -513,7 +510,9 @@ changePCVal:
 
 executeCommand:	
 		; ***	execute commands (and arguments)
-		
+		call 	writeSTRBelow
+		DB 		0,"Finish parsing !",CR,LF,00
+
 		ld 		A,(PCinpFlag)
 		or 		A   					; check if zero  
 		jr 		NZ,.noJump
@@ -529,8 +528,6 @@ executeCommand:
 		; jp 		paramLoopEntry 				; loop and check for more parameters
 
 temp_finish:
-		call 	writeSTRBelow
-		DB 		0,"Finish parsing !",CR,LF,00
 		; call 	DumpRegisters
 		jp 		next_line
 
@@ -589,7 +586,15 @@ p_clearmem:
 p_exe:
 		ret
 p_go:
-		ret
+
+		ld 		A,(TempVar1)
+		inc 	A
+		ld 		(TempVar1),A
+		cp 		15
+		call 	DumpRegisters
+		
+		ret 	P
+		jr 		p_go
 p_incDecPC:
 		ld 		HL,commLvl1
 		ld 		A,0
@@ -619,23 +624,23 @@ p_incDecPC:
 p_FON:
 		; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0)
 
-		call 	setIC620HighImp
+		call 	connectFLASH
 
 
 		call 	writeSTRBelow
-		DB 		0,"FL_ON: Test print after __CE_RST_BANK: !",CR,LF,00
+		DB 		0,"FL_ON: Use EEPROM,lower 32k and SRAM,upper 32k !",CR,LF,00
 		ret
 
 p_FOFF:
 		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1)
-		call 	disable
+		call 	disconnectFLASH
 		ld A,1
 		out (_CE_RST_BANK),A		;IC620 (HC374) goes active.. all signals = inp A.
 		ld 	A,$80	
 		out (_Z80_BankCS),A			; set bank register number 0 and 64K_SRAM=1	
 
 		call 	writeSTRBelow
-		DB 		0,"FL_OFF: Test print after __CE_RST_BANK: !",CR,LF,00
+		DB 		0,"FL_OFF: Use only SRAM !",CR,LF,00
 
 
 		ret
@@ -643,6 +648,7 @@ p_FOFF:
 
 p_epwr:
 		; *** 	testwrite to EEPROM
+		
 		call 	Flash_WR_Test
 		ret
 
@@ -656,6 +662,19 @@ p_epse:
 		pop 	HL
 		ret
 
+p_xmod:
+		; ***	Transfer files via x-modem
+
+		ld		A,_INT_EN|_Counter|_Rising|_TC_Follow|_Reset|_CW	
+		out		(CH1),A			; CH1 counter
+		ld		A,198			; time constant 198 defined
+		out		(CH1),A			; and loaded into channel 1
+
+		call 	awaitstart
+
+		call 	DART_A_TXRX_INTon
+	
+		ret
 
 
 ;********************************************************************************************     
@@ -664,21 +683,232 @@ p_epse:
 
 awaitstart: 
 		call 	writeSTRBelow
-		DB 		0,"awaitstart: !",CR,LF,00
+		DB 		0,"Wait for XMODEM start... ",CR,LF,00
+		xor 	A
+		ld 		(TempVar1),A
+	
+		ld		HL,receiveBlockIn       	; ON INTERRUPT DART channel A
+		ld		(DART_Int_Read_Vec),HL		;STORE READ VECTOR
+
+		call  	RX_EMP
+
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+
+.nextC:		
+		ei
+		; call 	TX_NAK
+		call 	TX_C
+
+.nextBlock:
+		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		out		(DART_A_C),A
+		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		out		(DART_A_C),A		;buffer overrun is a spec RX condition
 
 
-		call 	RX_EMP
-		halt
+
+		call 	A_RTS_ON
+
+		halt						;await first rx char
+
+		cp 		$0A 					; ret from CTC
+		jr 		nz,L002$					; check next
+		jr 		NC,.nextC 				; no carry -> goto .nextC
+		jp 		exitRecBlock 					; exit on timeout
 
 
-		ld 		A,'C'
-		out 	(DART_A_D),A			; send the 'C' character after ~ 1 sec
+		;check return code of block reception (e holds return code)
+		; ld		a,e
+		; cp		NUL				;block finished, no error
+		; jp		z,l_210
+		; cp		$02				;eot found (end of transmission)
+		; jp		z,l_211
+		; cp		$03				;chk sum error
+		; jp		z,l_613
+		; ld		a,10h
+		; jp		l_612
+; l_210:
+; 		call	TX_ACK			 ;when no error
+; 		inc		C				;prepare next block to receive
+; 		sub		A
+; 		ld		(TempVar2),A		;clear bad block counter
+		jr 		.nextC
+
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 
 
-		jr 		awaitstart		
+L002$:
+		cp 		$0B
+		jr 		NZ,exitRecBlock			; show error - unknown interrupt nor 0A or 0B
+		
+		call	A_RTS_OFF
+		
+		ld		a,WR1			;write into WR0: select WR1
+		out		(DART_A_C),A
+		ld		a,_WAIT_READY_R_T|_Rx_INT_First_Char		;wait function inactive
+		out		(DART_A_C),A
+	
 
+		
+		
+		jr		.nextC
+
+		; ***	XMODEM has sent a char...
+
+		; in		A,(DART_A_C)				; read RRx ;test next test char available 
+		; ld 		(TempVar7),A
+		; bit 	0,A							; char available ? ==> NZ; C not affected (cleared)
+
+		jr 		Z,.nextC				; no char has been detected
+
+receiveBlockIn:
+
+		ld		A,WR1			;write into WR0 cmd4 and select WR1 
+		out		(DART_A_C),A
+		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T		;wait active, 
+		out		(DART_A_C),A		;buffer overrun is a spec RX condition
+		; ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		; out		(DART_A_C),A
+		; ; ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		; out		(DART_A_C),A		;buffer overrun is a spec RX condition
+
+
+		ld 		HL,$D000
+		ld 		($F5fC),BC
+		ld		A,_Counter|_Rising|_Reset|_CW	
+		out		(CH1),A			; CH1 counter not send any interrupts
+		ld 		B,133
+
+.recLoop:
+		; in		A,(DART_A_C)				; read RRx ;test next test char available 
+		; bit 	0,A							; char available ? ==> NZ; C not affected (cleared)
+		; jr 		Z,.recLoop					; no char has been detected
+
+		; ld 		A,B	
+		; ld 		($F5FA),A
+
+		in 		A,(DART_A_D)
+		ld 		(HL),A
+		; in		A,(DART_A_C)				; read RRx ;test next test char available 
+		; ld 		($F5F7),A
+		
+		; ld      ($f5f0),HL
+		inc 	HL
+
+		; dec 	BC
+		; xor 	A
+		; cp 		C
+		; jr  	nz,.contBlockIn
+		; cp 		B
+		; jr 		nz,.contBlockIn
+
+		djnz   	.recLoop
+
+		call	TX_ACK
+
+		ld 		A,$0B					; signal reti from DART char interrupt
+		; out 	(gpioB),A
+		reti 
+
+.waitForNext:
+		; inc 	BC	
+		; ld 		A,B
+		; out 	(gpioB),A
+		; in		A,(DART_A_C)				; read RRx ;test next test char available 
+		; ld 		($F5F6),A
+		; bit 	0,A							; char available ? ==> NZ; C not affected (cleared)
+		; jr 		Z,.waitForNext
+		; ld 		($F5F4),A
+						; no char has been detected
+
+		; jr 		.contBlockIn
+		; ld 		E,A
+		; 	; Binary to HEX  BN2HEX   E->(HL)
+		; ld 		hl,T_BUFFER
+		; inc		hl
+		; call	Bin2Hex8			;result in T_buffer
+
+		; ld 		iy,T_BUFFER
+		; call 	WriteLineCRNL
+
+		; jr 		.nextC
+
+
+exitRecBlock:
+		di
+		ld		A,_Counter|_Rising|_Reset|_CW	
+		out		(CH1),A				; CH1 counter - disable interrupt
+
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE DART. INTERRUPT SYSTEM
+
+		call 	DART_A_TXRX_INTon
+		call 	A_RTS_ON
+		ei
+
+		call 	writeSTRBelow_CRLF
+		defb    "\0\r\n"
+		defb	"A timout on XMODEM occured !",00
+
+
+
+
+		ret
 
 ;************
+
+
+CTC_CH0_Interrupt_Handler:
+CTC_CH1_Interrupt_Handler:
+
+		ld 		A,(TempVar1)
+		inc 	A
+		ld 		(TempVar1),A
+
+		; out 	(portB_Data),A
+
+		cp 		15							; Z is set 
+		jp 		P,showtimeout				; check if lopp should timeout... A>30
+
+		; call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
+
+		or 		A							; clear carry - > wait for next.
+		ld 		A,$0A						; ret from CTC = 0A
+		out 	(gpioB),A
+
+		ei
+		reti
+
+;------------------------------------------------------------------------------
+
+
+CTC_CH2_Interrupt_Handler:
+CTC_CH3_Interrupt_Handler:
+
+
+showtimeout:
+		; call 	writeSTRBelow_CRLF
+		; defb    "\0\r\n"
+		; defb	"A timout on XMODEM occured !",00
+		sub  	A
+		ld 		(TempVar1),A
+		out 	(portB_Data),A
+
+		scf								; set carry flag 
+
+		ei
+		ld 		A,$0F					; ret from CTC = 0A
+		reti 
+
+
+
+
+
+
+
 		ld 		hl,Textbuf
 		; call	ReadLine 			;to textbuf  (A=length of input string)
 
@@ -712,7 +942,7 @@ CTC_Init:
 		;init CH 0 and 1
 		ld 	 A,_Rising|_Timer|_Prescaler|_TC_Follow|_Reset|_CW
 		out		(CH0),A 		; CH0 is on hold now
-		ld		A,109			; time constant (prescaler; 126; 93; 6MHz -> 1 sec peroid) 232/101; 
+		ld		A,126			; time constant (prescaler; 126; 93; 6MHz -> 1 sec peroid) 232/101; 
 		; ld		A,126			; time constant (prescaler; 109; 66; 3,684MHz -> 1 sec peroid;   
 									; time constant (prescaler; 109; 198; 3,684MHz -> 3, sec peroid;  
 		out		(CH0),A			; and loaded into channel 0
@@ -727,14 +957,19 @@ CTC_Init:
 		ld  	A,L					; copy low byte
 		out 	(CH0),A
 
-
-
-		;init CH2
-		ld 	 A,_Counter|_Prescaler|_Rising|_TC_Follow|_Reset|_CW
+		; 		Baud 		DART,clockmode  CTCprescaler
+		;		115200		1x				8
+		;		57600		1x				16
+		;		38400		1x				24
+		;		19200		1x				48
+		; 		9600		1x				96
+		;init CH2, Baud frequence to DART.
+		ld 	 A,_Counter|_TC_Follow|_Reset|_CW
 		out		(CH2),A
-		ld		A,0FFh			; time constant 255d defined
+		ld		A,8			; time constant defined
 		out		(CH2),A			; and loaded into channel 2
-								; T02 outputs f= CPU_CLK/(256*256)
+
+
 		;init CH3
 								;input TRG of CH3 is supplied by clock signal from TO2
 								;CH3 divides TO2 clock by AFh
@@ -752,61 +987,8 @@ CTC_Init:
 
 
 ;********************************************************************************************	
+
 		xdef CTC_CH0_Interrupt_Handler,CTC_CH1_Interrupt_Handler,CTC_CH2_Interrupt_Handler,CTC_CH3_Interrupt_Handler
-
-CTC_CH0_Interrupt_Handler:
-CTC_CH1_Interrupt_Handler:
-		push 	AF
-		; ld 		a,(0x8800)
-		; ; ; ld 		A,3
-		; out 	(portB_Data),A
-		; inc 	A
-		; ld 		(0x8800),A
-
-		ld 		A,(0x8800)
-		inc 	A
-		ld 		(0x8800),A
-
-		out 	(portB_Data),A
-
-		cp 		30						; Z is set 
-		jp 		P,showtimeout			; check if lopp should timeout... A>30
-
-		in		A,(DART_A_C)			; read RRx ;test next test char available
-		bit 	0,A						; char available ?
-		call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
-		ccf								; clear carry - > wait for next.
-		pop 	AF
-		ei
-		reti
-
-;------------------------------------------------------------------------------
-
-
-
-
-		pop 	AF
-		nop
-		ei
-		reti
-
-
-CTC_CH2_Interrupt_Handler:
-CTC_CH3_Interrupt_Handler:
-
-
-
-showtimeout:
-		call 	writeSTRBelow_CRLF
-		defb    "\0\r\n"
-		defb	"A timout on XMODEM occured !",00
-		sub  	A
-		ld 		(0x8800),A
-
-		scf								; set carry flag 
-		pop 	AF
-		ei
-		reti 
 
 
 bit_test9:
