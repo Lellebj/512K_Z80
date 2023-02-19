@@ -920,6 +920,7 @@ nxtchr:
 		inc		iy
 		; djnz	nxtchr
 		jr 		nxtchr
+
 		ret					; return on maxlength
 			; WriteLine from address (iy) (until char = 00)and add CRLF 
 WriteLineCRNL:
@@ -1210,7 +1211,7 @@ DARTINT:
 
 		;iNITIALIZE BAUD RATE CONTROL
 		db	_Reset_STAT_INT|4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
-		db	_Stop_1_bit|_X1_Clock_mode
+		db	_Stop_1_bit|_X16_Clock_mode
 								;BIT 0 = 0 (NO PARITY)
 								;BIT 1 = 0 (DON'T CARE)
 								;BITS 3,2 = 01 (1 1/2 STOP BITS)

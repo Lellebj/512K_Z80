@@ -51,7 +51,7 @@
 	PROVIDE( commLvl1 =			0x90 + _String_HEAP);  	/*command lValue 1   16 byte*/
 	PROVIDE( commLvl2 =			0xA0 + _String_HEAP);  	/*command lValue 2 	 16 byte*/
 	PROVIDE( commStr1 =			0xB0 + _String_HEAP);  	/*command string 1 	 40 byte*/
-	PROVIDE( commStr2 =			0xD8 + _String_HEAP);  	/*command string 2 	 40 byte*/
+	PROVIDE( commStr2 =			0xD8 + _String_HEAP);  	/*command string 2 	 40 byte  -> 0xFF*/
 
 	PROVIDE( T_BUFFER 		=	0x100 + _String_HEAP);		/*;16-BYTE BUFFER */
 
@@ -77,6 +77,9 @@
 	PROVIDE( OutINTExpect	=	0x1A6 + _String_HEAP);			/*	output interrupt expected	DS	1	*/
 														/*; (0 = no interrupt expected.
 														; ff = interrupt expected)*/
+	PROVIDE( XBAddr			=	0x1A8 + _String_HEAP);			/*	XMODEM block start address  2byte	*/
+	PROVIDE( XMChkSum		=	0x1AA + _String_HEAP);			/*	XMODEM block checksum  2byte	*/
+
 	PROVIDE( TempVar1		=	0x1B1 + _String_HEAP);			/*	Temp1	DS	1	*/
 	PROVIDE( TempVar2		=	0x1B2 + _String_HEAP);			/*	Temp2	DS	1	*/
 	PROVIDE( TempVar3		=	0x1B3 + _String_HEAP);			/*	Temp3	DS	1	*/

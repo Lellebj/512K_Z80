@@ -5,6 +5,7 @@
 		xref 	PLD_PCB_Start
 		xdef 	RAM_Start,SetupXMODEM_TXandRX,RX_EMP,TX_EMP,TX_NAK,TX_ACK,DART_A_DI,DART_A_EI,DART_A_RESET
 		xdef 	A_RTS_OFF,A_RTS_ON,DART_A_TXRX_INToff,DART_A_TXon,DART_A_RXon,DART_A_TXRX_INTon,TX_C,TX_X
+		xdef 	CRC16
 ;********************************************************		
 ;		Routines in order to read data via XMODEM on DART chA
 ;********************************************************		
@@ -394,7 +395,57 @@ TX_X:
 		call	TX_EMP
 		RET
 
+; Calculating XMODEM CRC-16 in Z80
+; ================================
 
+; Calculate an XMODEM 16-bit CRC from data in memory. This code is as
+; tight and as fast as it can be, moving as much code out of inner
+; loops as possible. Can be made shorter, but slower, by replacing
+; JP with JR.
+
+; On entry, crc..crc+1   =  incoming CRC
+;           addr..addr+1 => start address of data
+;           num..num+1   =  number of bytes
+; On exit,  crc..crc+1   =  updated CRC
+;           addr..addr+1 => undefined
+;           num..num+1   =  undefined
+
+; Multiple passes over data in memory can be made to update the CRC.
+; For XMODEM, initial CRC must be 0. Result in DE..
+
+CRC16:
+		ld 		DE,$00					; Incoming CRC
+		; Enter here with HL=>data, BC=count, DE=incoming CRC
+bytelp:
+		push 	BC					; Save count
+		ld 		A,(HL)				; Fetch byte from memory
+;		 The following code updates the CRC with the byte in A -----+
+		xor 	D					; XOR byte into CRC top byte		|
+		ld 		B,8					; Prepare to rotate 8 bits			|
+rotlp:                    ;											|
+		sla 	E
+		adc 	A,A					; Rotate CRC						|
+		jp 		NC,clear			; b15 was zero						|
+		ld 		D,A					; Put CRC high byte back into D		|
+		ld 		A,E
+		xor 	$21
+		ld 		E,A					; CRC=CRC XOR $1021, XMODEM polynomic	|
+		ld 		A,D
+		xor 	$10					; And get CRC top byte back into A	|
+clear:                    ;											|
+		dec 	B	
+		jp 		NZ,rotlp				; Loop for 8 bits					|
+		ld 		D,A					; Put CRC top byte back into D		|
+;		 -----------------------------------------------------------+
+
+		inc		HL					; Step to next byte
+		pop 	BC
+		dec 	BC					; num=num-1
+		ld 		A,B
+		or 		C
+		jp 		NZ,bytelp			; Loop until num=0
+
+		ret
 
 
 

@@ -97,8 +97,14 @@ _Tx_6bits_char		equ $40
 _Tx_8bits_char		equ $60
 _DTR_Enable 		equ $80
 
-
-
+EOT_FOUND			equ $02
+_err01_				equ	$08
+_err02_				equ	$09
+_err03_				equ	$0C
+_err04_				equ	$0D
+_err05_				equ	$0E
+CTCpulse			equ $0A
+CTCtimeout			equ $0B
 
 
 ; CTC stuff
