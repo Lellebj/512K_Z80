@@ -1,13 +1,13 @@
-;DART with Asynchronous Circular Buffer implementation
+;SIO_0 with Asynchronous Circular Buffer implementation
 ;
 ;By Brian Chiha - brian.chiha@gmail.com
 ;Feb 2021
 ;
 ;This is a Proof of work example to implement a Circular Buffer
-;with serial data transmission using the Z80 DART for the TEC computer.
+;with serial data transmission using the Z80 SIO_0 for the TEC computer.
 ;
 ;There are three parts to this program:
-;1. A Producer - This is data coming from the DART from an external source.
+;1. A Producer - This is data coming from the SIO_0 from an external source.
 ;2. A Consumer - This is the TEC that consumes data on a key press or automatically
 ;3. A Background Task - This is the TEC multiplexing the LED Display
 ;
@@ -59,16 +59,16 @@ include "Z80_Params_.inc"
 ;INTERRUPT VECTOR TABLE SETUP
 ;The interrupt will call one of these service routines depending on the type of interrupt
 ;There are 4 reasons the interrupt will occur:
-; 1. Transmit Buffer Empty - Indicating that data can be sent to the DART
+; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
 ; 2. External/Status Change - Indicating a change in the modem line or break condition
 ; 3. Receive Character Available - Indicating that data has been sent to CPU
 ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
 ;
 ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
 ;address is the value in the interrupt register 'I'.  The Low byte of the address is
-;placed on the data bus from the DART when an interrupt is triggered. The follwing table
+;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
 ;shows what bits are set on the data bus.  This is used to index the vector table:
-;Note: D0, D4-7 are set via Write Register 2 (Channel B on the DART).  this is set to 00H
+;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
 ;
 
 
@@ -77,7 +77,7 @@ include "Z80_Params_.inc"
 ;********************************************************		
 			ORG     0400H 
 START:
-;Initialize interrupt system and DART
+;Initialize interrupt system and SIO_0
 			DI                          ;Disable interrupts
 						
 ;Initialise interrupt vectors
@@ -96,8 +96,8 @@ START:
 			LD      HL,Error_Handle     ;Store Receive Error Vector
 			LD      (DART_SpecialVector),HL         ;
 
-;Initialise the DART
-			CALL    Init_DART            ;Set up the DART 
+;Initialise the SIO_0
+			CALL    Init_DART            ;Set up the SIO_0 
 
 ;Initialise Screen and other data
 			XOR     A                   ;Reset A
@@ -116,7 +116,7 @@ S1:
 			EI							;Enable Interrrupts
 
 ;Start Background task of updating the screen buffer and multiplexing the LED's
-;This will loop continually until the DART sends an interrupt.
+;This will loop continually until the SIO_0 sends an interrupt.
 WAIT_LOOP:
 			CALL    Read_a_Key			;Read the keyboard
 			CALL    update_LED			;Update the screen buffer
@@ -127,13 +127,13 @@ WAIT_LOOP:
 			CALL    Transmit_Buffer         ;Check for non empty buffer and transmit
 			JR      WAIT_LOOP
 
-;DART Interrupt Handlers
+;SIO_0 Interrupt Handlers
 ;----------------------
-;These four routines handle the four interrupts that the DART produces.  See above.
+;These four routines handle the four interrupts that the SIO_0 produces.  See above.
 ;When an Intrrupt is triggered, the CPU automaticaly disables interrupts, ensuring
 ;no other intrrupts occur when one is being handled.  Before exiting the routine,
 ;interrupts are to be reenabled.  RETI (Return from interrupt) is the same as RET but
-;the DART recognises this instruction indicating that the interrupt routined has ended.
+;the SIO_0 recognises this instruction indicating that the interrupt routined has ended.
 
 ;Receive Character Available Interrupt handler
 Read_Handle:
@@ -154,7 +154,7 @@ Read_Handle:
 			JR		Read_EXIT			;Exit Safely
 ;Buffer in not full
 Read_OK:    
-			IN		A,(DART_A_D)		;Read data from DART
+			IN		A,(DART_A_D)		;Read data from SIO_0
 			LD		(CByteRec),A		;Save data in input buffer
 			LD		HL,CBufLoc			;Load Buffer in HL
 			LD		L,B					;Load Head Pointer to L to index the Circular Buffer
@@ -174,7 +174,7 @@ Read_EXIT:
 			RETI						;Return from Interrupt
 	  
 ;Transmit Buffer Empty Interrupt Handler, When a character is transmitted, this
-;interrupt will be called when the DART clears its buffer.  It then checks for 
+;interrupt will be called when the SIO_0 clears its buffer.  It then checks for 
 ;more data to send.  If no more data is to be sent, to stop this interrupt from
 ;being repeatingly triggered, a command to reset the Transmit interrupt is sent
 Write_Handle:
@@ -186,7 +186,7 @@ Write_Handle:
 			JR		NC,Exit_from_Write	;Data was tramitted, Exit Safely
 Reset_TX_INT:
 ;Buffer is Empty, reset transmit interrupt
-			LD		A,00101000B			;Reset DART Transmit Interrupt
+			LD		A,00101000B			;Reset SIO_0 Transmit Interrupt
 			OUT		(DART_A_C),A		;Write into WR0
 Exit_from_Write:
 			POP		AF					;Restore AF
@@ -229,7 +229,7 @@ TX_data_Tail:
 			LD		HL,CBufLoc			;Load Buffer in HL
 			LD		L,B					;Load Tail Pointer to L to index the Circular Buffer
 			LD		A,(HL)				;Get byte at Tail.
-			OUT		(DART_A_D),A		;Transmit byte to DART
+			OUT		(DART_A_D),A		;Transmit byte to SIO_0
 ;Output has occured
 			LD		A,L					;Load Tail Pointer to A
 			INC		A					;Increase Tail pointer by 1
@@ -243,15 +243,15 @@ TX_data_Tail:
 			EI							;Restore interrupts
 			RET							;Exit
 
-;DART Configuration Routines
+;SIO_0 Configuration Routines
 ;--------------------------
 
 Init_DART:            
 			LD		HL,CTLTBL			;Setup data location
-			CALL	Setup_DART			;Setup the DART
+			CALL	Setup_DART			;Setup the SIO_0
 			RET							;Exit
 
-;Initialize the DART, Requires 3 bits of information. Number of control bytes to send,
+;Initialize the SIO_0, Requires 3 bits of information. Number of control bytes to send,
 ;the port to send it to and the control data.
 Setup_DART:              
 			LD		A,(HL)				;Load Control Table (Bytes)
@@ -265,7 +265,7 @@ Setup_DART:
 			OTIR                        ;Output HL data, B times, to port C
 			JR      Setup_DART              ;Jump to the next port
 
-;Control Table data for DART. Refer to Z80 DART Technical Manual for more information
+;Control Table data for SIO_0. Refer to Z80 SIO_0 Technical Manual for more information
 ;on the bits set.  
 CTLTBL:              
 ;Reset Channel A
@@ -280,7 +280,7 @@ CTLTBL:
 			DB 04H                      ;4 Lines
 			DB DART_B_C                   ;B Port Command
 			DB 00000010B                ;write into WR0: select WR2
-			DB 00000000B                ;write into WR2: set base interrupt vector for DART (0B00)
+			DB 00000000B                ;write into WR2: set base interrupt vector for SIO_0 (0B00)
 			DB 00000001B                ;write into WR0: select WR1
 			DB 00000100B                ;write into WR1: allow status to affect vector
 			
@@ -302,7 +302,7 @@ CTLTBL:
 ;--------------------
 
 ;Scan the Keyboard for input.  If any key is pressed except for '+', transmit data from the
-;circular buffer to the DART if data is available.  If '+' is pressed, toggle the auto
+;circular buffer to the SIO_0 if data is available.  If '+' is pressed, toggle the auto
 ;transmit flag. Must
 Read_a_Key:
 			IN      A,(03)              ;Check if key is pressed

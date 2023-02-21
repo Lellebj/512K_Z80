@@ -17,27 +17,27 @@ portA_Data:		equ _Z80PIO_Base + 0
 portB_Data:		equ _Z80PIO_Base + 2
 
 
-; DART stuff
+; SIO_0 stuff
 
 DART_A_D:		equ	_Z80DART_Base
-; DARTCAD			EQU		DART_A_D				;DART CHANNEL A DATA
+; DARTCAD			EQU		DART_A_D				;SIO_0 CHANNEL A DATA
 DART_A_C:		equ	_Z80DART_Base+2
-; DARTCAS			EQU		DART_A_C				;DART CHANNEL A COMMANDS/STATUS
+; DARTCAS			EQU		DART_A_C				;SIO_0 CHANNEL A COMMANDS/STATUS
 DART_B_D:		equ	_Z80DART_Base+1
-; DARTCBD			EQU		DART_B_D				;DART  CHANNEL B DATA
+; DARTCBD			EQU		DART_B_D				;SIO_0  CHANNEL B DATA
 DART_B_C:		equ	_Z80DART_Base+3
-; DARTCBS			EQU		DART_B_C				;DART CHANNEL B COMMANDS/STATUS
+; DARTCBS			EQU		DART_B_C				;SIO_0 CHANNEL B COMMANDS/STATUS
 
 DART_Int_Vec		EQU     $F400				; INTERRUPT VECTOR 
 ; DARTIV				EQU		DART_Int_Vec			; INTERRUPT VECTOR
-DART_Int_WR_Vec		EQU     DART_Int_Vec+8		;DART CHANNEL A WRITE INTERRUPT VECTOR
-; DARTWV	EQU		DART_Int_Vec+8		;DART CHANNEL A WRITE INTERRUPT VECTOR
-DART_Int_EXT_Vec	EQU     DART_Int_Vec+10		;DART CHANNEL A EXTERNAL/STATUS ; INTERRUPT VECTOR
-; DARTEV	EQU		DART_Int_Vec+10     	;DART CHANNEL A EXTERNAL/STATUS INTERRUPT VECTOR
-DART_Int_Read_Vec	EQU     DART_Int_Vec+12		;DART CHANNEL A READ INTERRUPT VECTOR
-; DARTRV	EQU		DART_Int_Vec+12		;DART CHANNEL A READ INTERRUPT VECTOR
-DART_Int_Spec_Vec	EQU     DART_Int_Vec+14		;DART CHANNEL A SPECIAL RECEIVE INTERRUPT VECTOR
-; DARTSV	EQU		DART_Int_Vec+14		;DART CHANNEL A SPECIAL RECEIVE
+DART_Int_WR_Vec		EQU     DART_Int_Vec+8		;SIO_0 CHANNEL A WRITE INTERRUPT VECTOR
+; DARTWV	EQU		DART_Int_Vec+8		;SIO_0 CHANNEL A WRITE INTERRUPT VECTOR
+DART_Int_EXT_Vec	EQU     DART_Int_Vec+10		;SIO_0 CHANNEL A EXTERNAL/STATUS ; INTERRUPT VECTOR
+; DARTEV	EQU		DART_Int_Vec+10     	;SIO_0 CHANNEL A EXTERNAL/STATUS INTERRUPT VECTOR
+DART_Int_Read_Vec	EQU     DART_Int_Vec+12		;SIO_0 CHANNEL A READ INTERRUPT VECTOR
+; DARTRV	EQU		DART_Int_Vec+12		;SIO_0 CHANNEL A READ INTERRUPT VECTOR
+DART_Int_Spec_Vec	EQU     DART_Int_Vec+14		;SIO_0 CHANNEL A SPECIAL RECEIVE INTERRUPT VECTOR
+; DARTSV	EQU		DART_Int_Vec+14		;SIO_0 CHANNEL A SPECIAL RECEIVE
 
 
 ;Write register 0
@@ -197,8 +197,8 @@ SP			EQU		20h
 ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
 ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
 ; BufStat:		EQU     0D07H ;The state of the buffer okay (00), error (EE), auto (AA)        (1-byte)
-; CByteRec:		EQU     0D08H ;Current byte received from DART                                  (1-byte)
-; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to DART, or by key press FF=auto  (1-byte)
+; CByteRec:		EQU     0D08H ;Current byte received from SIO_0                                  (1-byte)
+; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to SIO_0, or by key press FF=auto  (1-byte)
 ; KeyPressed:		EQU     0D0AH ;Key Pressed Flag, 00-False, FF-True                             (1-byte)
 
 ;BUFFER CONFIGURATION
@@ -218,16 +218,16 @@ SP			EQU		20h
 ;INTERRUPT VECTOR TABLE SETUP
 ;The interrupt will call one of these service routines depending on the type of interrupt
 ;There are 4 reasons the interrupt will occur:
-; 1. Transmit Buffer Empty - Indicating that data can be sent to the DART
+; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
 ; 2. External/Status Change - Indicating a change in the modem line or break condition
 ; 3. Receive Character Available - Indicating that data has been sent to CPU
 ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
 ;
 ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
 ;address is the value in the interrupt register 'I'.  The Low byte of the address is
-;placed on the data bus from the DART when an interrupt is triggered. The follwing table
+;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
 ;shows what bits are set on the data bus.  This is used to index the vector table:
-;Note: D0, D4-7 are set via Write Register 2 (Channel B on the DART).  this is set to 00H
+;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
 ;
 ; Channel   D3  D2  D1  Addr  Interrupt type
 ; -------   --  --  --  ----  --------------
@@ -247,10 +247,10 @@ SP			EQU		20h
 ; DART_SpecialVector:		EQU		DART_IntVectors+0EH ;Special Receive Interrupt Vector
 
 
-	; DART_A_D			EQU 	1CH					;DART CHANNEL A DATA
-	; DART_B_D			EQU 	1EH					; DART CHANNEL B DATA
-	; DART_A_C			EQU		1DH					;DART CHANNEL A COMMANDS/STATUS
-	; DART_B_C			EQU		1FH					;DART CHANNEL B COMMANDS/STATUS
+	; DART_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+	; DART_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+	; DART_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+	; DART_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
 
 ;****************************************************************************
 

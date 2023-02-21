@@ -150,7 +150,7 @@
 		}	> RAM
 
 
-		Functions	ALIGN (0x400)  :
+		Functions	ALIGN (0x1000)  :
 		/* Functions	_FUNCTIONS : */
 		{
 			KEEP ( *.o (Functions)) ;

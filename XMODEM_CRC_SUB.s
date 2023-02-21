@@ -5,9 +5,9 @@
 		xref 	PLD_PCB_Start
 		xdef 	RAM_Start,SetupXMODEM_TXandRX,RX_EMP,TX_EMP,TX_NAK,TX_ACK,DART_A_DI,DART_A_EI,DART_A_RESET
 		xdef 	A_RTS_OFF,A_RTS_ON,DART_A_TXRX_INToff,DART_A_TXon,DART_A_RXon,DART_A_TXRX_INTon,TX_C,TX_X
-		xdef 	CRC16
+		xdef 	doImportXMODEM,CRC16
 ;********************************************************		
-;		Routines in order to read data via XMODEM on DART chA
+;		Routines in order to read data via XMODEM on SIO_0 chA
 ;********************************************************		
 
 		section Functions
@@ -19,7 +19,7 @@ RAM_Start:
 ;********************************************************************************************
 
 DART_A_EI:
-		;enable DART channel A RX
+		;enable SIO_0 channel A RX
 		ld		a,003h			;write into WR0: select WR3
 		out		(DART_A_C),A
 		ld		a,0C1h			;RX 8bit, auto enable off, RX on
@@ -28,7 +28,7 @@ DART_A_EI:
 
 
 DART_A_TXRX_INToff:
-		;enable DART channel A RX
+		;enable SIO_0 channel A RX
 		ld		A,WR1			;write into WR0: select WR1
 		out		(DART_A_C),A
 		ld		A,00h			;RX and TX interrupt off
@@ -36,7 +36,7 @@ DART_A_TXRX_INToff:
 		RET
 
 DART_A_TX_INTon:
-		;enable DART channel A RX
+		;enable SIO_0 channel A RX
 		ld		A,WR1							;write into WR0: select WR1
 		out		(DART_A_C),A
 		ld		A,_Tx_INT_EN		 			;TX interrupt on
@@ -44,7 +44,7 @@ DART_A_TX_INTon:
 		RET
 
 DART_A_RX_INTon:
-		;enable DART channel A RX
+		;enable SIO_0 channel A RX
 		ld		A,WR1							;write into WR0: select WR1
 		out		(DART_A_C),A
 		ld		A,_Int_All_Rx_Char_NP		 			;TX interrupt on
@@ -52,7 +52,7 @@ DART_A_RX_INTon:
 		RET
 
 DART_A_TXRX_INTon:
-		;enable DART channel A RX
+		;enable SIO_0 channel A RX
 		ld		A,WR1							;write into WR0: select WR1
 		out		(DART_A_C),A
 		ld		A,_Tx_INT_EN|_Int_All_Rx_Char_NP		 			;RX and TX interrupt on
@@ -82,36 +82,13 @@ A_RTS_ON:
 	
 	
 DART_A_DI:
-		;disable DART channel A RX
+		;disable SIO_0 channel A RX
 		ld		a,WR3			;write into WR0: select WR3
 		out		(DART_A_C),A
 		ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
 		out		(DART_A_C),A
 		;Channel A RX inactive
 		ret
-
-RX_CHA_AVAILABLE:
-		;  character received routine
-		push	AF				;backup AF
-		call	A_RTS_OFF
-		in		A,(DART_A_D)		;read RX character into A
-
-		;examine received character:
-		cp		0Dh				;was last RX char a CR ?
-		jp		z,RX_CR
-		cp		08h				;was last RX char a BS ?
-		jp		z,RX_BS
-		cp		7Fh				;was last RX char a DEL ?
-		jp		z,RX_BS
-
-		;echo any other received character back to host
-		out		(DART_A_D),A
-
-
-		;do something useful with the received character here !
-		call	TX_EMP
-		call	RX_EMP			;flush receive buffer
-		jp		EO_CH_AV
 
 RX_CR:
 		;do something on carriage return reception here
@@ -160,114 +137,263 @@ TX_EMP:
 ;**				SetupXMODEM_TX and RX:									**
 ;**************************************************************************
 
-SetupXMODEM_TXandRX:
-		; SETUP 1
 
-		; DART interrupt vector table
 
-		ld		HL,BYTE_AVAILABLE       	; ON INTERRUPT PAGE
+doImportXMODEM: 
+		call 	writeSTRBelow
+		DB 		0,"Wait for XMODEM start... ",CR,LF,00
+		xor 	A
+		ld 		(TempVar1),A				; reset badblock counter
+
+		ld		HL,receiveBlockIn       	; ON INTERRUPT SIO_0 channel A
 		ld		(DART_Int_Read_Vec),HL		;STORE READ VECTOR
-		; ld		HL,WriteINTHandler
-		; ld		(DART_Int_WR_Vec),HL		;STORE WRITE VECTOR
-		; ld		HL,ExternINTHandler
-		; ld		(DART_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
-		ld		HL,SPEC_RX_CONDITON
-		ld		(DART_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
 
-		ld 		HL,$1015
-		ld 		(TempVar2),HL			;holds number of unsuccessful block transfers/block during download	
-
-
-		; ld		a,_Ch_Reset|WR0
-		; out 		(DART_A_C),A 
-		; ld		a,WR4			;write into WR0: channel reset
-		; out		(DART_A_C),A
-		; ld		a,44h			;44h write into WR4: clkx16,1 stop bit, no parity
-		; out		(DART_A_C),A 
-	
-
-		 ;write into WR0: select WR5		
-		; ld		a,WR5			;write into WR0: select WR5
-		; out		(DART_A_C),A
-		; ld		a,0E8h			;DTR active, TX 8bit, BREAK off, TX on, RTS inactive
-		; out 		(DART_A_C),A
-		
-		; ld 		a,WR1			;write into WR0: select WR1
-		; out		(DART_B_C),A
-		; ld		a,00000100b		;no interrupt in CH B, special RX condition affects vect
-		; out		(DART_B_C),A 
-		
-
-		
-		; ld		a,WR2			;write into WR0: select WR2
-		; out		(DART_B_C),A
-		; ld		a,10h			;write into WR2: cmd line int vect (see int vec table)
-		; out 		(DART_B_C),A 	;bits D3,D2,D1 are changed according to RX condition	
-	
-		;  	Stop CTC channel 1 from sending interrupts.
-		ld	A,_Counter|_Rising|_Reset|_CW	
-		out		(CH1),A			; CH1 counter
-
-
-		; SETUP 2
-		sub		a
-		ld		(TempVar2),A		;reset bad blocks counter
-		ld		C,1h			;C holds first block nr to expect
-		ld 		HL,$B000		;set lower destination address of file
-		call	DART_A_TXRX_INTon
-		call	A_RTS_ON
-		call 	TX_NAK			;'C' indicates CRC mode ready for transmisDARTn to host
-
-
-REC_BLOCK:
-		;set block transfer mode
-		ld		a,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
-								;_EN_INT_Nx_Char|WR1
+		ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
+		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
 		out		(DART_A_C),A
-		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
 		out		(DART_A_C),A		;buffer overrun is a spec RX condition
 
+		call  	RX_EMP
+
+		ld 		HL,$D010
+		ld 		C,1					; block number
+
+
+
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+
+nextC:		
 		ei
 
-		call	A_RTS_ON
+nextBlock:
+		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		out		(DART_A_C),A
+		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		out		(DART_A_C),A		;buffer overrun is a spec RX condition
+		ei
 
-		halt					;await first rx char
 
-		call	A_RTS_OFF
-		
+		call 	A_RTS_ON
+
+		halt						;await first rx char
+
+		call 	A_RTS_OFF
+
+		; ***	wait function inactive
 		ld		a,WR1			;write into WR0: select WR1
 		out		(DART_A_C),A
-		ld		a,00101000b		;wait function inactive
-								;_WAIT_READY_R_T|_Rx_INT_First_Char
+		ld		a,_WAIT_READY_R_T|_Rx_INT_First_Char		;wait function inactive
 		out		(DART_A_C),A
-	
 
 		;check return code of block reception (e holds return code)
-		ld		a,e
-		cp		NUL				;block finished, no error
-		jp		z,l_210
-		cp		$02				;eot found (end of transmission)
-		jp		z,l_211
-		cp		$03				;chk sum error
-		jp		z,l_613
-		ld		a,10h
-		jp		l_612
-l_210:
-		call	TX_ACK			 ;when no error
-		inc		C				;prepare next block to receive
+		ld 		A,E
+		out 	(portB_Data),A
+		ld 		($D000),A
+		cp		CTCtimeout					; timeout error ; no file transfer started
+		jp		Z,timeOutErr		
+
+		cp 		CTCpulse 					; ret from CTC
+		jr 		Z,nextC 					; one more 'C' -> goto .nextC
+
+		cp		NUL							;block finished, no error
+		jp		Z,blockFinished
+
+		cp		EOT_FOUND					;eot found (end of transmission)
+		jp		Z,exitRecBlock
+
+		cp		_err01_						;Byte 1 not recognized (08)
+		jp		Z,blockErrors1_3
+
+		cp		_err02_						;wrong block number (09)
+		jp		Z,blockErrors1_3
+
+		cp		_err03_						;wrong complement block number  (0C)
+		jp		Z,blockErrors1_3
+
+		cp		_err04_						;chk sum error  (0D)
+		jp		Z,checkSumErr
+
+		jp		blockErrors1_3
+		
+
+blockFinished:
+		call	TX_ACK					;when no error
+		inc		C						;prepare next block to receive
 		sub		A
-		ld		(TempVar2),A		;clear bad block counter
-		jp		REC_BLOCK
+		ld		(TempVar2),A			;clear bad block counter
+		jr 		nextC
 
-	
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 
-l_211: 
-		call	TX_NAK 			;on eot
-		ld		A,01h
-		jp 		l_612
 
-l_613: 
-		call 	TX_ACK 			;on chk sum error
+receiveBlockIn:
+
+		; CH1 counter not send any interrupts
+		ld		A,_Counter|_Rising|_Reset|_CW	
+		out		(CH1),A			; CH1 counter not send any interrupts
+
+		ld		A,WR1								;write into WR0 cmd4 and select WR1 
+		out		(DART_A_C),A
+		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T	;wait active, 
+		out		(DART_A_C),A						;buffer overrun is a spec RX condition
+		; ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		; out		(DART_A_C),A
+		; ; ld		A,_Rx_INT_First_Char			;wait active, interrupt on first RX character
+		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		; out		(DART_A_C),A					;buffer overrun is a spec RX condition
+
+		ld 		(XBAddr),HL						; save actual block start address 
+
+		in		A,(DART_A_D)			;read RX byte into A
+		ld 		($D008),A
+checkByte01:
+		cp		SOH					;check for SOH
+		jp		z,checkBlockNum
+		cp		EOT					;check for EOT
+		jp		nz,Er01_
+		ld		e,EOT_FOUND			;eot found (end of transmission)
+		reti
+		
+		
+		; jr		.nextC
+
+		; jr		.nextC
+
+
+Er01_:	; Byte 1 not recognized
+		ld		E,_err01_
+		RETI
+
+Er02_:	; wrong block number
+		ld		E,_err02_
+		RETI
+
+Er03_:	; wrong complement block number
+		ld		E,_err03_
+		RETI
+
+Er04_:
+		ld		E,_err04_
+		RETI
+
+		;check block number
+checkBlockNum:
+		in		A,(DART_A_D)		;read RX byte into A	
+		ld 		($D009),A
+		cp		C					;check for match of block nr
+		jp		nz,Er02_			; wrong block number (09)
+
+		;get complement of block number
+		ld		A,C					;copy block nr to expect into A
+		CPL							;and cpl A	
+		ld		E,A					;E holds cpl of block nr to expect
+
+checkComplBlockNum:
+		in		A,(DART_A_D)		;read RX byte into A
+		ld 		($D00A),A
+		cp		E					;check for cpl of block nr
+		jp		nz,Er03_			; wrong complement block number
+
+		;get data block
+		ld		D,0h				;start value of checksum
+		ld		B,80h				;defines block size 128byte
+
+getBlockData:
+		in		A,(DART_A_D)		;read RX byte into A
+		ld		(HL),A				;update
+		add		A,D
+		ld		D,A					;checksum in D
+		inc		HL					;dest address +1
+		ld 		A,B
+		ld 		($D002),A
+		djnz	getBlockData		;loop until block finished
+
+
+checkBlockChecksum:
+
+		in		A,(DART_A_D)		;read RX hi byte into A
+		ld 		D,A
+		in		A,(DART_A_D)		;read RX low byte into A
+		ld 		E,A					; DE = checksum in file
+		ld 		(XMChkSum),DE
+		; ***	Calculate CRC16
+
+		push 	BC
+		push 	HL
+		ld 		HL,(XBAddr)			; get the block start address
+		ld 		BC,$80
+
+		call	CRC16				; result CRC in DE
+		ld 		($F1AC),DE
+		ld 		HL,(XMChkSum)		; get the file checksum in HL
+		or 		A 					; clear carry
+		sbc 	HL,DE				; calc the differnce
+		; ***	if checksum OK the Z is set
+		pop 	HL					
+		pop  	BC					; restore  HL and BC
+
+
+		jr		z,retBlockComplete
+		ld		e,_err04_
+		reti						;return with checksum error
+retBlockComplete: 
+		ld		E,0h
+		reti						;return when block received completely
+
+restoreDartIO:
+		di
+		ld		A,_Counter|_Rising|_Reset|_CW	
+		out		(CH1),A				; CH1 counter - disable interrupt
+
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+
+		call 	DART_A_TXRX_INTon
+		call 	A_RTS_ON
+		ei
+		ret
+
+exitRecBlock:
+		; ***	File transfer OK
+		call 	TX_ACK
+		call 	restoreDartIO 			; get normal keyboard/screen function
+		call 	writeSTRBelow_CRLF
+		defb    "\0\r\n"
+		defb	"XMODEM file transfer OK !",00
+		ret
+
+
+timeOutErr:
+		call 	restoreDartIO 			; get normal keyboard/screen function
+		call 	writeSTRBelow_CRLF
+		defb    "\0\r\n"
+		defb	"A timout on XMODEM occured !",00
+		ret
+
+blockErrors1_3:
+		call 	restoreDartIO 			; get normal keyboard/screen function
+		call 	writeSTRBelow_CRLF
+		defb    "\0\r\n"
+		defb	"File transfer error: Format, Block ID, ... !",00
+		ret
+
+retry9Err:
+		call 	restoreDartIO 			; get normal keyboard/screen function
+		call 	writeSTRBelow_CRLF
+		defb    "\0\r\n"
+		defb	"XMODEM: Block retry 9 times... !",00
+		ret
+
+
+
+;************
+
+checkSumErr: 
+		call 	TX_NAK 			;on chk sum error
 		scf
 		ccf						;clear carry flag
 		ld		DE,0080h		;subtract 80h
@@ -277,94 +403,8 @@ l_613:
 		inc		A
 		ld		(TempVar2),A
 		cp		09h
-		jp		z,l_612			;abort download after 9 attempts to transfer a block
-		jp 		REC_BLOCK		;repeat block reception
-
-
-l_612:
-DLD_END:
-		ret
-
-
-		;  	interrupt service routine during file transfer
-BYTE_AVAILABLE:
-EXP_SOH_EOT:
-		in		A,(DART_A_D)			;read RX byte into A
-l_205:
-		cp		SOH					;check for SOH
-		jp		z,EXP_BLK_NR
-		cp		EOT					;check for EOT
-		jp		nz,L_2020
-		ld		e,2h
-		reti
-
-
-
-
-
-
-		;await block number
-EXP_BLK_NR:
-		in		A,(DART_A_D)		;read RX byte into A	
-		cp		C					;check for match of block nr
-		jp		nz,L_2020
-
-
-
-		;await complement of block number
-		ld		A,C					;copy block nr to expect into A
-		CPL							;and cpl A	
-		ld		E,A					;E holds cpl of block nr to expect
-
-EXP_CPL_BLK_NR:
-		in		A,(DART_A_D)		;read RX byte into A
-		cp		E					;check for cpl of block nr
-		jp		nz,L_2020
-
-
-		;await data block
-		ld		D,0h				;start value of checksum
-		ld		B,80h				;defines block size 128byte
-
-EXP_DATA:
-		in		A,(DART_A_D)		;read RX byte into A
-		ld		(HL),A				;update
-		add		A,D
-		ld		D,A					;checksum in D
-		inc		HL					;dest address +1
-		djnz	EXP_DATA			;loop until block finished
-
-
-
-
-EXP_CHK_SUM:
-		in		A,(DART_A_D)		;read RX byte into A
-		;
-		;ld		a,045h				;for debug only
-
-		cp		D					;check for checksum match	
-		jp		z,L_2021
-		ld		e,3h
-		reti
-
-
-L_2020: 
-		ld		E,1h
-		RETI
-L_2021: 
-		ld		E,0h
-		RETI						;return when block received completely
-
-
-
-
-
-
-		;*******************­­­­­­­Int routine on RX overflow­­­­­­­­­­­­­­­­­­­­­*******************
-SPEC_BYTE_COND:						;in case of RX overflow prepare abort of transfer
-		ld		HL,DLD_END
-		push	HL
-		reti
+		jp		z,retry9Err		;abort download after 9 attempts to transfer a block
+		jp 		nextBlock		;repeat block reception
 
 
 			

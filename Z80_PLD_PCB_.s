@@ -59,7 +59,7 @@ PLD_PCB_Start:
 		ld 		A,$AA
 		out 	(gpio_out),A
 
-		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE DART. INTERRUPT SYSTEM
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
 			; initialize buffer counters and pointers.
 	 
 		call	PIO_Init
@@ -87,7 +87,7 @@ PLD_PCB_Start:
 		defb	"    git: @@GIT_VERSION@@\r\n"
 		defb	"    build: @@DATE@@\r\n"
 		defb	"\r\n"
-		defb	"Mix CTC/DART interrupt.\r\n"
+		defb	"Mix CTC/SIO_0 interrupt.\r\n"
 		defb	"\0"
 
 
@@ -260,7 +260,7 @@ command_list:
 		db		ITEM,10,9,"flash-off",	STEND,%000,0
 		db		ITEM,11,4,"epwr",	STEND,%000,0
 		db		ITEM,12,4,"epse",	STEND,%000,0
-		db		ITEM,13,4,"xmod",	STEND,%000,0
+		db		ITEM,13,4,"xmod",	STEND,%010,0
 		db		ITEM,14,3,"rst",	STEND,%000,0
 
 		db		ITEM,15,1,"nop",	STEND,%000,0
@@ -341,9 +341,13 @@ matchInList:
 						;char in (HL) is '0' ->  set C, else NC
 
 		inc 	sp
-		inc 	sp
-		ld 		HL,commParseTable
+		inc 	sp						; restore PC from PUSH in <scanCommandList>
+		inc 	HL 						; HL point to first after <STEND>  ->req arguments
+		ld 		A,(HL) 					; A= required arguments
+ 		ld 		HL,commParseTable
 		ld 		(HL),C 					; store the command number in (commParseTable, F080)
+		inc 	HL
+		ld 		(HL),A					; store required arguments  in (commParseTable+1, F081)
 		call 	writeSTRBelow_CRLF
 		DB 		0,"Found a valid command  see (C).. !",CR,LF,00
 		ld 		H,D
@@ -405,7 +409,7 @@ checkaddress:
 		; ***	A = (HL), first char after delimiter
 
 		ld 		(PCinpFlag+1),A			; if value '(PCinpFlag+1)' == '$' -> address input
-		cp 		'$'						; identified string ??
+		cp 		'$'						; identified address id
 		ld 		A,0
 		jr 		NZ,getLvalue			; first value of A (PCinpFlag+1) is '$' ??
 		inc 	HL 						; skip past '$'
@@ -488,6 +492,7 @@ nextHalfByte:
 		;***	HL should point to first delimiter...
 
 byteEnd:
+
 		ld  	A,(PCinpFlag)
 		or  	A 						; check Z; =0 -> normal parameter save
 		jp 	   	Z,paramLoopEntry
@@ -495,9 +500,21 @@ byteEnd:
 		ld  	A,(PCinpFlag+1) 		; address input for PCValue ?
 		cp 		'$' 					; adress flag ?
 		jr 		Z,changePCVal
-		; ***	Store Bytes from LVL1 to (PCval) 
+		; ***	Store Bytes from LVL1 to (PCval) this is not finished...
 
-
+		push 	HL
+		ld 		HL,(PCvalue)	
+		ld 		DE,commLvl1
+		ld 		A,(DE)
+		ld 		(HL),A
+		inc 	HL
+		inc 	DE
+		ld 		A,(DE)
+		or 		A
+		jr 		Z,noHighNib
+		ld 		(HL),A
+noHighNib:
+		pop 	HL		
 		; ***	reset flag
 		; ld 		A,0
 		; ld 		(PCinpFlag),A
@@ -673,10 +690,10 @@ p_xmod:
 
 		ld		A,_INT_EN|_Counter|_Rising|_TC_Follow|_Reset|_CW	
 		out		(CH1),A			; CH1 counter
-		ld		A,198			; time constant 198 defined
+		ld		A,79			; time constant 198 defined
 		out		(CH1),A			; and loaded into channel 1
 
-		call 	awaitstart
+		call 	doImportXMODEM
 
 		call 	DART_A_TXRX_INTon
 	
@@ -684,321 +701,25 @@ p_xmod:
 
 
 ;********************************************************************************************     
-;********************************************************************************************     
 
+bit_test9:
+	db	0x01,0x02,0x80,0x40
 
-awaitstart: 
-		call 	writeSTRBelow
-		DB 		0,"Wait for XMODEM start... ",CR,LF,00
-		xor 	A
-		ld 		(TempVar1),A				; reset badblock counter
 
-		ld		HL,receiveBlockIn       	; ON INTERRUPT DART channel A
-		ld		(DART_Int_Read_Vec),HL		;STORE READ VECTOR
+debug:		equ	0		; Set to 1 to show debug printing, else 0 
 
-		ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
-		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
-		out		(DART_A_C),A
-		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
-		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
-		out		(DART_A_C),A		;buffer overrun is a spec RX condition
 
-		call  	RX_EMP
+	; Spin loop here because there is nothing else to do
+halt_loop:
+	halt
+	jp	halt_loop
 
-		ld 		HL,$D010
-		ld 		C,1					; block number
 
 
 
-;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 
-nextC:		
-		ei
-
-nextBlock:
-		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
-		out		(DART_A_C),A
-		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
-		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
-		out		(DART_A_C),A		;buffer overrun is a spec RX condition
-		ei
-
-
-		call 	A_RTS_ON
-
-		halt						;await first rx char
-
-		call 	A_RTS_OFF
-
-		; ***	wait function inactive
-		ld		a,WR1			;write into WR0: select WR1
-		out		(DART_A_C),A
-		ld		a,_WAIT_READY_R_T|_Rx_INT_First_Char		;wait function inactive
-		out		(DART_A_C),A
-
-		;check return code of block reception (e holds return code)
-		ld 		A,E
-		ld 		($D000),A
-		cp		CTCtimeout					; timeout error ; no file transfer started
-		jp		Z,timeOutErr		
-
-		cp 		CTCpulse 					; ret from CTC
-		jr 		Z,nextC 					; one more 'C' -> goto .nextC
-
-		cp		NUL							;block finished, no error
-		jp		Z,blockFinished
-
-		cp		EOT_FOUND					;eot found (end of transmission)
-		jp		Z,exitRecBlock
-
-		cp		_err01_						;Byte 1 not recognized (08)
-		jp		Z,blockErrors1_3
-
-		cp		_err02_						;wrong block number (09)
-		jp		Z,blockErrors1_3
-
-		cp		_err03_						;wrong complement block number  (0C)
-		jp		Z,blockErrors1_3
-
-		cp		_err04_						;chk sum error  (0D)
-		jp		Z,checkSumErr
-
-		jp		blockErrors1_3
-		
-
-blockFinished:
-		call	TX_ACK					;when no error
-		inc		C						;prepare next block to receive
-		sub		A
-		ld		(TempVar2),A			;clear bad block counter
-		jr 		nextC
-
-;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-
-
-receiveBlockIn:
-
-		; CH1 counter not send any interrupts
-		ld		A,_Counter|_Rising|_Reset|_CW	
-		out		(CH1),A			; CH1 counter not send any interrupts
-
-		ld		A,WR1								;write into WR0 cmd4 and select WR1 
-		out		(DART_A_C),A
-		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T	;wait active, 
-		out		(DART_A_C),A						;buffer overrun is a spec RX condition
-		; ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
-		; out		(DART_A_C),A
-		; ; ld		A,_Rx_INT_First_Char			;wait active, interrupt on first RX character
-		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
-		; out		(DART_A_C),A					;buffer overrun is a spec RX condition
-
-		ld 		(XBAddr),HL						; save actual block start address 
-
-		in		A,(DART_A_D)			;read RX byte into A
-		ld 		($D008),A
-checkByte01:
-		cp		SOH					;check for SOH
-		jp		z,checkBlockNum
-		cp		EOT					;check for EOT
-		jp		nz,Er01_
-		ld		e,EOT_FOUND			;eot found (end of transmission)
-		reti
-		
-		
-		; jr		.nextC
-
-		; jr		.nextC
-
-
-Er01_:	; Byte 1 not recognized
-		ld		E,_err01_
-		RETI
-
-Er02_:	; wrong block number
-		ld		E,_err02_
-		RETI
-
-Er03_:	; wrong complement block number
-		ld		E,_err03_
-		RETI
-
-Er04_:
-		ld		E,_err04_
-		RETI
-
-		;check block number
-checkBlockNum:
-		in		A,(DART_A_D)		;read RX byte into A	
-		ld 		($D009),A
-		cp		C					;check for match of block nr
-		jp		nz,Er02_			; wrong block number (09)
-
-		;get complement of block number
-		ld		A,C					;copy block nr to expect into A
-		CPL							;and cpl A	
-		ld		E,A					;E holds cpl of block nr to expect
-
-checkComplBlockNum:
-		in		A,(DART_A_D)		;read RX byte into A
-		ld 		($D00A),A
-		cp		E					;check for cpl of block nr
-		jp		nz,Er03_			; wrong complement block number
-
-		;get data block
-		ld		D,0h				;start value of checksum
-		ld		B,80h				;defines block size 128byte
-
-getBlockData:
-		in		A,(DART_A_D)		;read RX byte into A
-		ld		(HL),A				;update
-		add		A,D
-		ld		D,A					;checksum in D
-		inc		HL					;dest address +1
-		ld 		A,B
-		ld 		($D002),A
-		djnz	getBlockData		;loop until block finished
-
-
-checkBlockChecksum:
-
-		in		A,(DART_A_D)		;read RX hi byte into A
-		ld 		D,A
-		in		A,(DART_A_D)		;read RX low byte into A
-		ld 		E,A					; DE = checksum in file
-		ld 		(XMChkSum),DE
-		; ***	Calculate CRC16
-
-		push 	BC
-		push 	HL
-		ld 		HL,(XBAddr)			; get the block start address
-		ld 		BC,$80
-
-		call	CRC16				; result CRC in DE
-		ld 		($F1AC),DE
-		ld 		HL,(XMChkSum)		; get the file checksum in HL
-		or 		A 					; clear carry
-		sbc 	HL,DE				; calc the differnce
-		; ***	if checksum OK the Z is set
-		pop 	HL					
-		pop  	BC					; restore  HL and BC
-
-
-		jr		z,retBlockComplete
-		ld		e,_err04_
-		reti						;return with checksum error
-retBlockComplete: 
-		ld		E,0h
-		reti						;return when block received completely
-
-restoreDartIO:
-		di
-		ld		A,_Counter|_Rising|_Reset|_CW	
-		out		(CH1),A				; CH1 counter - disable interrupt
-
-		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE DART. INTERRUPT SYSTEM
-
-		call 	DART_A_TXRX_INTon
-		call 	A_RTS_ON
-		ei
-		ret
-
-exitRecBlock:
-		; ***	File transfer OK
-		call 	TX_ACK
-		call 	restoreDartIO 			; get normal keyboard/screen function
-		call 	writeSTRBelow_CRLF
-		defb    "\0\r\n"
-		defb	"XMODEM file transfer OK !",00
-		ret
-
-
-timeOutErr:
-		call 	restoreDartIO 			; get normal keyboard/screen function
-		call 	writeSTRBelow_CRLF
-		defb    "\0\r\n"
-		defb	"A timout on XMODEM occured !",00
-		ret
-
-blockErrors1_3:
-		call 	restoreDartIO 			; get normal keyboard/screen function
-		call 	writeSTRBelow_CRLF
-		defb    "\0\r\n"
-		defb	"File transfer error: Format, Block ID, ... !",00
-		ret
-
-retry9Err:
-		call 	restoreDartIO 			; get normal keyboard/screen function
-		call 	writeSTRBelow_CRLF
-		defb    "\0\r\n"
-		defb	"XMODEM: Block retry 9 times... !",00
-		ret
-
-
-
-;************
-
-checkSumErr: 
-		call 	TX_NAK 			;on chk sum error
-		scf
-		ccf						;clear carry flag
-		ld		DE,0080h		;subtract 80h
-		sbc 	HL,DE 			;from HL, so HL is reset to block start address
-
-		ld		A,(TempVar2)		;count bad blocks in TempVar2
-		inc		A
-		ld		(TempVar2),A
-		cp		09h
-		jp		z,retry9Err		;abort download after 9 attempts to transfer a block
-		jp 		nextBlock		;repeat block reception
-
-
-CTC_CH0_Interrupt_Handler:
-CTC_CH1_Interrupt_Handler:
-
-		; call 	TX_NAK
-		call 	TX_C
-		ld 		A,(TempVar1)
-		inc 	A
-		ld 		(TempVar1),A
-
-		out 	(portB_Data),A
-
-		cp 		16							; Z is set 
-		jp 		P,showtimeout				; check if loop should timeout... A>16
-
-		; call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
-
-		or 		A							; clear carry - > wait for next.
-		ld 		E,CTCpulse					; ret from CTC = 0A
-
-		reti
-
-;------------------------------------------------------------------------------
-
-
-CTC_CH2_Interrupt_Handler:
-CTC_CH3_Interrupt_Handler:
-
-
-showtimeout:
-		; call 	writeSTRBelow_CRLF
-		; defb    "\0\r\n"
-		; defb	"A timout on XMODEM occured !",00
-		sub  	A
-		ld 		(TempVar1),A
-		out 	(portB_Data),A
-
-		scf								; set carry flag 
-
-		ei
-		ld 		E,CTCtimeout					; ret from CTC = 0B (timeout)
-		reti 
-
-
-
-
+;*******************************************************************************     
+;*******************************************************************************     
 
 
 
@@ -1027,82 +748,6 @@ showtimeout:
 		call	WriteLineCRNL
 
 		jp 		next_line
-;********************************************************************************************
-
-
-
-CTC_Init:
-		;init CH 0 and 1
-		ld 	 A,_Rising|_Timer|_Prescaler|_TC_Follow|_Reset|_CW
-		out		(CH0),A 		; CH0 is on hold now
-		ld		A,126			; time constant (prescaler; 126; 93; 6MHz -> 1 sec peroid) 232/101; 
-		; ld		A,126			; time constant (prescaler; 109; 66; 3,684MHz -> 1 sec peroid;   
-									; time constant (prescaler; 109; 198; 3,684MHz -> 3, sec peroid;  
-		out		(CH0),A			; and loaded into channel 0
-		
-		
-		ld	A,_Counter|_Rising|_TC_Follow|_Reset|_CW	
-		out		(CH1),A			; CH1 counter
-		ld		A,192			; time constant 66 defined
-		out		(CH1),A			; and loaded into channel 2
-	
-		ld 		HL,CTC_CH0_I_Vector          (F410)
-		ld  	A,L					; copy low byte
-		out 	(CH0),A
-
-		; 		Baud 		DART,clockmode  CTCprescaler freq
-		;		115200		16x				1			1.842	
-		;		57600		16x				2			1.842
-		;		38400		16x				3			1.842
-		;		19200		16x				6			1.842
-		; 		9600		16x				12			1.842
-		;init CH2, Baud frequence to DART.
-		ld 	 A,_Counter|_TC_Follow|_Reset|_CW
-		out		(CH2),A
-		ld		A,1			; time constant defined
-		out		(CH2),A			; and loaded into channel 2
-
-
-		;init CH3
-								;input TRG of CH3 is supplied by clock signal from TO2
-								;CH3 divides TO2 clock by AFh
-								;CH3 interupts CPU appr. every 2sec to service int routine CT3_ZERO (flashes LED)
-		ld		A,00000011b		; int on, counter on, prescaler don't care, edge don't care,11000111b
-								; time trigger don't care, time constant follows
-								; sw reset, this is a ctrl cmd
-		out		(CH3),A
-		ld		A,0AFh			; time constant AFh defined
-		out		(CH3),A			; and loaded into channel 3
-		; ld		A,10h			; it vector defined in bit 7­3,bit 2­1 don't care, bit 0 = 0
-
-		; out		(CH0),A			; and loaded into channel 0
-		ret
-
-
-;********************************************************************************************	
-
-		xdef CTC_CH0_Interrupt_Handler,CTC_CH1_Interrupt_Handler,CTC_CH2_Interrupt_Handler,CTC_CH3_Interrupt_Handler
-
-
-bit_test9:
-	db	0x01,0x02,0x80,0x40
-
-
-debug:		equ	0		; Set to 1 to show debug printing, else 0 
-
-
-	; Spin loop here because there is nothing else to do
-halt_loop:
-	halt
-	jp	halt_loop
-
-
-
-
-
-;*******************************************************************************     
-;*******************************************************************************     
-
 
 
 

@@ -13,9 +13,9 @@
 					
 				
 					; Interrupts
-					; 11A    Unbuffered Input/Output Using an DART          394
+					; 11A    Unbuffered Input/Output Using an SIO_0          394
 					; 11B    Unbuffered Input/Output Using a PIO 404
-					; 11C    Buffered Input/Output Using an DART          413
+					; 11C    Buffered Input/Output Using an SIO_0          413
 					; 11D   Real-Time Clock and Calendar 425
 
 
@@ -24,12 +24,12 @@
 					; Unbuffered Input/Output
 					; 														I if full
 					; 														5. INIT: none
-					; 		Title                 Simple interrupt input and output using an DART
+					; 		Title                 Simple interrupt input and output using an SIO_0
 					; 								and single character buffers
 					; 		Name:                 SINTIO
 					; 		Purpose:       This program consists of 5 subroutines which
 					; 					perform-interrupt driven input and output using
-					; 					an DART.
+					; 					an SIO_0.
 					; 					ReadChar
 					; 						Read a character
 					; 					INST
@@ -41,7 +41,7 @@
 					; 						Determine output status (whether output
 					; 						buffer is full)
 					; 					INIT
-					; 						Initialize DART and interrupt system
+					; 						Initialize SIO_0 and interrupt system
 					; 		Entry:         ReadChar
 					; 						No parameters
 					; 					INST
@@ -88,13 +88,13 @@
 					; 		Size:              Program 202 bytes
 					; 							Data      5 bytes
 
-					; 		,DART EQUATES
-					; 		DART IS PROGRAMMED FOR:
+					; 		,SIO_0 EQUATES
+					; 		SIO_0 IS PROGRAMMED FOR:
 					; 			ASYNCHRONOUS OPERATION
 					; 			16 X BAUD RATE
 					; 			8-BIT CHARACTERS
 					; 		, 1 1/2 STOP BITS
-					; 		,ARBITRARY DART PORT ADDRESSES
+					; 		,ARBITRARY SIO_0 PORT ADDRESSES
 					;***********************************************************************************************************************
 					;***********************************************************************************************************************
 ;
@@ -139,7 +139,7 @@
 ; 		LD		A,(TRNDF)			;GET TRANSMIT FLAG
 ; 		RRA							;SET CARRY FROM TRANSMIT FLAG
 ; 		RET							; CARRY = 1 IF BUFFER FULL
-; 		;INITIALIZE INTERRUPT SYSTEM AND DART
+; 		;INITIALIZE INTERRUPT SYSTEM AND SIO_0
 ; INIT_11A:
 ; 		DI							;DISABLE INTERRUPTS FOR INITIALIZATION
 ; 			; INITIALIZE SOFTWARE FLAGS
@@ -147,7 +147,7 @@
 ; 		LD		(RECDF),A			;NO INPUT DATA AVAILABLE
 ; 		LD		(TRNDF),A			;OUTPUT BUFFER EMPTY
 ; 		LD		(OutINTExpect),A				;NO OUTPUT INTERRUPT EXPECTED
-; 									; DART IS READY TO TRANSMIT INITIALLY
+; 									; SIO_0 IS READY TO TRANSMIT INITIALLY
 ; 			;INITIALIZE INTERRUPT VECTORS
 ; 		LD      A,DART_Int_Vec >> 8			;GET INTERRUPT PAGE NUMBER
 ; 		LD      I,A				;SET INTERRUPT VECTOR IN zao
@@ -161,16 +161,16 @@
 ; 		LD		(DART_Int_EXT_Vec),HL
 ; 		LD		HL,REHDLR_11A			;STORE RECEIVE ERROR VECTOR
 ; 		LD		(DART_Int_Spec_Vec),HL
-; 			; INITIALIZE DART
+; 			; INITIALIZE SIO_0
 ; 		LD		HL,DARTINT			;GET BASE OF INITIALIZATION ARRAY
-; 		CALL	IPORTS_11A            	;INITIALIZE DART
+; 		CALL	IPORTS_11A            	;INITIALIZE SIO_0
 ; 		EI							;ENABLE INTERRUPTS
 ; 		RET
 
 ; 			;INPUT (READ) INTERRUPT HANDLER
 ; RDHDLR_11A:
 ; 		PUSH	AF					;SAVE AF
-; RD1_11A:	IN		A, (DART_A_D)			;READ DATA FROM DART
+; RD1_11A:	IN		A, (DART_A_D)			;READ DATA FROM SIO_0
 ; 		LD		(RECDAT), A			;SAVE DATA IN INPUT BUFFER
 ; 		LD		A,0FFH
 ; 		LD		(RECDF),A			;INDICATE INPUT DATA AVAILABLE
@@ -183,7 +183,7 @@
 ; 		LD		A,(TRNDF)			;GET DATA AVAILABLE FLAG
 ; 		RRA
 ; 		JR		NC,NODATA_11A			;JUMP IF NO DATA TO TRANSMIT
-; 		CALL	OUTDAT_11A				;OUTPUT DATA TO DART
+; 		CALL	OUTDAT_11A				;OUTPUT DATA TO SIO_0
 ; 		JR		WRDONE_11A
 
 ; 		; IF AN OUTPUT INTERRUPT OCCURS WHEN NO DATA IS AVAILABLE.
@@ -193,8 +193,8 @@
 ; 		; IS THE OUTPUT INTERRUPT EXPECTED FLAG OlE. THIS FLAG IS
 ; 		; CLEARED WHEN AN OUTPUT INTERRUPT HAS OCCURRED BUT HAS NOT
 ; 		; BEEN SERVICED. IT IS ALSO CLEARED INITIALLY SINCE THE
-; 		; DART STARTS OUT READY. OlE IS SET WHENEVER DATA IS ACTUALLY
-; 		; SENT TO THE DART. THUS THE OUTPUT ROUTINE OUTCH CAN CHECK
+; 		; SIO_0 STARTS OUT READY. OlE IS SET WHENEVER DATA IS ACTUALLY
+; 		; SENT TO THE SIO_0. THUS THE OUTPUT ROUTINE OUTCH CAN CHECK
 ; 		; OlE TO DETERMINE WHETHER TO SEND THE DATA IMMEDIATELY
 ; 		; OR WAIT FOR AN OUTPUT INTERRUPT.
 ; 		; THE PROBLEM IS THAT AN.OUTPUT DEVICE MAY REQUEST SERVICE BEFORE
@@ -207,7 +207,7 @@
 ; 		SUB		A
 ; 		LD		(OutINTExpect),A				;DO NOT EXPECT AN INTERRUPT
 ; 		OUT		(DART_A_C),A			;SELECT REGISTER 0
-; 		LD		A,00101000B			;RESET DART TRANSMITTER INTERRUPT
+; 		LD		A,00101000B			;RESET SIO_0 TRANSMITTER INTERRUPT
 ; 		OUT		(DART_A_C),A
 ; WRDONE_11A:
 ; 		POP		AF					;RESTORE AF
@@ -233,14 +233,14 @@
 
 ; 		;*************************************
 ; 		; ROUTINE: OUTDAT
-; 		;PURPOSE: SEND CHARACTER TO DART
+; 		;PURPOSE: SEND CHARACTER TO SIO_0
 ; 		;ENTRY: TRNDAT = CHARACTER
 ; 		;EXIT: NONE
 ; 		;REGISTERS USED: AF
 ; 		;***************************************
 ; OUTDAT_11A:
 ; 		LD		A,(TRNDAT)			; GET DATA FROM OUTPUT BUFFER
-; 		OUT		(DART_A_D),A			; SEND DATA TO DART
+; 		OUT		(DART_A_D),A			; SEND DATA TO SIO_0
 ; 		SUB		A					; INDICATE OUTPUT BUFFER EMPTY
 ; 		LD		(TRNDF),A
 ; 		DEC		A					; INDICATE OUTPUT INTERRUPT EXPECTED
@@ -270,7 +270,7 @@
 ; 			;OUTPUT DATA AND CONTINUE TO NEXT PORT
 ; 		OTIR						;SEND DATA VALUES TO PORT
 ; 		JR      IPORTS_11A				;CONTINUE TO NEXT PORT ENTRY
-; 			;DART INITIALIZATION DATA
+; 			;SIO_0 INITIALIZATION DATA
 ; DARTINT_11A:
 ; 			;RESET CHANNEL A
 ; 		DB		1					;OUTPUT 1 BYTE
@@ -283,7 +283,7 @@
 ; 		DB		4					;OUTPUT 2 BYTES
 ; 		DB		DART_B_C				;DESTINATION IS COMMAND REGISTER B
 ; 		DB		00000010B			; SELECT WRITE REGISTER 2
-; 		DB		DART_Int_Vec&0FFH			;SET INTERRUPT VECTOR FOR DART
+; 		DB		DART_Int_Vec&0FFH			;SET INTERRUPT VECTOR FOR SIO_0
 ; 		DB		00000001B			;SELECT WRITE REGISTER 1
 ; 		DB		00000100B			;ALLOW STATUS TO AFFECT VECTOR
 ; 			; INITIALIZE CHANNEL A
@@ -343,7 +343,7 @@
 ; ESCAPE		EQU		1BH                ;ASCII ESCAPE CHARACTER
 ; TESTCH		EQU		'A'             ;TEST CHARACTER = A
 ; SC11A:
-; 		CALL	INIT_11A            ; INITIALIZE DART. INTERRUPT SYSTEM
+; 		CALL	INIT_11A            ; INITIALIZE SIO_0. INTERRUPT SYSTEM
 ; 			;SIMPLE EXAMPLE - READ AND ECHO CHARACTERS
 ; 			;UNTIL AN ESC IS RECEIVED
 ; LOOP_11A:
@@ -700,13 +700,13 @@
 			;****************************************************************************************************************
 			;****************************************************************************************************************
 			; Buffered Input/Output
-			; Using an DART (SINTB)                                                                                    11C
-			; 		Title              Interrupt input and output using a ZSO DART and
+			; Using an SIO_0 (SINTB)                                                                                    11C
+			; 		Title              Interrupt input and output using a ZSO SIO_0 and
 			; 						multiple-character buffers
 			; 		Name:              SINTB
 			; 		Purpose:           This program consists of 5 subroutines which
 			; 						perform interrupt driven input and output using
-			; 						a ZSO DART.
+			; 						a ZSO SIO_0.
 			; 						ReadChar
 			; 							Read a character
 			; 						RetInpStatus
@@ -718,7 +718,7 @@
 			; 							Determine output status (whether output
 			; 							buffer is full)
 			; 						InitBuffers
-			; 							Initialize DART and interrupt system
+			; 							Initialize SIO_0 and interrupt system
 			; 		Entry:             ReadChar
 			; 							No parameters
 			; 						RetInpStatus
@@ -769,8 +769,8 @@
 			; 							Approximately 308 cycles
 			; 		Size:           Program 299 bytes
 			; 						Data     11 bytes plus size of buffers
-			; 		:DART EQUATES
-			; 			DART IS PROGRAMMED FOR:
+			; 		:SIO_0 EQUATES
+			; 			SIO_0 IS PROGRAMMED FOR:
 			; 			ASYNCHRONOUS OPERATION
 			; 			16 X BAUD RATE
 			; 			8-BIT CHARACTERS
@@ -786,7 +786,7 @@
 		GLOBAL	PIO_Init,CTC_Init,DART_Init,InitInterrupt
 
 
-			;ARBITRARY DART PORT ADDRESSES
+			;ARBITRARY SIO_0 PORT ADDRESSES
 								; INTERRUPT VECTOR
 			;READ   CHARACTER
 		;*************************************
@@ -963,7 +963,7 @@ GetOutStatus:
 		cp		outBufferSize			; compare to maximum
 		ccf						; complement carry
 		ret						; carry = 1 if buffer full, 0 if not
-			; INITIALIZE DART, Interrupt system
+			; INITIALIZE SIO_0, Interrupt system
 InitBuffers:
 			; initialize buffer counters and pointers.
 		sub		A
@@ -991,7 +991,7 @@ cleanOutBuffer:
 		ld		(outTailAdr),HL
 		ret
 InitInterrupt:
-			;INITIALIZE INTERRUPT VECTORS (DART)
+			;INITIALIZE INTERRUPT VECTORS (SIO_0)
 			; initialize . interrupt flag
 		ld		A,DART_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE
 		ld		I,A             ;SET INTERRUPT VECTOR IN zao
@@ -1019,7 +1019,7 @@ InitInterrupt:
 DART_Init:		
 		;INITIALIZE I/O PORTS
 		ld      HL,DARTINT		;BASE ADDRESS OF INITIALIZATION ARRAY
-		call    InitDARTPorts			; INITIALIZE DART
+		call    InitDARTPorts			; INITIALIZE SIO_0
 		ei						; ENABLE INTERRUPTS
 		ret
 			;INPUT (READ) INTERRUPT HANDLER
@@ -1029,7 +1029,7 @@ ReadINTHandler:
 		push	DE
 		push   	HL
 	
-		in		A,(DART_A_D)		; read data from dart
+		in		A,(DART_A_D)		; read data from SIO_0
 		ld		C,A					; save data in register c
 		ld 		a,(inbufferDeactivate)
 		cp 		$00 					; =0 		
@@ -1102,7 +1102,7 @@ SpecINTHandler:
 
 		;*************************************
 		; 	routine: chartodart
-		; 	purpose: send character to dart
+		; 	purpose: send character to SIO_0
 		; 	entry: none
 		;	exit: none
 		;	registers used: af.de.hl
@@ -1185,7 +1185,7 @@ InitDARTPorts:
 			;output data and continue to next port
 		otir					;send data values to port
 		jr      InitDARTPorts			;continue to next port entry
-		;DART initialization data
+		;SIO_0 initialization data
 DARTINT:
 		; Reset channel a
 		db	1					;output 1 byte
@@ -1200,7 +1200,7 @@ DARTINT:
 		db	4					;OUTPUT 2 BYTES
 		db	DART_B_C			;DESTINATION IS COMMAND REGISTER B
 		db	02					;SELECT WRITE REGISTER 2
-		db	DART_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR DART
+		db	DART_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR SIO_0
 
 		db	01					;SELECT WRITE REGISTER 1
 		db	_Status_Vector		;TURN ON STATUS AFFECTS VECTOR
@@ -1266,7 +1266,7 @@ DARTINT:
 ; ; TESTCH	EQU     'A'					;TEST CHARACTER = A
 ; 		global SC11C
 ; SC11C:
-; 		CALL	InitBuffers				;INITIALIZE DART. INTERRUPT SYSTEM
+; 		CALL	InitBuffers				;INITIALIZE SIO_0. INTERRUPT SYSTEM
 ; 			;SIMPLE EXAMPLE - READ AND ECHO CHARACTER
 ; 			; UNTIL AN ESC IS RECEIVED
 ; LOOP:
@@ -1358,4 +1358,112 @@ PIO_Init:
 	ret
 
 		align 4
+
+;********************************************************************************************     
+;********************************************************************************************     
+
+		xdef CTC_CH0_Interrupt_Handler,CTC_CH1_Interrupt_Handler,CTC_CH2_Interrupt_Handler,CTC_CH3_Interrupt_Handler
+
+CTC_CH0_Interrupt_Handler:
+CTC_CH1_Interrupt_Handler:
+
+		; call 	TX_NAK
+		call 	TX_C
+		ld 		A,(TempVar1)
+		inc 	A
+		ld 		(TempVar1),A
+
+
+		cp 		16							; Z is set 
+		jp 		P,showtimeout				; check if loop should timeout... A>16
+
+		; call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
+
+		or 		A							; clear carry - > wait for next.
+		ld 		E,CTCpulse					; ret from CTC = 0A
+
+		reti
+
+;------------------------------------------------------------------------------
+
+
+CTC_CH2_Interrupt_Handler:
+CTC_CH3_Interrupt_Handler:
+
+
+showtimeout:
+		; call 	writeSTRBelow_CRLF
+		; defb    "\0\r\n"
+		; defb	"A timout on XMODEM occured !",00
+		sub  	A
+		ld 		(TempVar1),A
+		out 	(portB_Data),A
+
+		scf								; set carry flag 
+
+		ei
+		ld 		E,CTCtimeout					; ret from CTC = 0B (timeout)
+		reti 
+
+
+
+
+
+;********************************************************************************************     
+;********************************************************************************************     
+
+
+
+CTC_Init:
+		;init CH 0 and 1
+		ld 	 A,_Rising|_Counter|_TC_Follow|_Reset|_CW
+		out		(CH0),A 		; CH0 is on hold now
+		ld		A,181			; time constant (prescaler; 126; 93; 6MHz -> 1 sec peroid) 232/101; 
+									; time constant (prescaler; 181; 79; 14390,625 khz -> 2, sec peroid;  
+		out		(CH0),A			; and loaded into channel 0
+		
+		
+		ld	A,_Counter|_Rising|_TC_Follow|_Reset|_CW	
+		out		(CH1),A			; CH1 counter
+		ld		A,79			; time constant 66 defined
+		out		(CH1),A			; and loaded into channel 2
+	
+		ld 		HL,CTC_CH0_I_Vector          (F410)
+		ld  	A,L					; copy low byte
+		out 	(CH0),A
+
+		; 		Baud 		SIO_0,clockmode  CTCprescaler freq
+		;		115200		16x				2			3,684	
+		;		57600		16x				4			3,684
+		;		38400		16x				6			3,684
+		;		19200		16x				12			3,684
+		; 		9600		16x				24			3,684
+		;init CH2, Baud frequence to SIO_0.
+		ld 	 A,_Counter|_TC_Follow|_Reset|_CW
+		out		(CH2),A
+		ld		A,2			; time constant defined
+		out		(CH2),A			; and loaded into channel 2
+
+
+		;init CH3
+								;input TRG of CH3 is supplied by clock signal from TO2
+								;CH3 divides TO2 clock by AFh
+								;CH3 interupts CPU appr. every 2sec to service int routine CT3_ZERO (flashes LED)
+		ld		A,00000011b		; int on, counter on, prescaler don't care, edge don't care,11000111b
+								; time trigger don't care, time constant follows
+								; sw reset, this is a ctrl cmd
+		out		(CH3),A
+		ld		A,0AFh			; time constant AFh defined
+		out		(CH3),A			; and loaded into channel 3
+		; ld		A,10h			; it vector defined in bit 7­3,bit 2­1 don't care, bit 0 = 0
+
+		; out		(CH0),A			; and loaded into channel 0
+		ret
+
+
+;********************************************************************************************     
+;********************************************************************************************     
+
+
+.end
 
