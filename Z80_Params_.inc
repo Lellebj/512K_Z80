@@ -19,25 +19,25 @@ portB_Data:		equ _Z80PIO_Base + 2
 
 ; SIO_0 stuff
 
-DART_A_D:		equ	_Z80DART_Base
-; DARTCAD			EQU		DART_A_D				;SIO_0 CHANNEL A DATA
-DART_A_C:		equ	_Z80DART_Base+2
-; DARTCAS			EQU		DART_A_C				;SIO_0 CHANNEL A COMMANDS/STATUS
-DART_B_D:		equ	_Z80DART_Base+1
-; DARTCBD			EQU		DART_B_D				;SIO_0  CHANNEL B DATA
-DART_B_C:		equ	_Z80DART_Base+3
-; DARTCBS			EQU		DART_B_C				;SIO_0 CHANNEL B COMMANDS/STATUS
+SIO_0_A_D:		equ	_Z80SIO_0_Base
+; SIO_0CAD			EQU		SIO_0_A_D				;SIO_0 CHANNEL A DATA
+SIO_0_A_C:		equ	_Z80SIO_0_Base+2
+; SIO_0CAS			EQU		SIO_0_A_C				;SIO_0 CHANNEL A COMMANDS/STATUS
+SIO_0_B_D:		equ	_Z80SIO_0_Base+1
+; SIO_0CBD			EQU		SIO_0_B_D				;SIO_0  CHANNEL B DATA
+SIO_0_B_C:		equ	_Z80SIO_0_Base+3
+; SIO_0CBS			EQU		SIO_0_B_C				;SIO_0 CHANNEL B COMMANDS/STATUS
 
-DART_Int_Vec		EQU     $F400				; INTERRUPT VECTOR 
-; DARTIV				EQU		DART_Int_Vec			; INTERRUPT VECTOR
-DART_Int_WR_Vec		EQU     DART_Int_Vec+8		;SIO_0 CHANNEL A WRITE INTERRUPT VECTOR
-; DARTWV	EQU		DART_Int_Vec+8		;SIO_0 CHANNEL A WRITE INTERRUPT VECTOR
-DART_Int_EXT_Vec	EQU     DART_Int_Vec+10		;SIO_0 CHANNEL A EXTERNAL/STATUS ; INTERRUPT VECTOR
-; DARTEV	EQU		DART_Int_Vec+10     	;SIO_0 CHANNEL A EXTERNAL/STATUS INTERRUPT VECTOR
-DART_Int_Read_Vec	EQU     DART_Int_Vec+12		;SIO_0 CHANNEL A READ INTERRUPT VECTOR
-; DARTRV	EQU		DART_Int_Vec+12		;SIO_0 CHANNEL A READ INTERRUPT VECTOR
-DART_Int_Spec_Vec	EQU     DART_Int_Vec+14		;SIO_0 CHANNEL A SPECIAL RECEIVE INTERRUPT VECTOR
-; DARTSV	EQU		DART_Int_Vec+14		;SIO_0 CHANNEL A SPECIAL RECEIVE
+SIO_0_Int_Vec		EQU     $F400				; INTERRUPT VECTOR 
+; SIO_0IV				EQU		SIO_0_Int_Vec			; INTERRUPT VECTOR
+SIO_0_Int_WR_Vec		EQU     SIO_0_Int_Vec+8		;SIO_0 CHANNEL A WRITE INTERRUPT VECTOR
+; SIO_0WV	EQU		SIO_0_Int_Vec+8		;SIO_0 CHANNEL A WRITE INTERRUPT VECTOR
+SIO_0_Int_EXT_Vec	EQU     SIO_0_Int_Vec+10		;SIO_0 CHANNEL A EXTERNAL/STATUS ; INTERRUPT VECTOR
+; SIO_0EV	EQU		SIO_0_Int_Vec+10     	;SIO_0 CHANNEL A EXTERNAL/STATUS INTERRUPT VECTOR
+SIO_0_Int_Read_Vec	EQU     SIO_0_Int_Vec+12		;SIO_0 CHANNEL A READ INTERRUPT VECTOR
+; SIO_0RV	EQU		SIO_0_Int_Vec+12		;SIO_0 CHANNEL A READ INTERRUPT VECTOR
+SIO_0_Int_Spec_Vec	EQU     SIO_0_Int_Vec+14		;SIO_0 CHANNEL A SPECIAL RECEIVE INTERRUPT VECTOR
+; SIO_0SV	EQU		SIO_0_Int_Vec+14		;SIO_0 CHANNEL A SPECIAL RECEIVE
 
 
 ;Write register 0
@@ -124,13 +124,13 @@ _Reset 		equ 	$02		; D1 - 1 Software reset
 _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
 
 ; Interrupt vectors for CTC
-CTC_CH0_I_Vector	EQU     DART_Int_Vec+$10		;CTC channel 0 interrupt vector 
-CTC_CH1_I_Vector	EQU     DART_Int_Vec+$12		;CTC channel 1 interrupt vector 
-CTC_CH2_I_Vector	EQU     DART_Int_Vec+$14		;CTC channel 2 interrupt vector 
-CTC_CH3_I_Vector	EQU     DART_Int_Vec+$16		;CTC channel 3 interrupt vector 
+CTC_CH0_I_Vector	EQU     SIO_0_Int_Vec+$10		;CTC channel 0 interrupt vector 
+CTC_CH1_I_Vector	EQU     SIO_0_Int_Vec+$12		;CTC channel 1 interrupt vector 
+CTC_CH2_I_Vector	EQU     SIO_0_Int_Vec+$14		;CTC channel 2 interrupt vector 
+CTC_CH3_I_Vector	EQU     SIO_0_Int_Vec+$16		;CTC channel 3 interrupt vector 
 
 ; Data tables  (upper EPROM/FLASH)
-; Interupt_vector		= DART_Int_Vec
+; Interupt_vector		= SIO_0_Int_Vec
 ; stack  				= $FF00
 Heap				= $F000				; space for variable storage
 
@@ -144,7 +144,7 @@ Result_NumToHex:	= $F1F0
 	
 ; _Z80PIO_Base	= $0
 ; _Z80CTC_Base	= $10
-; _Z80DART_Base	= $20
+; _Z80SIO_0_Base	= $20
 ; _Z80_BankCS  	= 0x30;		/*	 30 - 3F   */
 ; _8Bitsout 		= $40;		/*	 40 - 4F  */
 ; _CE_RST_BANK 	= 0x80;		/*	 40 - 4F  */
@@ -240,17 +240,17 @@ SP			EQU		20h
 ;    A       1   1   0   0CH  Receive Character Available
 ;    A       1   1   1   0EH  Special Receive Condition
 ;
-; DART_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
-; DART_WriteVector:		EQU		DART_IntVectors+08H ;Write Interrupt Vector
-; DART_ExternalVector:	EQU		DART_IntVectors+0AH ;External Status Interrupt Vector
-; DART_ReadVector:		EQU		DART_IntVectors+0CH ;Read Interrupt Vector
-; DART_SpecialVector:		EQU		DART_IntVectors+0EH ;Special Receive Interrupt Vector
+; SIO_0_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
+; SIO_0_WriteVector:		EQU		SIO_0_IntVectors+08H ;Write Interrupt Vector
+; SIO_0_ExternalVector:	EQU		SIO_0_IntVectors+0AH ;External Status Interrupt Vector
+; SIO_0_ReadVector:		EQU		SIO_0_IntVectors+0CH ;Read Interrupt Vector
+; SIO_0_SpecialVector:		EQU		SIO_0_IntVectors+0EH ;Special Receive Interrupt Vector
 
 
-	; DART_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
-	; DART_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
-	; DART_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
-	; DART_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+	; SIO_0_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+	; SIO_0_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+	; SIO_0_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+	; SIO_0_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
 
 ;****************************************************************************
 

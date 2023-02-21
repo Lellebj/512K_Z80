@@ -68,7 +68,7 @@ PLD_PCB_Start:
 		ld 		A,$CC
 		out 	(gpio_out),A
 
-		call 	DART_Init
+		call 	SIO_0_Init
 		
 		call	S_head_tail			; save input heads and tails
 		ld 		A,$81
@@ -695,7 +695,7 @@ p_xmod:
 
 		call 	doImportXMODEM
 
-		call 	DART_A_TXRX_INTon
+		call 	SIO_0_A_TXRX_INTon
 	
 		ret
 
@@ -956,41 +956,41 @@ Rtll:
 		ldir
 
 
-DART_A_RESET:
+SIO_0_A_RESET:
 		ld	a,00110000b
-		out	(DART_A_C),A		;write into WR0: error reset, select WR0
+		out	(SIO_0_A_C),A		;write into WR0: error reset, select WR0
 
 		ld	a,018h				;write into WR0: channel reset
-		out (DART_A_C),A 
+		out (SIO_0_A_C),A 
 
 		ld	a,004h				;write into WR0: select WR4
-		out	(DART_A_C),A
+		out	(SIO_0_A_C),A
 		ld	a,44h				;44h write into WR4: clkx16,1 stop bit, no parity
-		out (DART_A_C),A
+		out (SIO_0_A_C),A
 
 		ld	a,005h				;write into WR0: select WR5
-		out (DART_A_C),A
+		out (SIO_0_A_C),A
 		ld	a,01101000b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS inactive (bit 2)
 		ld	a,01101010b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS active (bit 2)
-		out (DART_A_C),A
-DART_A_EI:
+		out (SIO_0_A_C),A
+SIO_0_A_EI:
 			;enable SIO channel A RX
 		ld	a,003h				;write into WR0: select WR3
-		out (DART_A_C),A
+		out (SIO_0_A_C),A
 		ld	a,11000001b				;RX 8bit, auto enable off 8(bit 5), RX on (bit 0)
 		ld	a,11100001b				;RX 8bit, auto enable on 8(bit 5), RX on (bit 0)
-		out (DART_A_C),A
+		out (SIO_0_A_C),A
 		;Channel A RX active
 
 
 		ld 	HL,Str0
 tstout:
 		ld 	A,(HL)
-		out (DART_A_D),A
+		out (SIO_0_A_D),A
 		inc HL
 		ld D,A
 chkTX:
-		in	A,(DART_A_C)		; read status
+		in	A,(SIO_0_A_C)		; read status
 		bit	2,A					; all sent ?
 		jr z,chkTX				; not all sent..
 
@@ -1003,15 +1003,15 @@ chkTX:
 
 endmsg:
 chkRX:
-		in	A,(DART_A_C)		; read status
+		in	A,(SIO_0_A_C)		; read status
 		bit	0,A					; char present ??
 		jr z,chkRX				; check again
 
-		in 	A,(DART_A_D)		; read the char.
+		in 	A,(SIO_0_A_D)		; read the char.
 
-		out (DART_A_D),A
+		out (SIO_0_A_D),A
 chkTX2:
-		in	A,(DART_A_C)		; read status
+		in	A,(SIO_0_A_C)		; read status
 		bit	2,A					; all sent ?
 		jr z,chkTX2
 		

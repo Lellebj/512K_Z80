@@ -81,23 +81,23 @@ START:
 			DI                          ;Disable interrupts
 						
 ;Initialise interrupt vectors
-			LD      HL,DART_IntVectors           ;Get Interupt high page number
+			LD      HL,SIO_0_IntVectors           ;Get Interupt high page number
 			LD      A,H                 ;Save H in A
 			LD      I,A                 ;Set interrupt vector high address (0B)
 			IM      2                   ;Interrupt Mode 2, Vector in table
 
 ;Link interrupt vector address to handler routines
 			LD      HL,Read_Handle      ;Store Read Vector
-			LD      (DART_ReadVector),HL         ;
+			LD      (SIO_0_ReadVector),HL         ;
 			LD      HL,Write_Handle     ;Store Write Vector
-			LD      (DART_WriteVector),HL         ;
+			LD      (SIO_0_WriteVector),HL         ;
 			LD      HL,External_Handle  ;Store External Status Vector
-			LD      (DART_ExternalVector),HL         ;
+			LD      (SIO_0_ExternalVector),HL         ;
 			LD      HL,Error_Handle     ;Store Receive Error Vector
-			LD      (DART_SpecialVector),HL         ;
+			LD      (SIO_0_SpecialVector),HL         ;
 
 ;Initialise the SIO_0
-			CALL    Init_DART            ;Set up the SIO_0 
+			CALL    Init_SIO_0            ;Set up the SIO_0 
 
 ;Initialise Screen and other data
 			XOR     A                   ;Reset A
@@ -149,12 +149,12 @@ Read_Handle:
 ;Buffer is full
 			LD		A,0EEH				;Buffer is full
 			LD		(BufStat),A			;Put EE in BUFF overflow
-			IN		A,(DART_A_D)		;Read overflow byte to clear interrupt
+			IN		A,(SIO_0_A_D)		;Read overflow byte to clear interrupt
 			LD		(CByteRec),A		;Save data in input buffer
 			JR		Read_EXIT			;Exit Safely
 ;Buffer in not full
 Read_OK:    
-			IN		A,(DART_A_D)		;Read data from SIO_0
+			IN		A,(SIO_0_A_D)		;Read data from SIO_0
 			LD		(CByteRec),A		;Save data in input buffer
 			LD		HL,CBufLoc			;Load Buffer in HL
 			LD		L,B					;Load Head Pointer to L to index the Circular Buffer
@@ -187,7 +187,7 @@ Write_Handle:
 Reset_TX_INT:
 ;Buffer is Empty, reset transmit interrupt
 			LD		A,00101000B			;Reset SIO_0 Transmit Interrupt
-			OUT		(DART_A_C),A		;Write into WR0
+			OUT		(SIO_0_A_C),A		;Write into WR0
 Exit_from_Write:
 			POP		AF					;Restore AF
 			EI							;Reenable Interrupts
@@ -197,7 +197,7 @@ Exit_from_Write:
 External_Handle:
 			PUSH	AF					;Save AF
 			LD		A,00010000B			;Reset Status Interrupt
-			OUT		(DART_A_C),A		;Write into WR0
+			OUT		(SIO_0_A_C),A		;Write into WR0
 			POP		AF					;Restore AF
 			EI							;Reenable Interrupts
 			RETI                        ;Return from Interrupt
@@ -206,7 +206,7 @@ External_Handle:
 Error_Handle:
 			PUSH	AF					;Save AF
 			LD		A,00110000B			;Reset Receive Error Interrupt
-			OUT		(DART_A_C),A		;Write into WR0
+			OUT		(SIO_0_A_C),A		;Write into WR0
 			POP		AF					;Restore AF
 			EI							;Reenable Interrupts
 			RETI						;Return from Interrupt
@@ -229,7 +229,7 @@ TX_data_Tail:
 			LD		HL,CBufLoc			;Load Buffer in HL
 			LD		L,B					;Load Tail Pointer to L to index the Circular Buffer
 			LD		A,(HL)				;Get byte at Tail.
-			OUT		(DART_A_D),A		;Transmit byte to SIO_0
+			OUT		(SIO_0_A_D),A		;Transmit byte to SIO_0
 ;Output has occured
 			LD		A,L					;Load Tail Pointer to A
 			INC		A					;Increase Tail pointer by 1
@@ -246,14 +246,14 @@ TX_data_Tail:
 ;SIO_0 Configuration Routines
 ;--------------------------
 
-Init_DART:            
+Init_SIO_0:            
 			LD		HL,CTLTBL			;Setup data location
-			CALL	Setup_DART			;Setup the SIO_0
+			CALL	Setup_SIO_0			;Setup the SIO_0
 			RET							;Exit
 
 ;Initialize the SIO_0, Requires 3 bits of information. Number of control bytes to send,
 ;the port to send it to and the control data.
-Setup_DART:              
+Setup_SIO_0:              
 			LD		A,(HL)				;Load Control Table (Bytes)
 			OR		A					;Test for zero, no more data to load
 			RET     Z                   ;Return if zero
@@ -263,14 +263,14 @@ Setup_DART:
 			INC     HL                  ;Move to control data
 
 			OTIR                        ;Output HL data, B times, to port C
-			JR      Setup_DART              ;Jump to the next port
+			JR      Setup_SIO_0              ;Jump to the next port
 
 ;Control Table data for SIO_0. Refer to Z80 SIO_0 Technical Manual for more information
 ;on the bits set.  
 CTLTBL:              
 ;Reset Channel A
 			DB 01H                      ;1 Line
-			DB DART_A_C                   ;A Port Command
+			DB SIO_0_A_C                   ;A Port Command
 			DB 00011000B                ;write into WR0: channel reset
 			
 ;Set Interrupt Vector and allow status to affect it. The WR2 allows the user to set
@@ -278,7 +278,7 @@ CTLTBL:
 ;interrupt.  The other bits can be set here, Since my vector tables starts at 0B00,
 ;the register can just be set to 0;
 			DB 04H                      ;4 Lines
-			DB DART_B_C                   ;B Port Command
+			DB SIO_0_B_C                   ;B Port Command
 			DB 00000010B                ;write into WR0: select WR2
 			DB 00000000B                ;write into WR2: set base interrupt vector for SIO_0 (0B00)
 			DB 00000001B                ;write into WR0: select WR1
@@ -286,7 +286,7 @@ CTLTBL:
 			
 ;Initialise Channel A
 			DB 08H                      ;8 Lines
-			DB DART_A_C                   ;A Port Command
+			DB SIO_0_A_C                   ;A Port Command
 			DB 00010100B                ;write into WR0: select WR4 / Reset Int
 			DB 11000100B                ;write into WR4: presc. 64x, 1 stop bit, no parityx
 			DB 00000011B                ;write into WR0: select WR3

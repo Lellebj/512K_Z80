@@ -149,20 +149,20 @@
 ; 		LD		(OutINTExpect),A				;NO OUTPUT INTERRUPT EXPECTED
 ; 									; SIO_0 IS READY TO TRANSMIT INITIALLY
 ; 			;INITIALIZE INTERRUPT VECTORS
-; 		LD      A,DART_Int_Vec >> 8			;GET INTERRUPT PAGE NUMBER
+; 		LD      A,SIO_0_Int_Vec >> 8			;GET INTERRUPT PAGE NUMBER
 ; 		LD      I,A				;SET INTERRUPT VECTOR IN zao
 ; 		IM      2				;INTERRUPT MODE 2 - VECTORS IN TABLE
 ; 								; ON INTERRUPT PAGE
 ; 		LD		HL,RDHDLR_11A			;STORE READ VECTOR (INPUT INTERRUPT)
-; 		LD		(DART_Int_Read_Vec),HL
+; 		LD		(SIO_0_Int_Read_Vec),HL
 ; 		LD		HL,WRHDLR_11A			;STORE WRITE VECTOR (OUTPUT INTERRUPT)
-; 		LD		(DART_Int_WR_Vec),HL
+; 		LD		(SIO_0_Int_WR_Vec),HL
 ; 		LD		HL,EXHDLR_11A			;STORE EXTERNAL/STATUS VECTOR
-; 		LD		(DART_Int_EXT_Vec),HL
+; 		LD		(SIO_0_Int_EXT_Vec),HL
 ; 		LD		HL,REHDLR_11A			;STORE RECEIVE ERROR VECTOR
-; 		LD		(DART_Int_Spec_Vec),HL
+; 		LD		(SIO_0_Int_Spec_Vec),HL
 ; 			; INITIALIZE SIO_0
-; 		LD		HL,DARTINT			;GET BASE OF INITIALIZATION ARRAY
+; 		LD		HL,SIO_0INT			;GET BASE OF INITIALIZATION ARRAY
 ; 		CALL	IPORTS_11A            	;INITIALIZE SIO_0
 ; 		EI							;ENABLE INTERRUPTS
 ; 		RET
@@ -170,7 +170,7 @@
 ; 			;INPUT (READ) INTERRUPT HANDLER
 ; RDHDLR_11A:
 ; 		PUSH	AF					;SAVE AF
-; RD1_11A:	IN		A, (DART_A_D)			;READ DATA FROM SIO_0
+; RD1_11A:	IN		A, (SIO_0_A_D)			;READ DATA FROM SIO_0
 ; 		LD		(RECDAT), A			;SAVE DATA IN INPUT BUFFER
 ; 		LD		A,0FFH
 ; 		LD		(RECDF),A			;INDICATE INPUT DATA AVAILABLE
@@ -206,9 +206,9 @@
 ; NODATA_11A:
 ; 		SUB		A
 ; 		LD		(OutINTExpect),A				;DO NOT EXPECT AN INTERRUPT
-; 		OUT		(DART_A_C),A			;SELECT REGISTER 0
+; 		OUT		(SIO_0_A_C),A			;SELECT REGISTER 0
 ; 		LD		A,00101000B			;RESET SIO_0 TRANSMITTER INTERRUPT
-; 		OUT		(DART_A_C),A
+; 		OUT		(SIO_0_A_C),A
 ; WRDONE_11A:
 ; 		POP		AF					;RESTORE AF
 ; 		EI
@@ -217,7 +217,7 @@
 ; EXHDLR_11A:
 ; 		PUSH	AF
 ; 		LD		A,00010000B			;RESET STATUS INTERRUPT
-; 		OUT		(DART_A_C),A
+; 		OUT		(SIO_0_A_C),A
 ; 		EI							;DCD OR CTS CHANGED STATE, OR A BREAK
 
 ; 		POP		AF					; WAS DETECTED
@@ -226,7 +226,7 @@
 ; REHDLR_11A:
 ; 		PUSH	AF
 ; 		LD		A,00110000B			;RESET RECEIVE ERROR INTERRUPT
-; 		OUT		(DART_A_C),A
+; 		OUT		(SIO_0_A_C),A
 ; 		EI							; FRAMING ERROR OR OVERRUN ERROR
 ; 		POP		AF					; OCCURRED
 ; 		RETI						; SERVICE HERE IF NECESSARY
@@ -240,7 +240,7 @@
 ; 		;***************************************
 ; OUTDAT_11A:
 ; 		LD		A,(TRNDAT)			; GET DATA FROM OUTPUT BUFFER
-; 		OUT		(DART_A_D),A			; SEND DATA TO SIO_0
+; 		OUT		(SIO_0_A_D),A			; SEND DATA TO SIO_0
 ; 		SUB		A					; INDICATE OUTPUT BUFFER EMPTY
 ; 		LD		(TRNDF),A
 ; 		DEC		A					; INDICATE OUTPUT INTERRUPT EXPECTED
@@ -271,24 +271,24 @@
 ; 		OTIR						;SEND DATA VALUES TO PORT
 ; 		JR      IPORTS_11A				;CONTINUE TO NEXT PORT ENTRY
 ; 			;SIO_0 INITIALIZATION DATA
-; DARTINT_11A:
+; SIO_0INT_11A:
 ; 			;RESET CHANNEL A
 ; 		DB		1					;OUTPUT 1 BYTE
-; 		DB		DART_A_C				;DESTINATION IS CHANNEL A COMMAND/STATUS
+; 		DB		SIO_0_A_C				;DESTINATION IS CHANNEL A COMMAND/STATUS
 ; 		DB		00011000B			;SELECT WRITE REGISTER 0
 ; 									;BITS 2,1,0 = 0 (WRITE REGISTER 0)
 ; 									;BITS 5.4.3 = 011 (CHANNEL RESET)
 ; 									;BITS 7,6 = 0 (DO NOT CARE)
 ; 			;SET INTERRUPT VECTOR AND ALLOW STATUS TO AFFECT IT
 ; 		DB		4					;OUTPUT 2 BYTES
-; 		DB		DART_B_C				;DESTINATION IS COMMAND REGISTER B
+; 		DB		SIO_0_B_C				;DESTINATION IS COMMAND REGISTER B
 ; 		DB		00000010B			; SELECT WRITE REGISTER 2
-; 		DB		DART_Int_Vec&0FFH			;SET INTERRUPT VECTOR FOR SIO_0
+; 		DB		SIO_0_Int_Vec&0FFH			;SET INTERRUPT VECTOR FOR SIO_0
 ; 		DB		00000001B			;SELECT WRITE REGISTER 1
 ; 		DB		00000100B			;ALLOW STATUS TO AFFECT VECTOR
 ; 			; INITIALIZE CHANNEL A
 ; 		DB		8					;OUTPUT 8 BYTES
-; 		DB		DART_A_C				;DESTINATION IS COMMAND REGISTER A
+; 		DB		SIO_0_A_C				;DESTINATION IS COMMAND REGISTER A
 ; 			; INITIALIZE BAUD RATE CONTROL
 ; 		DB		00010100B			;SELECT WRITE REGISTER 4
 ; 									; RESET EXTERNAL/STATUS INTERRUPT
@@ -783,7 +783,7 @@
 
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
 		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey,RetInpStatus
-		GLOBAL	PIO_Init,CTC_Init,DART_Init,InitInterrupt
+		GLOBAL	PIO_Init,CTC_Init,SIO_0_Init,InitInterrupt
 
 
 			;ARBITRARY SIO_0 PORT ADDRESSES
@@ -951,7 +951,7 @@ WaitOutBuff:
 		ld		(outTailAdr),HL
 		ld		A,(OutINTExpect)		; test output interrupt expected flag
 		or		A
-		call	Z,CharToDart			; output character immediately if
+		call	Z,CharToSIO_0			; output character immediately if
 										; output interrupt not expected
 		pop 	HL		
 		pop 	DE				
@@ -993,17 +993,17 @@ cleanOutBuffer:
 InitInterrupt:
 			;INITIALIZE INTERRUPT VECTORS (SIO_0)
 			; initialize . interrupt flag
-		ld		A,DART_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE
+		ld		A,SIO_0_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE
 		ld		I,A             ;SET INTERRUPT VECTOR IN zao
 		im		2               ; INTERRUPT MODE 2 - VECTORS IN TABLE
 		ld		HL,ReadINTHandler       ; ON INTERRUPT PAGE
-		ld		(DART_Int_Read_Vec),HL		;STORE READ VECTOR
+		ld		(SIO_0_Int_Read_Vec),HL		;STORE READ VECTOR
 		ld		HL,WriteINTHandler
-		ld		(DART_Int_WR_Vec),HL		;STORE WRITE VECTOR
+		ld		(SIO_0_Int_WR_Vec),HL		;STORE WRITE VECTOR
 		ld		HL,ExternINTHandler
-		ld		(DART_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
+		ld		(SIO_0_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
 		ld		HL,SpecINTHandler
-		ld		(DART_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
+		ld		(SIO_0_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
 
 				; INT Vectors  for the CTC 
 		ld		HL,CTC_CH0_Interrupt_Handler
@@ -1016,10 +1016,10 @@ InitInterrupt:
 		ld		(CTC_CH3_I_Vector),HL		;STORE CTC channel 3 VECTOR
 
 		ret
-DART_Init:		
+SIO_0_Init:		
 		;INITIALIZE I/O PORTS
-		ld      HL,DARTINT		;BASE ADDRESS OF INITIALIZATION ARRAY
-		call    InitDARTPorts			; INITIALIZE SIO_0
+		ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
+		call    InitSIO_0Ports			; INITIALIZE SIO_0
 		ei						; ENABLE INTERRUPTS
 		ret
 			;INPUT (READ) INTERRUPT HANDLER
@@ -1029,7 +1029,7 @@ ReadINTHandler:
 		push	DE
 		push   	HL
 	
-		in		A,(DART_A_D)		; read data from SIO_0
+		in		A,(SIO_0_A_D)		; read data from SIO_0
 		ld		C,A					; save data in register c
 		ld 		a,(inbufferDeactivate)
 		cp 		$00 					; =0 		
@@ -1060,7 +1060,7 @@ WriteINTHandler:
 		ld		A, (OutBufCount)			;get output buffer counter
 		or		A					;test for empty buffer
 		jr		Z,nodata			;jump if no data to transmit
-		call	CharToDart				;else output data
+		call	CharToSIO_0				;else output data
 		jr		wrdone
 			;if an output interrupt occurs when no data is available.
 			; we must disable output interrupts to avoid an endless loop.
@@ -1071,9 +1071,9 @@ WriteINTHandler:
 nodata:
 		sub		A
 		ld		(OutINTExpect),a				;00 not expect an interrupt
-		out		(DART_A_C),a			;select register 0
+		out		(SIO_0_A_C),a			;select register 0
 		ld		a,00101000b			;reset transmitter interrupt
-		out		(DART_A_C),a
+		out		(SIO_0_A_C),a
 wrdone:
 		pop		HL					;restore registers
 		pop		DE
@@ -1086,7 +1086,7 @@ ExternINTHandler:
 		push	AF
 		ld		A,00010000b			;reset status interrupt
 
-		out		(DART_A_C),a
+		out		(SIO_0_A_C),a
 		pop		AF
 		ei							; dcd or cts line changed state. or a
 		reti						; break was detected
@@ -1095,22 +1095,22 @@ ExternINTHandler:
 SpecINTHandler:
 		push	AF
 		ld		A,00110000b			;reset receive error interrupt
-		out		(DART_A_C),a
+		out		(SIO_0_A_C),a
 		pop		AF
 		ei							;framing error or overrun error occurred
 		reti						; service here if necessary
 
 		;*************************************
-		; 	routine: chartodart
+		; 	routine: chartoSIO_0
 		; 	purpose: send character to SIO_0
 		; 	entry: none
 		;	exit: none
 		;	registers used: af.de.hl
 		;***************************************
-CharToDart:
+CharToSIO_0:
 		ld		HL,(outHeadAdr)
 		ld		A, (HL)					;get data from head of output buffer
-		out		(DART_A_D),A			;output data
+		out		(SIO_0_A_D),A			;output data
 		call	incOutPointer			; increment head pointer
 		ld		(outHeadAdr),HL
 		ld		HL,OutBufCount			;decrement output buffer count
@@ -1163,13 +1163,13 @@ incOutPointer:
 
 
 		;**************************************
-		; routine: initdartports
+		; routine: initSIO_0ports
 		; purpose: initialize i/o ports
 		; entry: hl = base address of initialization array
 		;exit: data output to ports
 		;registers used: af.bc.hl
 		;************************************
-InitDARTPorts:
+InitSIO_0Ports:
 		;get number of data bytes to send to current port
 		;exit if number of bytes is o. indicating terminator
 		ld		A,(HL)			;get number of bytes
@@ -1184,12 +1184,12 @@ InitDARTPorts:
 		inc		HL				;point to first data value (next byte)
 			;output data and continue to next port
 		otir					;send data values to port
-		jr      InitDARTPorts			;continue to next port entry
+		jr      InitSIO_0Ports			;continue to next port entry
 		;SIO_0 initialization data
-DARTINT:
+SIO_0INT:
 		; Reset channel a
 		db	1					;output 1 byte
-		db	DART_A_C				;to channel a command/status
+		db	SIO_0_A_C				;to channel a command/status
 		db	_Ch_Reset			;select write register 0
 								;bits 2.1.0    0 (write register 0)
 								;bits 5,4,3 = 011 (channel reset)
@@ -1198,16 +1198,16 @@ DARTINT:
 
 		;sET INTERRUPT VECTOR AND ALLOW STATUS TO AFFECT IT
 		db	4					;OUTPUT 2 BYTES
-		db	DART_B_C			;DESTINATION IS COMMAND REGISTER B
+		db	SIO_0_B_C			;DESTINATION IS COMMAND REGISTER B
 		db	02					;SELECT WRITE REGISTER 2
-		db	DART_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR SIO_0
+		db	SIO_0_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR SIO_0
 
 		db	01					;SELECT WRITE REGISTER 1
 		db	_Status_Vector		;TURN ON STATUS AFFECTS VECTOR
 
 		; INITIALIZE CHANNEL A
 		db	8					;OUTPUT 8 BYTES
-		db	DART_A_C			;DESTINATION IS COMMAND REGISTER A
+		db	SIO_0_A_C			;DESTINATION IS COMMAND REGISTER A
 
 		;iNITIALIZE BAUD RATE CONTROL
 		db	_Reset_STAT_INT|4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
