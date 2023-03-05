@@ -11,7 +11,7 @@
 
 		
 		GLOBAL 	BN2BCD,BCD2BN, BN2HEX,Bin2Hex8,Bin2Hex16,HEX2BN,BN2DEC,DEC2BN,LC2UC
-		GLOBAL	DumpRegisters,MFILL,BLKMOV,putDEtoScreen
+		GLOBAL	DumpRegisters,MFILL,BLKMOV,putDEtoScreen,putDEtoScreenDEC
 
 
 		; Code Conversion
@@ -935,6 +935,7 @@ SC4I:
 ;*************************************************************************************************
 ;*************************************************************************************************
 
+		;*** 	write DE to sceen in hex
 putDEtoScreen:
 		; Binary to HEX  BN2HEX   DE->(HL)
 		ld 		hl,T_BUFFER
@@ -944,6 +945,17 @@ putDEtoScreen:
 		call	WriteLine
 		ret
 
+;*************************************************************************************************
+;*************************************************************************************************
+		;*** 	write DE to sceen in decimal
+putDEtoScreenDEC:
+		; Binary to HEX  BN2HEX   DE->(HL)
+		ld 		hl,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
+		inc		hl
+		CALL	BN2DEC				; C0NVERT ;result in T_buffer
+		ld 		iy,T_BUFFER
+		call	WriteLine
+		ret
 
 ;*************************************************************************************************
 ;*************************************************************************************************

@@ -28,8 +28,8 @@ Flash_WR_Test:
 		ld	(hl),A
 		call	WR_toggle
 
-		ld	A,$80
-		out (_Z80_BankCS),A			;// set '64K_SRAM' signal
+		; ld	A,$80
+		; out (_Z80_BankCS),A			;// set '64K_SRAM' signal
 
 		ret
 ;********************************************************************************************
@@ -53,8 +53,8 @@ Flash_SE_Erase:
 		ld	(HL),A
 		call	WR_toggle	; indicate end of sector erase cycle.
 
-		ld	A,$80
-		out (_Z80_BankCS),A			;// set '64K_SRAM' signal
+		; ld	A,$80
+		; out (_Z80_BankCS),A			;// set '64K_SRAM' signal
 		ret
 
 

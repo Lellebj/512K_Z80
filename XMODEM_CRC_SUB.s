@@ -3,7 +3,7 @@
 		include 	"Z80_Params_.inc"
  
 		xref 	PLD_PCB_Start
-		xdef 	RAM_Start,SetupXMODEM_TXandRX,RX_EMP,TX_EMP,TX_NAK,TX_ACK,SIO_0_A_DI,SIO_0_A_EI,SIO_0_A_RESET
+		xdef 	RAM_Start,SetupXMODEM_TXandRX,purgeRXA,purgeRXB,TX_EMP,TX_NAK,TX_ACK,SIO_0_A_DI,SIO_0_A_EI,SIO_0_A_RESET
 		xdef 	A_RTS_OFF,A_RTS_ON,SIO_0_A_TXRX_INToff,SIO_0_A_TXon,SIO_0_A_RXon,SIO_0_A_TXRX_INTon,TX_C,TX_X
 		xdef 	doImportXMODEM,CRC16
 ;********************************************************		
@@ -107,7 +107,7 @@ EO_CH_AV:
 SPEC_RX_CONDITON:
 		jp		0000h
 
-RX_EMP:
+purgeRXA:
 		; flushing the receive buffer
 		;check for RX buffer empty
 		;modifies A
@@ -118,8 +118,20 @@ RX_EMP:
 		ret		z				;if any rx char left in rx buffer
 
 		in		A,(SIO_0_A_D)		;read that char
-		jp		RX_EMP		
+		jp		purgeRXA		
 
+
+purgeRXB:
+		; flushing the receive buffer, check for RX(B) buffer empty
+		;modifies A
+		sub		a				;clear a, write into WR0: select RR0
+		out		(sio_bc),A
+		in		A,(sio_bc)		;read RRx
+		bit		0,A
+		ret		z				;if any rx char left in rx buffer
+
+		in		A,(sio_bd)		;read that char
+		jp		purgeRXA		
 
 TX_EMP:
 		; ransmitting a character to host
@@ -127,7 +139,7 @@ TX_EMP:
 		sub		a				;clear a, write into WR0: select RR0
 		inc		a				;select RR1
 		out		(SIO_0_A_C),A
-		in		A,(SIO_0_A_C)	;read RRx
+		in		A,(SIO_0_A_C)	;read TRx, all sent
 		bit		0,A
 		jp		z,TX_EMP
 		ret
@@ -144,6 +156,19 @@ doImportXMODEM:
 		DB 		0,"Wait for XMODEM start... ",CR,LF,00
 		xor 	A
 		ld 		(TempVar1),A				; reset badblock counter
+		;------------INIT CTC (2 sec timing for 'C'/NAK process----------------
+		;init CH 0 and 1
+		ld 	 	A,_Counter|_Rising|_TC_Follow|_Reset|_CW
+		out		(CH0),A 		; CH0 is on hold now
+		ld		A,$42			; time constant (prescaler; $42;$DA; 14390,625 khz -> 2, sec peroid;  
+		out		(CH0),A			; and loaded into channel 0
+		
+		ld		A,_INT_EN|_Counter|_Rising|_TC_Follow|_Reset|_CW	
+		out		(CH1),A			; CH1 counter
+		ld		A,$DA			; time constant 
+		out		(CH1),A			; and loaded into channel 2
+
+		;------------INIT SIO----------------------------------------
 
 		ld		HL,receiveBlockIn       	; ON INTERRUPT SIO_0 channel A
 		ld		(SIO_0_Int_Read_Vec),HL		;STORE READ VECTOR
@@ -155,7 +180,7 @@ doImportXMODEM:
 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
 		out		(SIO_0_A_C),A		;buffer overrun is a spec RX condition
 
-		call  	RX_EMP
+		call  	purgeRXA
 
 		ld 		HL,$D010
 		ld 		C,1					; block number
@@ -234,8 +259,7 @@ blockFinished:
 receiveBlockIn:
 
 		; CH1 counter not send any interrupts
-		ld		A,_Counter|_Rising|_Reset|_CW	
-		out		(CH1),A			; CH1 counter not send any interrupts
+		call 	CTC1_INT_OFF			; CH1 counter not send any interrupts
 
 		ld		A,WR1								;write into WR0 cmd4 and select WR1 
 		out		(SIO_0_A_C),A

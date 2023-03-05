@@ -783,7 +783,7 @@
 
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
 		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey,RetInpStatus
-		GLOBAL	PIO_Init,CTC_Init,SIO_0_Init,InitInterrupt
+		GLOBAL	PIO_Init,CTC_Init,SIO_0_Init,InitInterrupt,CTC1_INT_OFF,initSIOBInterrupt
 
 
 			;ARBITRARY SIO_0 PORT ADDRESSES
@@ -933,6 +933,7 @@ CRLF:
 
 			;Write character
 WriteChar:
+		push 	BC
 		push 	DE
 		push 	HL				; save the reg  for hexdump...
 		PUSH	AF				;SAVE CHARACTER TO OUTPUT
@@ -954,7 +955,8 @@ WaitOutBuff:
 		call	Z,CharToSIO_0			; output character immediately if
 										; output interrupt not expected
 		pop 	HL		
-		pop 	DE				
+		pop 	DE	
+		pop 	BC			
 		ei						;reenable interrupts
 		ret
 			;output status (carry=1 if buffer is full)
@@ -996,7 +998,7 @@ InitInterrupt:
 		ld		A,SIO_0_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE
 		ld		I,A             ;SET INTERRUPT VECTOR IN zao
 		im		2               ; INTERRUPT MODE 2 - VECTORS IN TABLE
-		ld		HL,ReadINTHandler       ; ON INTERRUPT PAGE
+		ld		HL,ReadINTHandler      	 ; ON INTERRUPT PAGE
 		ld		(SIO_0_Int_Read_Vec),HL		;STORE READ VECTOR
 		ld		HL,WriteINTHandler
 		ld		(SIO_0_Int_WR_Vec),HL		;STORE WRITE VECTOR
@@ -1004,6 +1006,8 @@ InitInterrupt:
 		ld		(SIO_0_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
 		ld		HL,SpecINTHandler
 		ld		(SIO_0_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
+		ld		HL,ReadUSBHandler      	 ; ON INTERRUPT PAGE
+		ld		(SIO_0_USB_Read_Vec),HL		;STORE READ VECTOR
 
 				; INT Vectors  for the CTC 
 		ld		HL,CTC_CH0_Interrupt_Handler
@@ -1185,24 +1189,39 @@ InitSIO_0Ports:
 			;output data and continue to next port
 		otir					;send data values to port
 		jr      InitSIO_0Ports			;continue to next port entry
+		
 		;SIO_0 initialization data
+
+		; sio_ac
+		; sio_ad
+		; sio_bc
+		; sio_bd
+initSIOBInterrupt:
+		ld 		A,WR1
+		out 	(sio_bc),A
+		ld 		A,_Int_All_Rx_Char_NP|_Status_Vector
+		out 	(sio_bc),A					; interrupt on HC376S read
+		ret
+	
 SIO_0INT:
 		; Reset channel a
 		db	1					;output 1 byte
-		db	SIO_0_A_C				;to channel a command/status
+		db	sio_ac			;to channel a command/status
 		db	_Ch_Reset			;select write register 0
 								;bits 2.1.0    0 (write register 0)
 								;bits 5,4,3 = 011 (channel reset)
 								;bits 7,6 = 0 (do not care)
+		db	1					;output 1 byte
+		db	sio_bc			;to channel a command/status
+		db	_Ch_Reset			;select write register 0
 
 
 		;sET INTERRUPT VECTOR AND ALLOW STATUS TO AFFECT IT
 		db	4					;OUTPUT 2 BYTES
 		db	SIO_0_B_C			;DESTINATION IS COMMAND REGISTER B
-		db	02					;SELECT WRITE REGISTER 2
+		db	WR2					;SELECT WRITE REGISTER 2
 		db	SIO_0_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR SIO_0
-
-		db	01					;SELECT WRITE REGISTER 1
+		db	WR1					;SELECT WRITE REGISTER 1
 		db	_Status_Vector		;TURN ON STATUS AFFECTS VECTOR
 
 		; INITIALIZE CHANNEL A
@@ -1219,14 +1238,14 @@ SIO_0INT:
 								;BITS 7.6 = 10 (32 TIMES CLOCK)
 	
 		; INITIALIZE RECEIVE CONTROL
-		db	03		;SELECT WRITE REGISTER 3
+		db	WR3		;SELECT WRITE REGISTER 3
 		db	_Rx_Enable|_RX_8_bits
 								;BIT 0 = 1 (RECEIVE ENABLE)
 								; BITS 4,3,2,1 = 0 (DON-'T CARE)
 								;BIT 5 = 0 (NO AUTO ENABLE)
 								;BIT 7.6 = 11 (RECEIVE 8 BITS/CHAR)
 		;iNITIALIZE TRANSMIT CONTROL
-		db	05					;SELECT WRITE REGISTER 5
+		db	WR5					;SELECT WRITE REGISTER 5
 		db	_RTS_Enable|_Tx_Enable|_Tx_8bits_char
 								;BIT 0 = 0 (NO CRC ON TRANSMIT)
 								;BIT 1 = 1 (REQUEST TO SEND)
@@ -1235,7 +1254,7 @@ SIO_0INT:
 								;BIT 4 = 0 (DO NOT SEND BREAK)
 								;BITS 6.5 = 11 (TRANSMIT 8 BITS/CHAR)
 								;BIT 7 = 1 (DATA TERMINAL READY)
-		DB	01					;SELECT WRITE REGISTER 1
+		DB	WR1					;SELECT WRITE REGISTER 1
 		DB	_Tx_INT_EN|_Int_All_Rx_Char_NP
 		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
 								;BIT 0 = 1 (EXTERNAL INTERRUPTS)
@@ -1244,6 +1263,28 @@ SIO_0INT:
 								;BITS 4. 3 = 11 (RECEIVE INTERRUPTS ON ALL CHARS. PARITY DOES NOT AFFECT VECTOR)
 								;BITS 7.6.5 = 000 (NO WAIT/READY
 								; FUNCTION)
+
+
+
+		; INITIALIZE CHANNEL B
+		db	8					;OUTPUT 8 BYTES
+		db	SIO_0_B_C			;DESTINATION IS COMMAND REGISTER B
+
+		;iNITIALIZE BAUD RATE CONTROL
+		db	_Reset_STAT_INT|WR4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
+		db	_Stop_1_bit|_X16_Clock_mode
+	
+		; ; INITIALIZE RECEIVE CONTROL
+		db	WR3		;SELECT WRITE REGISTER 3
+		db	_Rx_Enable|_RX_8_bits
+		; ;iNITIALIZE TRANSMIT CONTROL
+		db	WR5					;SELECT WRITE REGISTER 5
+		db	_Tx_Enable|_Tx_8bits_char
+		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
+		DB	WR1					;SELECT WRITE REGISTER 1
+		DB	_Status_Vector
+		; DB	_Tx_INT_EN|_Int_All_Rx_Char_NP|_Status_Vector
+
 		DB	0               ; END OF TABLE
 		; DATA SECTION
 		; Moved to linker script 
@@ -1314,11 +1355,11 @@ writeSTRBelow:
         ret
 
 writeSTRBelow_CRLF:
-       ex      (sp),iy                 ; iy = @ of string to print
+		ex		(sp),iy                 ; iy = @ of string to print
 		call	WriteLineCRNL
-        inc     iy                      ; point past the end of the string
-        ex      (sp),iy
-        ret
+		inc		iy                      ; point past the end of the string
+		ex		(sp),iy
+		ret
 
 ;##############################################################
 ; Print a CRLF 
@@ -1415,43 +1456,28 @@ showtimeout:
 
 
 CTC_Init:
-		;init CH 0 and 1
-		ld 	 A,_Rising|_Counter|_TC_Follow|_Reset|_CW
-		out		(CH0),A 		; CH0 is on hold now
-		ld		A,181			; time constant (prescaler; 126; 93; 6MHz -> 1 sec peroid) 232/101; 
-									; time constant (prescaler; 181; 79; 14390,625 khz -> 2, sec peroid;  
-		out		(CH0),A			; and loaded into channel 0
-		
-		
-		ld	A,_Counter|_Rising|_TC_Follow|_Reset|_CW	
-		out		(CH1),A			; CH1 counter
-		ld		A,79			; time constant 66 defined
-		out		(CH1),A			; and loaded into channel 2
-	
+
+		; ------INIT interrupt vectors for SIO /CTC---------------
 		ld 		HL,CTC_CH0_I_Vector          (F410)
 		ld  	A,L					; copy low byte
 		out 	(CH0),A
 
+		; ------INIT CTC2 Baud frequence  for  10 MHz version SIO------- 
 		; 		Baud 		SIO_0,clockmode  CTCprescaler freq
 		;		115200		16x				2			3,684	
 		;		57600		16x				4			3,684
 		;		38400		16x				6			3,684
 		;		19200		16x				12			3,684
 		; 		9600		16x				24			3,684
-		;init CH2, Baud frequence to SIO_0.
-		ld 	 A,_Counter|_TC_Follow|_Reset|_CW
+
+		ld 	 	A,_Counter|_TC_Follow|_Reset|_CW
 		out		(CH2),A
 		ld		A,2			; time constant defined
 		out		(CH2),A			; and loaded into channel 2
 
 
-		;init CH3
-								;input TRG of CH3 is supplied by clock signal from TO2
-								;CH3 divides TO2 clock by AFh
-								;CH3 interupts CPU appr. every 2sec to service int routine CT3_ZERO (flashes LED)
+		;--------init CTC3 (Unused...)----------------------------------
 		ld		A,00000011b		; int on, counter on, prescaler don't care, edge don't care,11000111b
-								; time trigger don't care, time constant follows
-								; sw reset, this is a ctrl cmd
 		out		(CH3),A
 		ld		A,0AFh			; time constant AFh defined
 		out		(CH3),A			; and loaded into channel 3
@@ -1464,6 +1490,13 @@ CTC_Init:
 ;********************************************************************************************     
 ;********************************************************************************************     
 
+				; return with A=0, Z set
+CTC1_INT_OFF:
+		ld		A,_Counter|_Rising|_Reset|_CW	
+		out		(CH1),A			; reset and turn off interrupt CH1
+		xor 	A 				; clear A
+		ld 		(CTCdelayFlag),A ; reset timeout flag
+		ret							; return with A=0, Z set
 
 .end
 

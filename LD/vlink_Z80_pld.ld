@@ -44,7 +44,7 @@
 	Textbufsize				=		0x40;			; /*text input buffer */
 	PROVIDE( Textbuf		= _String_HEAP);		; /*text buffer */
 
-	PROVIDE( S1x			=	0x40 + _String_HEAP);  	/*Textbuf + Textbufsize */
+	PROVIDE( S1x			=	0x40 + _String_HEAP);  	/*Textbuf + Textbufsize used by DumpRegisters, SD/USB enum*/
 	PROVIDE( commParseTable =	0x80 + _String_HEAP);  	/*command parser table, size $80-$100=$80 (128 bytes) */
 	PROVIDE( commAdr1 =			0x84 + _String_HEAP);  	/*command address 1  4 byte*/  
 	PROVIDE( commAdr2 =			0x88 + _String_HEAP);  	/*command address 2  4 byte*/
@@ -88,6 +88,11 @@
 	PROVIDE( TempVar6		=	0x1B6 + _String_HEAP);			/*	Temp6	DS	1	*/
 	PROVIDE( TempVar7		=	0x1B7 + _String_HEAP);			/*	Temp7	DS	1	*/
 	PROVIDE( TempVar8		=	0x1B8 + _String_HEAP);			/*	Temp8	DS	1	*/
+
+	PROVIDE( CTCdelayFlag 	= 	0x1BA + _String_HEAP);			/*	CTC flags that timeout has occured 1 byte	*/
+	PROVIDE( packLen 		=	0x1BC + _String_HEAP);			/*	length of packet   2-byte */
+	PROVIDE( charLen 		=	0x1BE + _String_HEAP);			/*	length of written file   2-byte */
+	PROVIDE( sdWRpointer 	=	0x1C0 + _String_HEAP);			/*	pointer to write file   2-byte */
 
 	PROVIDE( outBufferSize	=	160	);							/*	;SIZE OF OUTPUT BUFFER */
 	PROVIDE( outBuffer		=	0x200+ _String_HEAP);	         	 	/*;OUTPUT BUFFER */

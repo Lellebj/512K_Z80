@@ -86,12 +86,13 @@ PLD_PCB_Start:
 		defb	"The Z80 Board Awakened 2023\r\n"
 		defb	"    git: @@GIT_VERSION@@\r\n"
 		defb	"    build: @@DATE@@\r\n"
-		defb	"\r\n"
-		defb	"Mix CTC/SIO_0 interrupt.\r\n"
+		defb	"    Mix CTC/SIO_0 interrupt.\r\n"
 		defb	"\0"
 
 
 		call	CRLF
+
+
 
 		; call	writeSTRBelow_CRLF
 		; db		"  PIO init: D0-3 outputs ! ",0
@@ -164,6 +165,7 @@ scanCommandList:
 
 findCommandInList:
 		ld 		a,(DE)						; next typed char
+		or 		$20							; make typed char lower case
 		cp		(HL)
 		jr 		nz,findNextITEM				; different chars-> test next item in list
 		inc 	DE
@@ -221,7 +223,7 @@ nextInList:
 inputerror:
 		push   	HL
 		call 	writeSTRBelow
-		DB 		0,"Input Semantic Error... ! :__ ",00
+		DB 		0,"Input Semantic Error... ! code(DE):",00
 		pop 	DE
 		call 	putDEtoScreen
 		call 	CRLF
@@ -229,43 +231,58 @@ inputerror:
 
 command_addresses:
 		defw 	00
-		defw 	p_load
-		defw 	p_dumpmem
-		defw 	p_pc
-		defw 	p_clearmem
-		defw 	p_exe
-		defw 	p_go
-		defw 	p_incDecPC
-		defw 	p_incDecPC
-		defw 	p_FON
-		defw 	p_FOFF
-		defw 	p_epwr			; write data to EEPROM
-		defw 	p_epse			; sector erase
-		defw 	p_xmod			; transfer files via x-modem
-		defw 	p_reset			; Jump to $0000
+		defw 	p_load			;1
+		defw 	p_dumpmem		;2
+		defw 	p_pc			;3
+		defw 	p_clearmem		;4
+		defw 	p_exe			;6
+		defw 	p_go			;7
+		defw 	p_incDecPC		;8
+		defw 	p_incDecPC		;9
+		defw 	p_FON			;10
+		defw 	p_FOFF			;11
+		defw 	p_epwr			;12. write data to EEPROM
+		defw 	p_epse			;13. sector erase
+		defw 	p_xmod			;14. transfer files via x-modem
+		defw 	p_reset			;15. Jump to $0000
+		defw	p_C_Read		;16. Read from SD card   sdrd  "file"  $Addr
+		defw	p_C_Write		;17. Write to SD card   sdrd  "file"  $Addr.l $Addr.h/Num
+		defw	p_C_Read		;18. Read from USB   sdrd  "file"  $Addr
+		defw	p_C_Write		;19. Write to USB   sdrd  "file"  $Addr.l $Addr.h/Num
+		defw	p_C_Delete		;20. delete file on SD card   sdrd  "file"  $Addr
+		defw	p_C_Delete		;21. delete file on USB  sdrd  "file"  $Addr.l $Addr.h/Num
+		defw 	p_C_Read		;22. List root level files/dirs on sd card
+		defw 	p_C_Read 		;23. List root level files/dirs on USB
 command_list:
-;		*** command textstring 	address	 lvalue
+;		*** command textstring1/2 	address1/2	 lvalue1/2
 
-		db		ITEM,1,4,"load",STEND,%101,0
-		db		ITEM,2,2,"dm",	STEND,%001,0
-		db		ITEM,3,2,"pc",	STEND,%000,0
-		db		ITEM,4,2,"cm",	STEND,%000,0
-		db		ITEM,5,3,"exe",	STEND,%000,0
-		db		ITEM,6,2,"go",	STEND,%000,0
-		db		ITEM,7,2,"++",	STEND,%000,0
-		db		ITEM,8,2,"--",	STEND,%000,0
-		db		ITEM,9,5,"f-on",	STEND,%000,0
-		db		ITEM,9,8,"flash-on",	STEND,%000,0
-		db		ITEM,10,6,"f-off",	STEND,%000,0
-		db		ITEM,10,9,"flash-off",	STEND,%000,0
-		db		ITEM,11,4,"epwr",	STEND,%000,0
-		db		ITEM,12,4,"epse",	STEND,%000,0
-		db		ITEM,13,4,"xmod",	STEND,%010,0
-		db		ITEM,14,3,"rst",	STEND,%000,0
-
-		db		ITEM,15,1,"nop",	STEND,%000,0
+		db		ITEM,1,4,"load",STEND,%100010,0
+		db		ITEM,2,2,"dm",	STEND,%000010,0
+		db		ITEM,3,2,"pc",	STEND,%000000,0
+		db		ITEM,4,2,"cm",	STEND,%000000,0
+		db		ITEM,5,3,"exe",	STEND,%000000,0
+		db		ITEM,6,2,"go",	STEND,%000000,0
+		db		ITEM,7,2,"++",	STEND,%000000,0
+		db		ITEM,8,2,"--",	STEND,%000000,0
+		db		ITEM,9,5,"f-on",	STEND,%000000,0
+		db		ITEM,9,8,"flash-on",	STEND,%000000,0
+		db		ITEM,10,6,"f-off",	STEND,%000000,0
+		db		ITEM,10,9,"flash-off",	STEND,%000000,0
+		db		ITEM,11,4,"epwr",	STEND,%000000,0
+		db		ITEM,12,4,"epse",	STEND,%000000,0
+		db		ITEM,13,4,"xmod",	STEND,%001000,0
+		db		ITEM,14,3,"rst",	STEND,%000000,0
+		db		ITEM,15,4,"sdrd",	STEND,%101000,0		; Read from SD card   sdrd  "file"  $Addr
+		db		ITEM,16,4,"sdwr",	STEND,%101010,0 	; Write to SD card   sdwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+		db		ITEM,17,5,"usbrd",	STEND,%101000,0		; Read from USB      usbrd  "file"  $Addr
+		db		ITEM,18,5,"usbwr",	STEND,%101010,0 	; Write to USB        usbwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+		db		ITEM,19,5,"sddel",	STEND,%100000,0 	; Delete file on SD card   sddel  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+		db		ITEM,20,6,"usbdel",	STEND,%100000,0 	; Delete file on USB   usbdel  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+		db		ITEM,21,5,"sddir",	STEND,%100000,0 	; List root level files/dirs on sd card
+		db		ITEM,22,6,"usbdir",	STEND,%100000,0 	; List root level files/dirs on USB
+		db		ITEM,23,3,"nop",	STEND,%000000,0
 		db		LISTEND
-commListLen  equ   15
+commListLen  equ   24
 
 		; ld		HL,$6000
 		; ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
@@ -348,8 +365,8 @@ matchInList:
 		ld 		(HL),C 					; store the command number in (commParseTable, F080)
 		inc 	HL
 		ld 		(HL),A					; store required arguments  in (commParseTable+1, F081)
-		call 	writeSTRBelow_CRLF
-		DB 		0,"Found a valid command  see (C).. !",CR,LF,00
+		; call 	writeSTRBelow_CRLF
+		; DB 		0,"Found a valid command  see (C).. !",CR,LF,00
 		ld 		H,D
 		ld		L,E		
 		dec 	HL							; DE -> HL -> last char before delimiter
@@ -421,6 +438,8 @@ chkADR1:
 		; ld 		A,0
 		cp 		(IX)			; check if zero ? (already stored)
 		jr 		NZ,chkADR2
+		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
+		jr 		NZ,chkADR2
 		jr 		makeASCIItoHEX
 chkADR2:
 
@@ -428,17 +447,23 @@ chkADR2:
 		; ld 		A,0
 		cp 		(IX)			; check if zero ? (already stored)
 		jp 		NZ,inputerror	; error : No more addresses to store
+		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
+		jp 		NZ,inputerror	; error : No more addresses to store
 		jr 		makeASCIItoHEX
 
 getLvalue:
 		ld 		IX,commLvl1
 		cp 		(IX)			; check if zero ? (already stored)
 		jr 		NZ,chkLVL2
+		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
+		jr 		NZ,chkLVL2
 		jr 		makeASCIItoHEX
 
 chkLVL2:
 		ld 		IX,commLvl2
 		cp 		(IX)			; check if zero ? (already stored)
+		jp 		NZ,inputerror	; error : No more addresses to store
+		cp 		(IX+1)			; check if zero (byte 2) ? (already stored)
 		jp 		NZ,inputerror	; error : No more addresses to store
 
 
@@ -531,8 +556,9 @@ changePCVal:
 
 executeCommand:	
 		; ***	execute commands (and arguments)
-		call 	writeSTRBelow
-		DB 		0,"Finish parsing !",CR,LF,00
+		; call 	writeSTRBelow
+		; DB 		0,"Finish parsing !",CR,LF,00
+		; call 	DumpRegisters			; checkpoint for list of arguments
 
 		ld 		A,(PCinpFlag)
 		or 		A   					; check if zero  
@@ -591,6 +617,10 @@ JPTable01:
 		; ld		HL,$0077
 		; exx	
 		; call DumpRegisters
+argumentsError:
+		call 	writeSTRBelow
+		DB 		0,"Some arguments mismatch !",CR,LF,00
+		ret
 
 
 p_reset:
@@ -687,19 +717,192 @@ p_epse:
 
 p_xmod:
 		; ***	Transfer files via x-modem
+		; ***	Check commParseTable+1 if required parameters
 
-		ld		A,_INT_EN|_Counter|_Rising|_TC_Follow|_Reset|_CW	
-		out		(CH1),A			; CH1 counter
-		ld		A,79			; time constant 198 defined
-		out		(CH1),A			; and loaded into channel 1
+		ld 		A,(commParseTable+1)
+		bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
+		jr 		Z,.nxta
+		; ***	check the commLvl1 if zero
+		ld 		DE,(commLvl1)
+.nxta:		
+
 
 		call 	doImportXMODEM
 
 		call 	SIO_0_A_TXRX_INTon
+		call 	CTC1_INT_OFF
 	
 		ret
 
+p_C_Read:
 
+		call 	checkArgsTAL				; check necessary args
+		jp		NZ,argumentsError			; show argument error and return
+
+		ld 		DE,CTC_delay_INT_handler
+		ld 		(CTC_CH1_I_Vector),DE
+
+		call 	purgeRXB
+		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S)
+		call 	HC376S_ResetAll
+		call 	HC376S_CheckConnection
+		ld 		A,(commParseTable)
+		cp 		15							; 15 read SD; 17-read USB
+		jr 		Z,.doSD
+		cp 		21							; 21 read SD enumerate, 22 read USB enumerate
+		jr 		Z,.doSD
+		call 	HC376S_setUSBMode
+		call 	HC376S_diskConnectionStatus		; dont use with SD card
+		jr 		.cont
+.doSD:
+		call 	HC376S_setSDMode
+		
+.cont:
+		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+		jr 		NZ,abort
+		call 	HC376S_setFileName
+		call 	HC376S_fileOpen
+		jr 		NZ,abort
+
+		call 	HC376S_getFileSize
+		call 	HC376S_fileRead
+		call 	HC376S_fileClose
+abort:
+
+		; ***	reset the interrupt handler for CTC
+		call 	HC376S_ResetAll
+		call 	CTC1_INT_OFF
+		ld		HL,CTC_CH1_Interrupt_Handler
+		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+		ret
+
+		
+p_C_Write:
+		call 	checkArgsTAL				; check necessary args ("string" $Adr1   Lvl1)
+		jr 		Z,.contWR
+		; ***	check alternative (2 adresses)
+		ld 		A,%101100					; alt. with "string" $Adr1 < $Adr2
+		ld 		(HL),A						; HL-> (commParseTable+1);
+		inc 	HL			; HL-> (commParseTable+2); get the resulting arguments counted
+		cp 		(HL) 						; compare resulting arguments with req arguments
+
+		jp		NZ,argumentsError			; show argument error and return
+		
+		; ***	calculate size from addresses $Adr2 - $Adr1
+		scf
+		ccf
+		ld 		HL,(commAdr2)
+		ld		DE,(commAdr1)
+		sbc		HL,DE
+		ld 		(commLvl1),HL				; resulting size in commLvl1
+
+
+.contWR:
+		ld 		DE,CTC_delay_INT_handler
+		ld 		(CTC_CH1_I_Vector),DE
+
+		call 	purgeRXB
+		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S)
+		call 	HC376S_ResetAll
+		call 	HC376S_CheckConnection
+		ld 		A,(commParseTable)
+		cp 		16							; 16 read SD; 18-read USB
+		jr 		Z,.doSD
+		call 	HC376S_setUSBMode
+		call 	HC376S_diskConnectionStatus		; dont use with SD card
+		jr 		.cont
+.doSD:
+		call 	HC376S_setSDMode
+.cont:
+		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+		jr 		NZ,abort
+		call 	HC376S_setFileName
+		call 	HC376S_fileCreate
+		jr		NZ,abort
+		call 	HC376S_fileWrite
+		
+		call 	HC376S_fileClose
+		call 	HC376S_ResetAll
+		jr 		abort
+
+p_C_Delete:
+		call 	checkArgsTAL				; check necessary args ("string" $Adr1  )
+		jP 		NZ,argumentsError
+		ld 		DE,CTC_delay_INT_handler
+		ld 		(CTC_CH1_I_Vector),DE
+
+		call 	purgeRXB
+		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S)
+
+		call 	HC376S_ResetAll
+		call 	HC376S_CheckConnection
+		ld 		A,(commParseTable)
+		cp 		19							; 19 delete file SD; 20-delete file USB
+		jr 		Z,.doSD
+		call 	HC376S_setUSBMode
+		call 	HC376S_diskConnectionStatus
+		jr 		.cont
+.doSD:
+		call 	HC376S_setSDMode
+.cont:
+		call 	HC376S_USBdiskMount
+		 
+		; call 	HC376S_fileOpen
+		; call 	HC376S_getFileSize
+		; call 	HC376S_fileRead
+
+		call 	HC376S_fileDelete
+		call 	HC376S_ResetAll
+
+		jp 		abort
+
+
+;********************************************************************************************     
+;********************************************************************************************     
+
+		; ***	Check commParseTable+1 if required parameters
+checkArgsTAL:		
+;		*** command textstring1/2 	address1/2	 lvalue1/2
+
+		; ***	try to connect to USB
+		ld 		HL,commParseTable+2				; resulting typed arguments
+		ld 		A,0
+		ld 		(HL),A
+
+		ld 		IX,commStr1			; commStr1 =			0xB0
+		call 	shift_0_1:
+		ld 		IX,commStr2			; commStr2 =			0xD8
+		call 	shift_0_1:
+		ld 		IX,commAdr1			; commAdr1 =			0x84
+		call 	shift_0_1:
+		ld 		IX,commAdr2			; commAdr2 =			0x88
+		call 	shift_0_1:
+		ld 		IX,commLvl1			; commLvl1 =			0x90
+		call 	shift_0_1:
+		ld 		IX,commLvl2			; commLvl2 =			0xA0
+		call 	shift_0_1:
+
+		ld 		A,(HL)						; get the resulting arguments counted
+		dec 	HL
+		cp 		(HL) 						; compare resulting arguments with req arguments
+		ret 	 					; return with Z or NZ  arguments
+
+shift_0_1:
+		cp 		(IX)
+		jr 		NZ,shiftIn1
+		cp 		(IX+1)
+		jr 		NZ,shiftIn1
+		; ***	both =0 shift in '0'
+		sla		(HL)
+		ret
+shiftIn1:
+		; ***	least one not '0' shift in '1'
+		scf		
+		rl 		(HL)
+		ret
+
+
+;********************************************************************************************     
 ;********************************************************************************************     
 
 bit_test9:

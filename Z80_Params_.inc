@@ -18,26 +18,35 @@ portB_Data:		equ _Z80PIO_Base + 2
 
 
 ; SIO_0 stuff
-
+				;SIO_0 CHANNEL A DATA
 SIO_0_A_D:		equ	_Z80SIO_0_Base
-; SIO_0CAD			EQU		SIO_0_A_D				;SIO_0 CHANNEL A DATA
+				;SIO_0 CHANNEL A COMMANDS/STATUS
 SIO_0_A_C:		equ	_Z80SIO_0_Base+2
-; SIO_0CAS			EQU		SIO_0_A_C				;SIO_0 CHANNEL A COMMANDS/STATUS
+				;SIO_0  CHANNEL B DATA
 SIO_0_B_D:		equ	_Z80SIO_0_Base+1
-; SIO_0CBD			EQU		SIO_0_B_D				;SIO_0  CHANNEL B DATA
+				;SIO_0 CHANNEL B COMMANDS/STATUS
 SIO_0_B_C:		equ	_Z80SIO_0_Base+3
-; SIO_0CBS			EQU		SIO_0_B_C				;SIO_0 CHANNEL B COMMANDS/STATUS
 
-SIO_0_Int_Vec		EQU     $F400				; INTERRUPT VECTOR 
-; SIO_0IV				EQU		SIO_0_Int_Vec			; INTERRUPT VECTOR
-SIO_0_Int_WR_Vec		EQU     SIO_0_Int_Vec+8		;SIO_0 CHANNEL A WRITE INTERRUPT VECTOR
-; SIO_0WV	EQU		SIO_0_Int_Vec+8		;SIO_0 CHANNEL A WRITE INTERRUPT VECTOR
-SIO_0_Int_EXT_Vec	EQU     SIO_0_Int_Vec+10		;SIO_0 CHANNEL A EXTERNAL/STATUS ; INTERRUPT VECTOR
-; SIO_0EV	EQU		SIO_0_Int_Vec+10     	;SIO_0 CHANNEL A EXTERNAL/STATUS INTERRUPT VECTOR
-SIO_0_Int_Read_Vec	EQU     SIO_0_Int_Vec+12		;SIO_0 CHANNEL A READ INTERRUPT VECTOR
-; SIO_0RV	EQU		SIO_0_Int_Vec+12		;SIO_0 CHANNEL A READ INTERRUPT VECTOR
-SIO_0_Int_Spec_Vec	EQU     SIO_0_Int_Vec+14		;SIO_0 CHANNEL A SPECIAL RECEIVE INTERRUPT VECTOR
-; SIO_0SV	EQU		SIO_0_Int_Vec+14		;SIO_0 CHANNEL A SPECIAL RECEIVE
+sio_ac: 		equ 	SIO_0_A_C
+sio_ad: 		equ 	SIO_0_A_D
+sio_bc: 		equ 	SIO_0_B_C
+sio_bd: 		equ 	SIO_0_B_D
+
+
+SIO_0_Int_Vec		EQU     $F400					; interrupt vector 
+SIO_0_Int_WR_Vec	EQU     SIO_0_Int_Vec+8			;sio_0 channel A write interrupt vector
+SIO_0_Int_EXT_Vec	EQU     SIO_0_Int_Vec+10		;sio_0 channel A external/status ; interrupt vector
+SIO_0_Int_Read_Vec	EQU     SIO_0_Int_Vec+12		;sio_0 channel A read interrupt vector
+SIO_0_Int_Spec_Vec	EQU     SIO_0_Int_Vec+14		;sio_0 channel A special receive interrupt vector
+
+		;sio_0 channel B write interrupt vector
+SIO_0_USB_WR_Vec	EQU     SIO_0_Int_Vec+0	
+		;sio_0 channel B external/status ; interrupt vector
+SIO_0_USB_EXT_Vec	EQU     SIO_0_Int_Vec+2	
+		;sio_0 channel B read interrupt vector
+SIO_0_USB_Read_Vec	EQU     SIO_0_Int_Vec+4	
+			;sio_0 channel B special receive interrupt vector
+SIO_0_USB_Spec_Vec	EQU     SIO_0_Int_Vec+6
 
 
 ;Write register 0
