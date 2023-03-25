@@ -21,8 +21,8 @@
 		; 8E    Delete a Substring from a String 308
 		; 8F    Insert a Substring into a String 313
 
-		;****************************************************************************************************************
-		;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
 		; String Compare (StrCompare)                                                                                      8A
 		;     Compares two strings and sets the Carry and
 		;                                                         Registers Used: AF, BC, DE, HL
@@ -58,8 +58,8 @@
 		;                                 through length of shorter
 		;           Size:                Program 32 bytes
 		;                                 Data     2 bytes
-		;****************************************************************************************************************
-		;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 
 strCompare:
@@ -101,19 +101,19 @@ LENS2:	DS		1					;length of string 2
 		; 5AMPLE EXECUTION:
 
 
-SC8A:
-		LD		HL,S1				;base address of string 1
-		LD		DE,S2				;base address of string 2
-		CALL	strCompare			;compare strings
-									;comparing "string 1" and "string 2"
-									; results in string 1 less than
-									; string 2. so z=o.c=1
-		JR      SC8A				;loop for another test
-S1:		DB		20H					;string 1
-S2:		DB		20H					;string 2
+; SC8A:
+; 		LD		HL,S1				;base address of string 1
+; 		LD		DE,S2				;base address of string 2
+; 		CALL	strCompare			;compare strings
+; 									;comparing "string 1" and "string 2"
+; 									; results in string 1 less than
+; 									; string 2. so z=o.c=1
+; 		JR      SC8A				;loop for another test
+; S1:		DB		20H					;string 1
+; S2:		DB		20H					;string 2
 
-	;****************************************************************************************************************
-	;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 		GLOBAL 		isDelimit,skipPriorDelimit,skipCharsUntilDelim
 
@@ -184,8 +184,8 @@ skipCharsUntilDelim:
 		jr 		skipCharsUntilDelim
 
 
-	;****************************************************************************************************************
-	;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 isHex:
 		; ***	Check if characters are HEX ? 
@@ -214,8 +214,8 @@ isHex:
 		ccf
 		ret							; return without Carry, value in A is HEX
 
-	;****************************************************************************************************************
-	;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 isChar:
 		; ***	Check if characters are Char ? 
@@ -236,55 +236,51 @@ isChar:
 		ret							; return without Carry, value in A is char
 
 
-	;****************************************************************************************************************
-	;****************************************************************************************************************
 
-
-
-				;****************************************************************************************************************
-				;****************************************************************************************************************
-				; String Concatenation (CONCAT)                                                                                            8B
-				; 	is
-				; 																with the Carry flag cleared (no errors) and string I
-				; Examples
-				; I.    Data:     Maximum length of string I = OE'6 = 1410       2.    Data:    String I = 07'JOHNSON' (07 is the length of
-				; 				String 1= 07'JOHNSON' (07 is the length of                      the string)
-				; 				the string)                                                 String 2= 09',RICHARD'(09 is the length of
-				; 				String 2 = OS',DON' (OS is the length of the                    the string)
-				; 				string)                                           Result:   String 1= OE'JOHNSON, RICHA' (OE'6 =
-				; 	Result:    String 1= OC'JOHNSON, DON'(OC'6= 1210                            1410 is the maximum length allowed, so the
-				; 				is the length of the combined string with                     last two characters of string 2 have been
-				; 				string 2 placed after string I)                               dropped)
-				; 				Carry = 0, since the concatenation did not                    Carry= I, since the concatenation produced
-				; 				produce a string exceeding the maximum                        a string longer than the maximum length.
-				; 				length.
-				; 			Title                   String Concatenation
-				; 			Name:                   CONCAT
-				; 			Purpose:                 Concatenate 2 strings into one string
-				; 			Entry:                  Register pair HL = Base address of string 1
-				; 									Register pair DE = Base address of string 2
-				; 									Register B = Maximum length of string 1
-				; 										A string is a maximum of 255 bytes long plus
-				; 										a length byte which precedes it.
-				; 			Exit:                   String 1 := string 1 concatenated with string 2
-				; 									If no errors then
-				; 										CARRY := 0
-				; 									else
-				; 										begin
-				; 											CARRY := 1
-				; 											if the concatenation makes string 1 too
-				; 											long, concatenate only enough of string 2
-				; 											to give string 1 its maximum length.
-				; 											if length(stringl) > maximum length then
-				; 											no concatenation is done
-				; 										end,
-				; 		Registers used: AF.BC.DE.HL
-				; 		Time:             Approximately 21 * (length of string 2) cycles
-				; 							plus 288 cycles overhead
-				; 		Size:             Program 83 bytes
-				; 							Data     5 bytes
-				;****************************************************************************************************************
-				;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
+		; String Concatenation (CONCAT)                                                                                            8B
+		; 	is
+		; 																with the Carry flag cleared (no errors) and string I
+		; Examples
+		; I.    Data:     Maximum length of string I = OE'6 = 1410       2.    Data:    String I = 07'JOHNSON' (07 is the length of
+		; 				String 1= 07'JOHNSON' (07 is the length of                      the string)
+		; 				the string)                                                 String 2= 09',RICHARD'(09 is the length of
+		; 				String 2 = OS',DON' (OS is the length of the                    the string)
+		; 				string)                                           Result:   String 1= OE'JOHNSON, RICHA' (OE'6 =
+		; 	Result:    String 1= OC'JOHNSON, DON'(OC'6= 1210                            1410 is the maximum length allowed, so the
+		; 				is the length of the combined string with                     last two characters of string 2 have been
+		; 				string 2 placed after string I)                               dropped)
+		; 				Carry = 0, since the concatenation did not                    Carry= I, since the concatenation produced
+		; 				produce a string exceeding the maximum                        a string longer than the maximum length.
+		; 				length.
+		; 			Title                   String Concatenation
+		; 			Name:                   CONCAT
+		; 			Purpose:                 Concatenate 2 strings into one string
+		; 			Entry:                  Register pair HL = Base address of string 1
+		; 									Register pair DE = Base address of string 2
+		; 									Register B = Maximum length of string 1
+		; 										A string is a maximum of 255 bytes long plus
+		; 										a length byte which precedes it.
+		; 			Exit:                   String 1 := string 1 concatenated with string 2
+		; 									If no errors then
+		; 										CARRY := 0
+		; 									else
+		; 										begin
+		; 											CARRY := 1
+		; 											if the concatenation makes string 1 too
+		; 											long, concatenate only enough of string 2
+		; 											to give string 1 its maximum length.
+		; 											if length(stringl) > maximum length then
+		; 											no concatenation is done
+		; 										end,
+		; 		Registers used: AF.BC.DE.HL
+		; 		Time:             Approximately 21 * (length of string 2) cycles
+		; 							plus 288 cycles overhead
+		; 		Size:             Program 83 bytes
+		; 							Data     5 bytes
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 
 
@@ -379,62 +375,62 @@ STRGOV:   DS      1				;STRING OVERFLOW FLAG
 
 
 
-				;****************************************************************************************************************
-				;****************************************************************************************************************
-				; Find the Position of a Substring (POS)                                                                                    8C
-				; Examples
-				; I.    Data:      String = lD'ENTER SPEED IN MILES                      3.    Data:    String= IO'LETYI = Xl + R7'(1016= 16 10 is
-				; 				PER HOUR' (lD 16 = 29 10 is the length of                            the length of the string)
-				; 				the string)                                                        Substring = 02'R4' (02 is the length of the
-				; 				Substring = OS'MILES' (05 is the length of                             substring)
-				; 				the substring)                                           Result:   A contains 0, since the substring 'R4' does not
-				; 	Result:     A contains 10 16 (16 10 ), the index at which the                      appear in the string LET YI = Xl + R7.
-				; 				substring 'MILES' starts.
-				; 																	4.    Data:    String = 07'RESTORE' (07 is the length of
-				; 																						the string)
-				; 																					Substring = 03'RES' (03 is the length of the
-				; 2.    Data:      String= IB'SALES FIGURES FOR JUNE                                      substring)
-				; 					1981 '(IBI6 = 2710 is the length of the string)
-				; 																			Result:   A contains I, the index at which the substring
-				; 				Substring = 04'JUNE' (04 is the length of the
-				; 																						'RES' starts. An index of I indicates that
-				; 				substring)
-				; 																						the substring could be an abbreviation of
-				; 	Result:     A contains 13 16 (19 10 ), the index at which the                      the string. Interactive programs, such as
-				; 				substring 'JUNE' starts.                                             BASIC intepreters and word processors,
-				; 																						often use such abbreviations to save on
-				; 																						typing and storage.
-				; 				Title                        Find the position of a substring in a string
-				; 				Name:                        P~S
-				; 				Purpose:                     Search for the first occurrence of a substring
-				; 											within a string and return its starting index.
-				; 											If the substring is not found a 0 is returned.
-				; 				Entry:                       Register pair HL = Base address of string
-				; 											Register pair DE = Base address of substring
-				; 												A string is a maximum of 255 bytes long plus
-				; 												a length byte which precedes it.
-				; 				Exit:                        If the substring is found then
-				; 											Register A = its starting index
-				; 											else
-				; 											Register A = 0
-				; 				Registers used: AF,BC,DE,HL
-				; 				Time:                        Since the algorithm is so data-dependent,
-				; 						a simple formula is impossible, but the
-				; 						following statements are true. and a
-				; 						worst case is given.
-				; 						154 cycles overhead
-				; 						Each match of 1 character takes 56 cycles
-				; 						A mismatch takes 148 cycles
-				; 						Worst case timing will be when the
-				; 						string and substring always match
-				; 						except for the last character of the
-				; 						substring. such as
-				; 							string = ~AAAAAAAAAB~
-				; 							substring = ~AAB'
-				; 		Size:              Program 69 bytes
-				; 						Data     7 bytes
-				;****************************************************************************************************************
-				;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
+		; Find the Position of a Substring (POS)                                                                                    8C
+		; Examples
+		; I.    Data:      String = lD'ENTER SPEED IN MILES                      3.    Data:    String= IO'LETYI = Xl + R7'(1016= 16 10 is
+		; 				PER HOUR' (lD 16 = 29 10 is the length of                            the length of the string)
+		; 				the string)                                                        Substring = 02'R4' (02 is the length of the
+		; 				Substring = OS'MILES' (05 is the length of                             substring)
+		; 				the substring)                                           Result:   A contains 0, since the substring 'R4' does not
+		; 	Result:     A contains 10 16 (16 10 ), the index at which the                      appear in the string LET YI = Xl + R7.
+		; 				substring 'MILES' starts.
+		; 																	4.    Data:    String = 07'RESTORE' (07 is the length of
+		; 																						the string)
+		; 																					Substring = 03'RES' (03 is the length of the
+		; 2.    Data:      String= IB'SALES FIGURES FOR JUNE                                      substring)
+		; 					1981 '(IBI6 = 2710 is the length of the string)
+		; 																			Result:   A contains I, the index at which the substring
+		; 				Substring = 04'JUNE' (04 is the length of the
+		; 																						'RES' starts. An index of I indicates that
+		; 				substring)
+		; 																						the substring could be an abbreviation of
+		; 	Result:     A contains 13 16 (19 10 ), the index at which the                      the string. Interactive programs, such as
+		; 				substring 'JUNE' starts.                                             BASIC intepreters and word processors,
+		; 																						often use such abbreviations to save on
+		; 																						typing and storage.
+		; 				Title                        Find the position of a substring in a string
+		; 				Name:                        P~S
+		; 				Purpose:                     Search for the first occurrence of a substring
+		; 											within a string and return its starting index.
+		; 											If the substring is not found a 0 is returned.
+		; 				Entry:                       Register pair HL = Base address of string
+		; 											Register pair DE = Base address of substring
+		; 												A string is a maximum of 255 bytes long plus
+		; 												a length byte which precedes it.
+		; 				Exit:                        If the substring is found then
+		; 											Register A = its starting index
+		; 											else
+		; 											Register A = 0
+		; 				Registers used: AF,BC,DE,HL
+		; 				Time:                        Since the algorithm is so data-dependent,
+		; 						a simple formula is impossible, but the
+		; 						following statements are true. and a
+		; 						worst case is given.
+		; 						154 cycles overhead
+		; 						Each match of 1 character takes 56 cycles
+		; 						A mismatch takes 148 cycles
+		; 						Worst case timing will be when the
+		; 						string and substring always match
+		; 						except for the last character of the
+		; 						substring. such as
+		; 							string = ~AAAAAAAAAB~
+		; 							substring = ~AAB'
+		; 		Size:              Program 69 bytes
+		; 						Data     7 bytes
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 
 POS:
@@ -509,85 +505,85 @@ SUBLEN:		DS	1				;LENGTH OF SUBSTRING
 INDEX:		DS	1				;CURRENT INDEX INTO STRING
 
 		; SAMPLE EXECUTION:
-SC8C:
-		LD		HL,STG_8C			;HL = BASE ADDRESS OF STRING
-		LD		DE,SSTG_8C		;DE = BASE ADDRESS OF SUBSTRING
-		CALL	POS				;FIND POSITION OF SUBSTRING
-								; SEARCHING "AAAAAAAAAB" FOR "AAB"
-								; RESULTS IN REGISTER A = 8
-		JR		SC8C			;LOOP   FOR ANOTHER TEST
-			; ~TEST   DATA, CHANGE FOR OTHER VALUES
-STG_8C:	DB		0AH				;LENGTH OF STRING
-		DB		"AAAAAAAAAB                       " ;32 BYTE MAX LENGTH
-SSTG_8C:	DB		3H				;LENGTH OF SUBSTRING
-		DB		"AAB                              " ;32 BYTE MAX LENGTH
+; SC8C:
+; 		LD		HL,STG_8C			;HL = BASE ADDRESS OF STRING
+; 		LD		DE,SSTG_8C		;DE = BASE ADDRESS OF SUBSTRING
+; 		CALL	POS				;FIND POSITION OF SUBSTRING
+; 								; SEARCHING "AAAAAAAAAB" FOR "AAB"
+; 								; RESULTS IN REGISTER A = 8
+; 		JR		SC8C			;LOOP   FOR ANOTHER TEST
+; 			; ~TEST   DATA, CHANGE FOR OTHER VALUES
+; STG_8C:	DB		0AH				;LENGTH OF STRING
+; 		DB		"AAAAAAAAAB                       " ;32 BYTE MAX LENGTH
+; SSTG_8C:	DB		3H				;LENGTH OF SUBSTRING
+; 		DB		"AAB                              " ;32 BYTE MAX LENGTH
 
-				;****************************************************************************************************************
-				;****************************************************************************************************************
-				; Copy a Substring from a String (COPY)                                                                                        8D
-				; 			°
-				; length of and the Carry flag will be set to 1. If                the substring, the Carry flag is cleared.
-				; Examples
-				; I.    Data:    String= IO'LET YI = R7 + X4'                      3.    Data:    String = 16'9414 HEGENBERGER DRIVE'
-				; 				(10'6 = 16 10 is the length of the string)                       (16'6 = 2210 is the length of the string)
-				; 			Maximum length of substring = 2                                  Maximum length of substring = 10'6 = 16 10
-				; 			Number of bytes to copy = 2                                      Number of bytes to copy = 11'6 = 1710
-				; 			Starting index = 5                                               Starting index = 6
-				; 	Result:   Substring = 02'Y I' (2 is the length of the            Result:   Substring = IO'HEGENBERGER DRIV'
-				; 				substring)                                                       (10'6 = 16 10 is the length of the substring)
-				; 			Two bytes from the string were copied,                           Carry= I, since the number of bytes to copy
-				; 				starting at character #5 (that is, characters                    exceeded the maximum length of the sub-
-				; 				5 and 6)                                                         string.
-				; 			Carry = 0, since no problems occurred in
-				; 				forming the substring.
-				; 2.    Data:    String = OE'8657 POWELL ST'
-				; 				(OE'6 = 1410 is the length of the string)
-				; 			Maximum length of substring = 10'6 = 16 10
-				; 			Number of bytes to copy = OD'6 = 1310
-				; 			Starting index = 6
-				; 	Result:   Substring = 09'POWELL ST' (09 is the
-				; 				length of the substring)
-				; 			Carry = I, since there were not enough
-				; 				characters available in the string to provide
-				; 				the specified number of bytes to copy.
-				; 			Tit le                     Copy a substring from a string
-				; 			Name:                      COpy
-				; 		Purpose:             Copy a substring from a string given a starting
-				; 							index and the number of bytes
-				; 		Entry:               Register pair HL = Address of source string      ~
-				; 							Register pair DE = Address of destination string~
-				; 							Register A = Maximum length of destination
-				; 											string
-				; 							Register B = Number of bytes to copy
-				; 							Register C   Starting index into source string
-				; 										Index of 1 is first character of
-				; 										string
-				; 								A string is a maximum of 255 bytes long plus
-				; 								a length byte which precedes it.
-				; 		Exit:                Destination string := The substring from the
-				; 							string.
-				; 							if no errors then
-				; 								CARRY := 0
-				; 							else
-				; 								begin
-				; 								the following conditions cause an
-				; 								error and the CARRY flag = 1.
-				; 								if (index = 0) or (maxlen = 0) or
-				; 										(index> length(source» then
-				; 									the destination string will have a zero
-				; 									length.
-				; 								if (index + count - 1) > length(source)
-				; 								then
-				; 									the destination string becomes everything
-				; 									from index to the end of source string.
-				; 								END~
-				; 		Registers used: AF.BC.DE.HL
-				; 		Time:                Approximately (21   *   count) cycles plus 237
-				; 							cycles overhead.
-				; 		Size:                Program 73 bytes
-				; 							Data     2 bytes
-				;****************************************************************************************************************
-				;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
+		; Copy a Substring from a String (COPY)                                                                                        8D
+		; 			°
+		; length of and the Carry flag will be set to 1. If                the substring, the Carry flag is cleared.
+		; Examples
+		; I.    Data:    String= IO'LET YI = R7 + X4'                      3.    Data:    String = 16'9414 HEGENBERGER DRIVE'
+		; 				(10'6 = 16 10 is the length of the string)                       (16'6 = 2210 is the length of the string)
+		; 			Maximum length of substring = 2                                  Maximum length of substring = 10'6 = 16 10
+		; 			Number of bytes to copy = 2                                      Number of bytes to copy = 11'6 = 1710
+		; 			Starting index = 5                                               Starting index = 6
+		; 	Result:   Substring = 02'Y I' (2 is the length of the            Result:   Substring = IO'HEGENBERGER DRIV'
+		; 				substring)                                                       (10'6 = 16 10 is the length of the substring)
+		; 			Two bytes from the string were copied,                           Carry= I, since the number of bytes to copy
+		; 				starting at character #5 (that is, characters                    exceeded the maximum length of the sub-
+		; 				5 and 6)                                                         string.
+		; 			Carry = 0, since no problems occurred in
+		; 				forming the substring.
+		; 2.    Data:    String = OE'8657 POWELL ST'
+		; 				(OE'6 = 1410 is the length of the string)
+		; 			Maximum length of substring = 10'6 = 16 10
+		; 			Number of bytes to copy = OD'6 = 1310
+		; 			Starting index = 6
+		; 	Result:   Substring = 09'POWELL ST' (09 is the
+		; 				length of the substring)
+		; 			Carry = I, since there were not enough
+		; 				characters available in the string to provide
+		; 				the specified number of bytes to copy.
+		; 			Tit le                     Copy a substring from a string
+		; 			Name:                      COpy
+		; 		Purpose:             Copy a substring from a string given a starting
+		; 							index and the number of bytes
+		; 		Entry:               Register pair HL = Address of source string      ~
+		; 							Register pair DE = Address of destination string~
+		; 							Register A = Maximum length of destination
+		; 											string
+		; 							Register B = Number of bytes to copy
+		; 							Register C   Starting index into source string
+		; 										Index of 1 is first character of
+		; 										string
+		; 								A string is a maximum of 255 bytes long plus
+		; 								a length byte which precedes it.
+		; 		Exit:                Destination string := The substring from the
+		; 							string.
+		; 							if no errors then
+		; 								CARRY := 0
+		; 							else
+		; 								begin
+		; 								the following conditions cause an
+		; 								error and the CARRY flag = 1.
+		; 								if (index = 0) or (maxlen = 0) or
+		; 										(index> length(source» then
+		; 									the destination string will have a zero
+		; 									length.
+		; 								if (index + count - 1) > length(source)
+		; 								then
+		; 									the destination string becomes everything
+		; 									from index to the end of source string.
+		; 								END~
+		; 		Registers used: AF.BC.DE.HL
+		; 		Time:                Approximately (21   *   count) cycles plus 237
+		; 							cycles overhead.
+		; 		Size:                Program 73 bytes
+		; 							Data     2 bytes
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 
 COPY:
@@ -677,18 +673,18 @@ MAXLEN:	DS	1					;MAXIMUM    LENGTH OF DESTINATION STRING
 CPYERR: DS	1					;COPY    ERROR FLAG
 
 		; SAMPLE EXECUTION:
-SC8D:
-		LD		HL,SSTG_8D			;SOURCE STRING
-		LD		DE, DSTG_8D		;DESTINATION STRING
-		LD		A,(IDX_8D)
-		LD		C,A				;STARTING    INDEX FOR COPYING
-		LD		A, (CNT_8D)
-		LD		B,A				;NUMBER OF BYTES TO COPY
-		LD		A, (MXLEN_8D)		;MAXIMUM LENGTH OF SUBSTRING
-		CALL	COPY			;COPY SUBSTRING
-								;COPYING 3 CHARACTERS STARTING AT
-								;INDEX 4 FROM '12.345E+l0' GIVES '345'
-		JR		SC8D            ;LOOP FOR MORE TESTING
+; SC8D:
+; 		LD		HL,SSTG_8D			;SOURCE STRING
+; 		LD		DE, DSTG_8D		;DESTINATION STRING
+; 		LD		A,(IDX_8D)
+; 		LD		C,A				;STARTING    INDEX FOR COPYING
+; 		LD		A, (CNT_8D)
+; 		LD		B,A				;NUMBER OF BYTES TO COPY
+; 		LD		A, (MXLEN_8D)		;MAXIMUM LENGTH OF SUBSTRING
+; 		CALL	COPY			;COPY SUBSTRING
+; 								;COPYING 3 CHARACTERS STARTING AT
+; 								;INDEX 4 FROM '12.345E+l0' GIVES '345'
+; 		JR		SC8D            ;LOOP FOR MORE TESTING
 			; DATA    SECTION
 IDX_8D:	DB	4					;STARTING INDEX FOR COPYING
 CNT_8D:	DB	3					;NUMBER OF CHARACTERS TO COPY
@@ -700,87 +696,87 @@ DSTG_8D:	DB	0					;LENGTH OF SUBSTRING
 
 
 
-				;****************************************************************************************************************
-				;****************************************************************************************************************
-				; Delete a Substring from a String (DELETE)                                                                                       8E
+;****************************************************************************************************************
+;****************************************************************************************************************
+		; Delete a Substring from a String (DELETE)                                                                                       8E
 
-				; 		1. STRING LENGTH = 20 16 (3210)                             1. If the number of bytes to delete is 0, the
-				; 			STARTING INDEX = 19 16 (25 10)                        program exits with the Carry flag cleared (no errors)
-				; 			NUMBER OF BYTES TO DELETE = 08                        and the string unchanged.
-				; 		Since there are exactly eight bytes left in the string       2. If the string does not even extend to the specified
-				; 	starting at index 19 16 , all the routine must do is trun-   starting index, the program exits with the Carry flag
-				; 	cate (that is, cut off the end of the string). This takes    set to I (indicating an error) and the string unchanged.
-				; 			21 * 0 + 224 = 224 cycles                                3. If the number of bytes to delete exceeds the
-				; 		2. STRING LENGTH = 40 16 (6410)                           number available, the program deletes all bytes from
-				; 			STARTING INDEX = 19 16 (25 10 )                       the starting index to the end of the string and exits
-				; 			NUMBER OF BYTES TO DELETE = 08                        with the Carry flag set to I (indicating an error).
-
-
-
-
-				; Entry Conditions                                                   Exit Conditions
-				; Base address of string in HL                                       Substring deleted from string. If no errors occur,
-				; Number of bytes to delete in B                                     the Carry flag is cleared. If the starting index is 0
-				; Starting index to delete from in C                                 or beyond the length of the string, the Carry flag
-				; 																is set and the string is unchanged. If the number
-				; 																of bytes to delete would go beyond the end ofthe
-				; 																string, the Carry flag is set and the characters
-				; 																from the starting index to the end of the string
-				; 																are deleted.
-
-
-
-				; Examples
-				; I.    Data:     String = 26'SALES FOR MARCH AND                 2.    Data:    String = 28'THE PRICE IS $3.00 ($2.00
-				; 				APRIL OF THIS YEAR'                                            BEFORE JUNE I)' (28 16 = 40 10 is the
-				; 				(26 16 = 3810 is the length of the string)                     length of the string)
-				; 				Number of bytes to delete = OA 16 = 1010                       Number of bytes to delete = 30 16 = 48 10
-				; 				Starting index to delete from = 10 16 = 16 10                  Starting index to delete from = 13 16 = 19 10
-				; 	Result:    String= I C 'SALES FOR MARCH OF THIS                 Result:   String = 12'THE PRICE IS $3.00' (12 16 =
-				; 				YEAR' (IC I6 = 28 10 is the length of the                      18 10 is the length of the string with all
-				; 				string with ten bytes deleted starting with                    remaining bytes deleted)
-				; 				the 16th character-the deleted material is                   Carry = I, since there were not as many bytes
-				; 				'AND APRIL')                                                   left in the string as were supposed to be
-				; 				Carry= 0, since no problems occurred in the                      deleted.
-				; 				deletion.
+		; 		1. STRING LENGTH = 20 16 (3210)                             1. If the number of bytes to delete is 0, the
+		; 			STARTING INDEX = 19 16 (25 10)                        program exits with the Carry flag cleared (no errors)
+		; 			NUMBER OF BYTES TO DELETE = 08                        and the string unchanged.
+		; 		Since there are exactly eight bytes left in the string       2. If the string does not even extend to the specified
+		; 	starting at index 19 16 , all the routine must do is trun-   starting index, the program exits with the Carry flag
+		; 	cate (that is, cut off the end of the string). This takes    set to I (indicating an error) and the string unchanged.
+		; 			21 * 0 + 224 = 224 cycles                                3. If the number of bytes to delete exceeds the
+		; 		2. STRING LENGTH = 40 16 (6410)                           number available, the program deletes all bytes from
+		; 			STARTING INDEX = 19 16 (25 10 )                       the starting index to the end of the string and exits
+		; 			NUMBER OF BYTES TO DELETE = 08                        with the Carry flag set to I (indicating an error).
 
 
 
 
-				; 			Title:                   Delete a substring from a string
-				; 			Name:                    Delete
+		; Entry Conditions                                                   Exit Conditions
+		; Base address of string in HL                                       Substring deleted from string. If no errors occur,
+		; Number of bytes to delete in B                                     the Carry flag is cleared. If the starting index is 0
+		; Starting index to delete from in C                                 or beyond the length of the string, the Carry flag
+		; 																is set and the string is unchanged. If the number
+		; 																of bytes to delete would go beyond the end ofthe
+		; 																string, the Carry flag is set and the characters
+		; 																from the starting index to the end of the string
+		; 																are deleted.
 
 
 
-				; 			Purpose:                 Delete a substring from a string given a
-				; 										starting index and a length
-				; 			Entry:                   Register pair HL = Base address of string
-				; 										Register B = Number of bytes to delete
-				; 										Register C = Starting index into the string.
-				; 												An index of 1 is the first character
-				; 										A string is a maximum of 255 bytes long plus
-				; 										a length byte which precedes it.
-				; 			Exit :                   Substring deleted.
-				; 										if no errors then
-				; 										CARRY := 0
-				; 										else
+		; Examples
+		; I.    Data:     String = 26'SALES FOR MARCH AND                 2.    Data:    String = 28'THE PRICE IS $3.00 ($2.00
+		; 				APRIL OF THIS YEAR'                                            BEFORE JUNE I)' (28 16 = 40 10 is the
+		; 				(26 16 = 3810 is the length of the string)                     length of the string)
+		; 				Number of bytes to delete = OA 16 = 1010                       Number of bytes to delete = 30 16 = 48 10
+		; 				Starting index to delete from = 10 16 = 16 10                  Starting index to delete from = 13 16 = 19 10
+		; 	Result:    String= I C 'SALES FOR MARCH OF THIS                 Result:   String = 12'THE PRICE IS $3.00' (12 16 =
+		; 				YEAR' (IC I6 = 28 10 is the length of the                      18 10 is the length of the string with all
+		; 				string with ten bytes deleted starting with                    remaining bytes deleted)
+		; 				the 16th character-the deleted material is                   Carry = I, since there were not as many bytes
+		; 				'AND APRIL')                                                   left in the string as were supposed to be
+		; 				Carry= 0, since no problems occurred in the                      deleted.
+		; 				deletion.
 
-				; 							begin
-				; 								the following conditions cause an
-				; 								error with .CARRY = 1.
-				; 								if (index = 0) or (index> length(string»
-				; 								then do not change string
-				; 								if count is too large then
-				; 								delete only the characters from
-				; 								index to end of string
 
-				; 		Registers used: AF,BC,DE,HL
-				; 		Time:             Approximately 21 * (LENGTH(STRG)-INDEX-COUNT+l)
-				; 							plus 224 cycles overhead
-				; 		Size:             Program 58 bytes
-				; 							Data     1 bytes
-				;****************************************************************************************************************
-				;****************************************************************************************************************
+
+
+		; 			Title:                   Delete a substring from a string
+		; 			Name:                    Delete
+
+
+
+		; 			Purpose:                 Delete a substring from a string given a
+		; 										starting index and a length
+		; 			Entry:                   Register pair HL = Base address of string
+		; 										Register B = Number of bytes to delete
+		; 										Register C = Starting index into the string.
+		; 												An index of 1 is the first character
+		; 										A string is a maximum of 255 bytes long plus
+		; 										a length byte which precedes it.
+		; 			Exit :                   Substring deleted.
+		; 										if no errors then
+		; 										CARRY := 0
+		; 										else
+
+		; 							begin
+		; 								the following conditions cause an
+		; 								error with .CARRY = 1.
+		; 								if (index = 0) or (index> length(string»
+		; 								then do not change string
+		; 								if count is too large then
+		; 								delete only the characters from
+		; 								index to end of string
+
+		; 		Registers used: AF,BC,DE,HL
+		; 		Time:             Approximately 21 * (LENGTH(STRG)-INDEX-COUNT+l)
+		; 							plus 224 cycles overhead
+		; 		Size:             Program 58 bytes
+		; 							Data     1 bytes
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 
 
@@ -860,16 +856,16 @@ DELERR: DS	1						;DELETE ERROR FLAG
 
 		; SAMPLE EXECUTION:
 
-SC8E:
-		LD		HL,SSTG_8E 			;HL   = BASE   ADDRESS OF STRING
-		LD		A,(IDX_8E)
-		LD		C,A					;C    = STARTING INDEX FOR DELETION
-		LD		A, (CNT_8E)
-		LD		B,A					;B= NUMBER OF CHARACTERS TO DELETE
-		CALL	DELETE				;DELETE CHARACTERS
-									;DELETING 4 CHARACTERS STARTING AT INDEX 1
-									; FROM ".JOE HANDOVER" LEAVES "HANDOVER"
-		JR		SC8E				;LOOP FOR ANOTHER TEST
+; SC8E:
+; 		LD		HL,SSTG_8E 			;HL   = BASE   ADDRESS OF STRING
+; 		LD		A,(IDX_8E)
+; 		LD		C,A					;C    = STARTING INDEX FOR DELETION
+; 		LD		A, (CNT_8E)
+; 		LD		B,A					;B= NUMBER OF CHARACTERS TO DELETE
+; 		CALL	DELETE				;DELETE CHARACTERS
+; 									;DELETING 4 CHARACTERS STARTING AT INDEX 1
+; 									; FROM ".JOE HANDOVER" LEAVES "HANDOVER"
+; 		JR		SC8E				;LOOP FOR ANOTHER TEST
 			; DATA SECTION
 IDX_8E:	DB      1                    ;STARTING INDEX FOR DELETION
 CNT_8E:	DB      4                    ;NUMBER OF CHARACTERS TO DELETE
@@ -878,81 +874,81 @@ SSTG_8E:	DB      12                   ;LENGTH OF STRING
 
 
 
-				;****************************************************************************************************************
-				;****************************************************************************************************************
-				; Insert a Substring into a String (INSERT)                                                                                      8F
-				; 	produces a string longer than the maximum.
-				; 																Program Size: 90 bytes
-				; 	Examples
-				; 																Data Memory Required: One byte anywhere in
-				; 		1. STRING LENGTH = 20'6 (3210)                            RAM for an error flag (address INS ERR).
-				; 			STARTING INDEX = 19'6 (25 10 )
-				; 			MAXIMUM LENGTH = 30'6 (48 10 )                         Special Cases:
-				; 			SUBSTRING LENGTH = 06                                     I. If the length ofthe substring (the insertion) is 0,
-				; 		We want to insert a substring six bytes long, start-       the program exits with the Carry flag cleared (no
-				; 	ing at the 25th character. Since eight bytes must be         errors) and the string unchanged.
-				; 			2. If the starting index for the insertion is 0 (that      4. If the starting index of the insertion is beyond
-				; 		is, the insertion would start in the length byte), the      the end of the string, the program concatenates the
-				; 		program exits with the Carry flag set to I (indicating      insertion at the end of the string and indicates an
-				; 		an error) and the string unchanged.                         error by setting the Carry flag to I.
-				; 		3. If the string with the substring inserted exceeds         5. If the original length of the string exceeds its
-				; 		the specified maximum length, the program inserts           specified maximum length, the program exits with
-				; 		only enough characters to reach the maximum length.         the Carry flag set to 1 (indicating an error) and the
-				; 		The Carry flag is set to I to indicate that the insertion   string unchanged.
-				; 		has been truncated.
-				; Examples
-				; I.    Data:    String = OA'JOHN SMITH' (OA'6 = 1010 is               2.    Data:    String = OA'JOHN SMITH' (OA'6 = 1010 is
-				; 				the length of the string)                                            the length of the string)
-				; 			Substring = 08'WILLIAM' (08 is the length                            Substring = OC'ROCKEFELLER' (OC'6 =
-				; 				of the substring)                                                     1210 is the length of the substring)
-				; 			Maximum length of string = 14'6 = 20 10                              Maximum length of string = 14'6 = 20 10
-				; 			Starting index = 06                                                  Starting index = 06
-				; 	Result:   String = 12'JOHN WILLIAM SMITH'                            Result:   String= 14'JOHN ROCKEFELLESMITH'
-				; 				(12'6 = 18 10 is the length of the string                            (14'6 = 20 10 is the length ofthe string with
-				; 				with the substring inserted)                                         as much of the substring inserted as the
-				; 			Carry = 0, since no problems occurred in the                           maximum length would allow)
-				; 				insertion.                                                         Carry = I, since some of the substring could
-				; 																					not be inserted without exceeding the maxi-
-				; 																					mum length of the string.
-				; 		Tit Ie:         Insert a substring into a string
-				; 		Name:           Insert
-				; 		Purpose:        Insert a substring into a string given a
-				; 						starting index
-				; 		Entry:          Register pair HL     Address of string
-				; 						Register pair DE     Address of substring to
-				; 												insert
-				; 						Register B   Maximum length of string
-				; 						Register C = Starting index to insert the
-				; 									sl.Jbstring
-				; 							A string is a maximum of 255 bytes long plus
-				; 							a length byte which precedes it.
-				; 		Exit:           Substring inserted into string.
-				; 						if no errors then
-				; 							CARRY = 0
-				; 						else
-				; 							begin
-				; 							the following conditions cause the
-				; 							CARRY flag to be set.
-				; 							if index = 0 then
-				; 								do not insert the substring
-				; 							if length(strg) > maximum length then
-				; 								do not insert the substring
-				; 							if index> length(strg) then
-				; 								concatenate substg onto the end of the
-				; 								source string
-				; 							if length(strg)+length(substring) > maxlen
-				; 								then insert only enough of the substring
-				; 								to reach maximum length
-				; 							end;
-				; 		Registers used: AF,BC,DE,HL
-				; 		Time:           Approxi'matel y
-				; 						21 * (LENGTH(STRG) - INDEX + 1) +
-				; 						21 * (LENGTH(SUBSTG»  +
-				; 						290 cycles overhead
-				; 		Size:           Program 90 bytes
-				; 						Data     1 byte
-				;****************************************************************************************************************
-				;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
+		; Insert a Substring into a String (INSERT)                                                                                      8F
+		; 	produces a string longer than the maximum.
+		; 																Program Size: 90 bytes
+		; 	Examples
+		; 																Data Memory Required: One byte anywhere in
+		; 		1. STRING LENGTH = 20'6 (3210)                            RAM for an error flag (address INS ERR).
+		; 			STARTING INDEX = 19'6 (25 10 )
+		; 			MAXIMUM LENGTH = 30'6 (48 10 )                         Special Cases:
+		; 			SUBSTRING LENGTH = 06                                     I. If the length ofthe substring (the insertion) is 0,
+		; 		We want to insert a substring six bytes long, start-       the program exits with the Carry flag cleared (no
+		; 	ing at the 25th character. Since eight bytes must be         errors) and the string unchanged.
+		; 			2. If the starting index for the insertion is 0 (that      4. If the starting index of the insertion is beyond
+		; 		is, the insertion would start in the length byte), the      the end of the string, the program concatenates the
+		; 		program exits with the Carry flag set to I (indicating      insertion at the end of the string and indicates an
+		; 		an error) and the string unchanged.                         error by setting the Carry flag to I.
+		; 		3. If the string with the substring inserted exceeds         5. If the original length of the string exceeds its
+		; 		the specified maximum length, the program inserts           specified maximum length, the program exits with
+		; 		only enough characters to reach the maximum length.         the Carry flag set to 1 (indicating an error) and the
+		; 		The Carry flag is set to I to indicate that the insertion   string unchanged.
+		; 		has been truncated.
+		; Examples
+		; I.    Data:    String = OA'JOHN SMITH' (OA'6 = 1010 is               2.    Data:    String = OA'JOHN SMITH' (OA'6 = 1010 is
+		; 				the length of the string)                                            the length of the string)
+		; 			Substring = 08'WILLIAM' (08 is the length                            Substring = OC'ROCKEFELLER' (OC'6 =
+		; 				of the substring)                                                     1210 is the length of the substring)
+		; 			Maximum length of string = 14'6 = 20 10                              Maximum length of string = 14'6 = 20 10
+		; 			Starting index = 06                                                  Starting index = 06
+		; 	Result:   String = 12'JOHN WILLIAM SMITH'                            Result:   String= 14'JOHN ROCKEFELLESMITH'
+		; 				(12'6 = 18 10 is the length of the string                            (14'6 = 20 10 is the length ofthe string with
+		; 				with the substring inserted)                                         as much of the substring inserted as the
+		; 			Carry = 0, since no problems occurred in the                           maximum length would allow)
+		; 				insertion.                                                         Carry = I, since some of the substring could
+		; 																					not be inserted without exceeding the maxi-
+		; 																					mum length of the string.
+		; 		Tit Ie:         Insert a substring into a string
+		; 		Name:           Insert
+		; 		Purpose:        Insert a substring into a string given a
+		; 						starting index
+		; 		Entry:          Register pair HL     Address of string
+		; 						Register pair DE     Address of substring to
+		; 												insert
+		; 						Register B   Maximum length of string
+		; 						Register C = Starting index to insert the
+		; 									sl.Jbstring
+		; 							A string is a maximum of 255 bytes long plus
+		; 							a length byte which precedes it.
+		; 		Exit:           Substring inserted into string.
+		; 						if no errors then
+		; 							CARRY = 0
+		; 						else
+		; 							begin
+		; 							the following conditions cause the
+		; 							CARRY flag to be set.
+		; 							if index = 0 then
+		; 								do not insert the substring
+		; 							if length(strg) > maximum length then
+		; 								do not insert the substring
+		; 							if index> length(strg) then
+		; 								concatenate substg onto the end of the
+		; 								source string
+		; 							if length(strg)+length(substring) > maxlen
+		; 								then insert only enough of the substring
+		; 								to reach maximum length
+		; 							end;
+		; 		Registers used: AF,BC,DE,HL
+		; 		Time:           Approxi'matel y
+		; 						21 * (LENGTH(STRG) - INDEX + 1) +
+		; 						21 * (LENGTH(SUBSTG»  +
+		; 						290 cycles overhead
+		; 		Size:           Program 90 bytes
+		; 						Data     1 byte
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 
 
@@ -1078,17 +1074,17 @@ MVESUB:
 INSERR: DS	1					;FLAG USED TO INDICATE ERROR
 
 		; SAMPLE EXECUTION:
-SC8F:
-		LD		HL,STG_8F 		;HL = BASE ADDRESS OF STRING
-		LD		DE,SSTG_8F		;DE = BASE ADDRESS OF SUBSTRING
-		LD		A,(IDX_8F)
-		LD		C,A				;C = STARTING INDEX FOR INSERTION
-		LD		A,(MXLEN_8F)
-		LD		B,A				;B = MAXIMUM LENGTH OF STRING
-		CALL	INSERT_STR		;INSERT SUBSTRING
-								;RESULT OF INSERTING ~-~ INTO ~123456~ AT
-								; INDEX 1 IS ~-123456~
-		JR		SC8F			;LOOP FOR ANOTHER TEST
+; SC8F:
+; 		LD		HL,STG_8F 		;HL = BASE ADDRESS OF STRING
+; 		LD		DE,SSTG_8F		;DE = BASE ADDRESS OF SUBSTRING
+; 		LD		A,(IDX_8F)
+; 		LD		C,A				;C = STARTING INDEX FOR INSERTION
+; 		LD		A,(MXLEN_8F)
+; 		LD		B,A				;B = MAXIMUM LENGTH OF STRING
+; 		CALL	INSERT_STR		;INSERT SUBSTRING
+; 								;RESULT OF INSERTING ~-~ INTO ~123456~ AT
+; 								; INDEX 1 IS ~-123456~
+; 		JR		SC8F			;LOOP FOR ANOTHER TEST
 			; DATA SECTION
 IDX_8F:	DB	1					;STARTING INDEX FOR I NSERTI ON
 MXLEN_8F:	DB	20H					;MAXIMUM LENGTH OF DESTINATION
@@ -1287,7 +1283,10 @@ dumpText: DC	$80 00
 		GLOBAL	RegLabels1,RegLabels2,RegLabels3,RegFlags
 		xdef	Str0,Str2,Str3,Str4,Str7,sourctext1,sourctext2,endtext,src_size
 		
-		align 	1
+	if DOALIGN
+		align 1
+	endif
+ 	
 String_HEAP_Start:
 DateBuf:		DB		"  2022-12-30_17:22   ",0,0
 
@@ -1319,7 +1318,10 @@ endtext:
 String_HEAP_end:
 
 
+	if DOALIGN
 		align 4
+	endif
+
 
 
 .END

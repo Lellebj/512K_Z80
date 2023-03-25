@@ -58,7 +58,10 @@ CIOINI:
 		RET
 
 
+	if DOALIGN
 		align 8
+	endif
+
 CLST:			; start of init data		
 		defb	_PMSB				; PORT B MODE	bitport
 		defb	$00

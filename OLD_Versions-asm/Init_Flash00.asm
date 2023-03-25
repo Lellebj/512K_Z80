@@ -28,11 +28,17 @@ Result_NumToHex:	equ $FF40
 
 		halt
 		
-		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 
 #code   INT_IM1, $38, *    ;EEPROM mem at 0000h
 		halt
+	if DOALIGN
 		align 8
+	endif
+
 		defw $0400          ; NMI adress table    
 
 

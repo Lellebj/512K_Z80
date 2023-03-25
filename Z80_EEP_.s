@@ -6,7 +6,6 @@ EPS1:
 
 		include 	"Z80_Params_.inc"
 		xref	RAM_Start,PLD_PCB_Start, SC5B,SC4C,SC8B, WriteLineCRNL, WriteLine, ReadLine, CRLF,DumpRegisters
-				GLOBAL 	setEEPBank,setSRAMBank,connectFLASH,disconnectFLASH,disableIC620_OE,enableIC620_OE
 
 		xref	stacktop
 
@@ -45,47 +44,50 @@ EPS1:
 		section EEtestprog			; main program in sram
 ;********************************************************	
 
-		xdef	RDATA_END,RDATA,TB_length
+		; xdef	RDATA_END,RDATA,TB_length
 
-RTestprog:
-		;--------------------------------------------------
-		; ld A,5
-		; out (_CE_RST_BANK),A
-		; ld 	A,$00	
-		; out (_Z80_BankCS),A		// set bank register number 	
-		; ld 	A,$01
-		; out (_CE_RST_BANK),A 		// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+; RTestprog:
+; 		;--------------------------------------------------
+; 		; ld A,5
+; 		; out (_CE_RST_BANK),A
+; 		; ld 	A,$00	
+; 		; out (_Z80_BankCS),A		// set bank register number 	
+; 		; ld 	A,$01
+; 		; out (_CE_RST_BANK),A 		// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
 
-		out (_8Bitsout),A
+; 		out (_8Bitsout),A
 
-		ld A, $0F                 ;mode 1 out
-		out (portA_Contr), A         ; set port A as output
-		ld A,$81
+; 		ld A, $0F                 ;mode 1 out
+; 		out (portA_Contr), A         ; set port A as output
+; 		ld A,$81
 
-tll:	
-		ld (40000),A
-		ld A,0
-		ld A,(40000)
+; tll:	
+; 		ld (40000),A
+; 		ld A,0
+; 		ld A,(40000)
 
-		out (portA_Data),A		; Data to PIO port A
-		out (_8Bitsout),A
-		;--------------------------------------------------
-		ld	DE,$8100
-		ld	HL,RDATA
-		ld 	BC,RDATA_END-RDATA
-		ldir
-		align 2
-RDATA:
-		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-RDATA_END:
-TB_length	equ 	RDATA_END-RDATA
+; 		out (portA_Data),A		; Data to PIO port A
+; 		out (_8Bitsout),A
+; 		;--------------------------------------------------
+; 		ld	DE,$8100
+; 		ld	HL,RDATA
+; 		ld 	BC,RDATA_END-RDATA
+; 		ldir
+; 	if DOALIGN
+; 		align 4
+; 	endif
+
+; RDATA:
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; RDATA_END:
+; TB_length	equ 	RDATA_END-RDATA
 
 
 setBanks:
@@ -97,23 +99,49 @@ setBanks:
 		out 	(gpio_out),A
 
 		xor 	A
-		ld 		(memBankID),A
-		call 	setEEPBank				; FLASH bank #0
+		ld 		(memBankID),A			; set memory banks #0
+		call 	EEsetFLASHBank				; FLASH bank #0
 		xor 	A
-		call 	setSRAMBank				; ram bank #0
+		call 	EEsetSRAMBank				; ram bank #0
 		ld 		A,$77
 		out 	(gpio_out),A
 
-		call 	connectFLASH			; start from FLASH
+		call 	EEenableFLASH			; start from FLASH
 
-		call 	enableIC620_OE 			; enable the outputs.
+		call 	EEenableIC620_OE 			; enable the outputs.
+		; jp		PLD_PCB_Start
+
+;********************************************************************************************
+;********************************************************************************************	
+		; ******   Copy data from flash $1000 to $2FF0 to SRAM $D000
+		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
+		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
+
+		ld 		HL,$D002
+		ld  	A,'C'
+		ld 		BC,04
+
+.nxt:	cpi 	
+		jr 		NZ,doCopy
+		jp 		PE,.nxt
+		;JP PE means "branch if BC has not been decremented to 0."
+
+		; the code 'CCCC' is found in $D002-D005, do not copy from flashmem.
+		jp		PLD_PCB_Start
+
+doCopy:
+		ld 		HL,$1000				; source
+		ld 		DE,$D000	 			; destination
+		ld 		BC,$1FF0				; 
+
+		ldir
 
 		jp		PLD_PCB_Start
 
 
 ;********************************************************************************************
 ;********************************************************************************************	
-setSRAMBank:
+EEsetSRAMBank:
 		; ***	set the SRAM bank ID; Bank ID in A
 		push 	HL
 		push 	BC
@@ -130,7 +158,7 @@ setSRAMBank:
 ;********************************************************************************************
 ;********************************************************************************************	
 
-setEEPBank:
+EEsetFLASHBank:
 		; ***	set the EEPROM bank ID; Bank ID in A
 		push 	HL
 		push 	BC
@@ -155,7 +183,7 @@ putBank:
 
 ;********************************************************************************************
 ;********************************************************************************************	
-connectFLASH:
+EEenableFLASH:
 		; ***	activate FLASH MEM, leave bank ID unchanged; 
 				; if '64K_SRAM' 1  ($80) no FLASH memory is selected
 				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
@@ -167,7 +195,7 @@ connectFLASH:
 		
 ;********************************************************************************************
 ;********************************************************************************************	
-disconnectFLASH:
+EEdisableFLASH:
 		; ***	disconnect FLASH MEM, leave bank ID unchanged; 
 				; if '64K_SRAM' 1  ($80) no FLASH memory is selected
 				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
@@ -181,7 +209,7 @@ disconnectFLASH:
 ;********************************************************************************************	
 
 
-disableIC620_OE:
+EEdisableIC620_OE:
 		; ***	Set IC620 pin 1 high
 		ld A,0
 		out (_CE_RST_BANK),A			;IC620 (HC374) goes to high impedance.. all signals = GND
@@ -195,7 +223,7 @@ disableIC620_OE:
 ;********************************************************************************************
 ;********************************************************************************************	
 
-enableIC620_OE: 
+EEenableIC620_OE: 
 		; ***	Set IC620 pin 1 low
 		ld A,1
 		out (_CE_RST_BANK),A			;IC620 (HC374) goes to high impedance.. all signals = GND
@@ -243,7 +271,10 @@ EEPIO_Init:
 ;       BC ( count)
 ; ;       HL (value for conversion to HEX)
 ; ;       DE (positon of display 2004A)
-; 		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 ; ShowPC_HALT:
 ; 		ld (SP_value), SP	; save contents of SP
 ; 		push AF
@@ -422,7 +453,10 @@ EEPIO_Init:
 ; #code DAT_TABLE, DataTables,  $200
 
 
-; 		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 ; initbytes:   .byte $01, $38, $0E, $06, $B0
 ; t_str1:		.ascii "Z80 micro and"
 ; t_str2:		.ascii "HD44780 display"
@@ -434,10 +468,16 @@ EEPIO_Init:
 ; t_str8:		.ascii " "
 ; t_str9:		.ascii " "
 ; t_string_E: equ $
-; 		align 2
+	if DOALIGN
+		align 4
+	endif
+
 ; cur_pos: equ $
 ; 		defw	$0004, $000C, $0104, $010C,$0204, $020C,$0304, $030C, $FFFF
-; 		align 2
+	if DOALIGN
+		align 4
+	endif
+
 ; t_str_table: equ $
 ; 		defw	t_str1, t_str2, t_str3, t_str4, t_str5, t_str6, t_str7, t_str8
 

@@ -158,6 +158,8 @@ Result_NumToHex:	= $F1F0
 ; _8Bitsout 		= $40;		/*	 40 - 4F  */
 ; _CE_RST_BANK 	= 0x80;		/*	 40 - 4F  */
 
+;*****	ALIGN command  : 00 removes all align commands
+DOALIGN 	EQU 	00
 
 EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
 TestChar:		EQU		'A'				;TEST CHARACTER = A

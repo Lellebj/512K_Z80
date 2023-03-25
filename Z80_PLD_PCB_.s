@@ -35,14 +35,22 @@
 
 DO_Debug:	equ	1		; Set to 1 to show debug printing, else 0 
 
-
-		align 9
-
 PLD_PCB_Start:	
+		; ***	should be start address $D000
+		jr 		.initRH
+		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
+		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
+		; db 		"AAAA"
+		db 		"CCCC"
+		align	3
 
+.initRH:
 		ld 		A,$33
 		out 	(gpio_out),A
 
+
+
+		
 
 		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
 		ld		DE,SRAM_VAR_START		; defined in linker script
@@ -86,42 +94,77 @@ PLD_PCB_Start:
 		defb	"The Z80 Board Awakened 2023\r\n"
 		defb	"    git: @@GIT_VERSION@@\r\n"
 		defb	"    build: @@DATE@@\r\n"
-		defb	"    Mix CTC/SIO_0 interrupt.\r\n"
+		defb	"    FLASH->SRAM 0xD000.\r\n"
 		defb	"\0"
 
 
 		call	CRLF
 
-
-
-		; call	writeSTRBelow_CRLF
-		; db		"  PIO init: D0-3 outputs ! ",0
-
 next_line:
 
 		call 	initCommParseTable
 
+		; ***	indicate memory banks   F[x]  Flash memory bank x
+		; ***	indicate memory banks   S[y]  SRAM memory bank y
+				; if bit 7 (memBankID) = 1  no FLASH memory is selected
+				; if bit 7 (memBankID) = 0 FLASH memory is lower 32k and SRAM upper 32k
+		ld 		HL,T_BUFFER+1 			; prepare output buffer		
+		ld 		(HL),'F'	
+		ld 		A,(memBankID)
+		bit 	7,A					; bit 7 set -> 64kSRAM
+		jr 		Z,useFlash
+		ld 		(HL),'S'	
+useFlash:
+		inc 	HL
+		ld 		(HL),'['	
+		inc 	HL
+		bit 	7,A					; bit 7 set -> 64kSRAM
+		jr 		Z,.IDflash
+
+		; ***	show sram bank number
+		and 	$0F					; sram bank #
+		call 	AddToT_Buf			; convert to 1 ascii char in (HL+)
+		jr 		.cont
+.IDflash:
+		; ***	show flash bank number
+		srl 	A
+		srl 	A
+		srl 	A
+		srl 	A
+		and 	A,$07				; flash bank #
+		call	AddToT_Buf			; convert to 1 ascii char in (HL+)
+.cont:
+		ld  	(HL),']'
+		inc 	HL
 
 		; 	*** Print prompt text to screen, value of PC and content in memory
 		ld 		DE,(PCvalue)
-		ld  	A,'['
-		call 	WriteChar
+		ld  	(HL),'['
+		inc 	HL
 
 		; ***	Address in parenthesis
-		call	putDEtoScreen
-
-		call 	writeSTRBelow
-		DB 		0,"] = ", 00
+		call 	Bin2Hex16
+		ld  	(HL),']'
+		inc 	HL
+		ld  	(HL),'='
+		inc 	HL
 
 		; ***	Value of the bytes in address (2 bytes) to screen
+		push 	HL
 		ld 		HL,(PCvalue)
 		ld 		D,(HL)
 		inc 	HL
 		ld 		E,(HL)
-		call	putDEtoScreen
+		pop 	HL
+		call	Bin2Hex16
+		ld  	(HL),'-'
+		inc 	HL
+		ld  	(HL),'>'
+		inc 	HL
 
-		call 	writeSTRBelow
-		DB 		0," ,enter command: >_", 00
+		ld  	(HL),$00
+		ld 		iy,T_BUFFER
+		call	WriteLine
 
 		ld 		hl,Textbuf
 		call 	ReadLine
@@ -165,7 +208,7 @@ scanCommandList:
 
 findCommandInList:
 		ld 		a,(DE)						; next typed char
-		or 		$20							; make typed char lower case
+		; or 		$20							; make typed char lower case
 		cp		(HL)
 		jr 		nz,findNextITEM				; different chars-> test next item in list
 		inc 	DE
@@ -235,24 +278,27 @@ command_addresses:
 		defw 	p_dumpmem		;2
 		defw 	p_pc			;3
 		defw 	p_clearmem		;4
-		defw 	p_exe			;6
-		defw 	p_go			;7
+		defw 	p_exe			;5
+		defw 	p_go			;6
+		defw 	p_incDecPC		;7
 		defw 	p_incDecPC		;8
-		defw 	p_incDecPC		;9
-		defw 	p_FON			;10
-		defw 	p_FOFF			;11
-		defw 	p_epwr			;12. write data to EEPROM
-		defw 	p_epse			;13. sector erase
-		defw 	p_xmod			;14. transfer files via x-modem
-		defw 	p_reset			;15. Jump to $0000
-		defw	p_C_Read		;16. Read from SD card   sdrd  "file"  $Addr
-		defw	p_C_Write		;17. Write to SD card   sdrd  "file"  $Addr.l $Addr.h/Num
-		defw	p_C_Read		;18. Read from USB   sdrd  "file"  $Addr
-		defw	p_C_Write		;19. Write to USB   sdrd  "file"  $Addr.l $Addr.h/Num
-		defw	p_C_Delete		;20. delete file on SD card   sdrd  "file"  $Addr
-		defw	p_C_Delete		;21. delete file on USB  sdrd  "file"  $Addr.l $Addr.h/Num
-		defw 	p_C_Read		;22. List root level files/dirs on sd card
-		defw 	p_C_Read 		;23. List root level files/dirs on USB
+		defw 	p_FON			;9
+		defw 	p_FOFF			;10
+		defw 	p_flwr			;11. write data to EEPROM
+		defw 	p_flse			;12. sector erase
+		defw 	p_xmod			;13. transfer files via x-modem
+		defw 	p_reset			;14. Jump to $0000
+		defw	p_C_Read		;15. Read from SD card   sdrd  "file"  $Addr
+		defw	p_C_Write		;16. Write to SD card   sdrd  "file"  $Addr.l $Addr.h/Num
+		defw	p_C_Read		;17. Read from USB   sdrd  "file"  $Addr
+		defw	p_C_Write		;18. Write to USB   sdrd  "file"  $Addr.l $Addr.h/Num
+		defw	p_C_Delete		;19. delete file on SD card   sdrd  "file"  $Addr
+		defw	p_C_Delete		;20. delete file on USB  sdrd  "file"  $Addr.l $Addr.h/Num
+		defw 	p_C_Read		;21. List root level files/dirs on sd card
+		defw 	p_C_Read 		;22. List root level files/dirs on USB
+		defw	p_cptFl			;23. copy from mem to flash memory (on selected bank)
+		defw 	p_flbank		;24. Set flash bank #
+		defw	p_srbank		;25. Set sram bank #
 command_list:
 ;		*** command textstring1/2 	address1/2	 lvalue1/2
 
@@ -264,25 +310,28 @@ command_list:
 		db		ITEM,6,2,"go",	STEND,%000000,0
 		db		ITEM,7,2,"++",	STEND,%000000,0
 		db		ITEM,8,2,"--",	STEND,%000000,0
-		db		ITEM,9,5,"f-on",	STEND,%000000,0
+		db		ITEM,9,4,"f-on",	STEND,%000000,0
 		db		ITEM,9,8,"flash-on",	STEND,%000000,0
-		db		ITEM,10,6,"f-off",	STEND,%000000,0
+		db		ITEM,10,5,"f-off",	STEND,%000000,0
 		db		ITEM,10,9,"flash-off",	STEND,%000000,0
-		db		ITEM,11,4,"epwr",	STEND,%000000,0
-		db		ITEM,12,4,"epse",	STEND,%000000,0
-		db		ITEM,13,4,"xmod",	STEND,%001000,0
+		db		ITEM,11,4,"flwr",	STEND,%001110,0		; write to flash: flwr  <$Addr.mem> <$Addr.flash>  <Num> (0E)
+		db		ITEM,12,4,"flse",	STEND,%000000,0
+		db		ITEM,13,4,"xmod",	STEND,%001000,0		; xmodem from PC   xmod <address>
 		db		ITEM,14,3,"rst",	STEND,%000000,0
 		db		ITEM,15,4,"sdrd",	STEND,%101000,0		; Read from SD card   sdrd  "file"  $Addr
 		db		ITEM,16,4,"sdwr",	STEND,%101010,0 	; Write to SD card   sdwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
 		db		ITEM,17,5,"usbrd",	STEND,%101000,0		; Read from USB      usbrd  "file"  $Addr
 		db		ITEM,18,5,"usbwr",	STEND,%101010,0 	; Write to USB        usbwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
-		db		ITEM,19,5,"sddel",	STEND,%100000,0 	; Delete file on SD card   sddel  "file"  $Addr.l  $Addr.h/Num (2A/2C)
-		db		ITEM,20,6,"usbdel",	STEND,%100000,0 	; Delete file on USB   usbdel  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+		db		ITEM,19,5,"sddel",	STEND,%100000,0 	; Delete file on SD card   sddel  "file"  
+		db		ITEM,20,6,"usbdel",	STEND,%100000,0 	; Delete file on USB   usbdel  "file"  
 		db		ITEM,21,5,"sddir",	STEND,%100000,0 	; List root level files/dirs on sd card
 		db		ITEM,22,6,"usbdir",	STEND,%100000,0 	; List root level files/dirs on USB
-		db		ITEM,23,3,"nop",	STEND,%000000,0
+		db 		ITEM,23,5,"cptfl",	STEND,%001100,0		; copy from adress range to flash   cptfl  $Addr   $Addr
+		db 		ITEM,24,6,"flbank",	STEND,%000010,0		; set flash bank #	
+		db 		ITEM,25,6,"srbank",	STEND,%000010,0		; set sram bank #	
+		db		ITEM,26,3,"nop",	STEND,%000000,0
 		db		LISTEND
-commListLen  equ   24
+commListLen  equ   27
 
 		; ld		HL,$6000
 		; ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
@@ -624,6 +673,16 @@ argumentsError:
 
 
 p_reset:
+		xor 	A
+		ld 		(memBankID),A			; set memory banks #0
+		call 	setFLASHBank			; FLASH bank #0
+		xor 	A
+		call 	setSRAMBank				; ram bank #0
+
+		call 	enableFLASH			; start from FLASH
+
+		call 	enableIC620_OE 			; enable the outputs.
+
 		jp $0000
 
 p_load:
@@ -677,36 +736,42 @@ p_incDecPC:
 p_FON:
 		; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0)
 
-		call 	connectFLASH
+		call 	enableFLASH
 
 
 		call 	writeSTRBelow
-		DB 		0,"FL_ON: Use EEPROM,lower 32k and SRAM,upper 32k !",CR,LF,00
+		DB 		0," Use 256k FLASH (7 banks),lower 32k and SRAM (bank16),upper 32k !",CR,LF,00
 		ret
 
 p_FOFF:
 		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1)
-		call 	disconnectFLASH
-		ld A,1
-		out (_CE_RST_BANK),A		;IC620 (HC374) goes active.. all signals = inp A.
-		ld 	A,$80	
-		out (_Z80_BankCS),A			; set bank register number 0 and 64K_SRAM=1	
+		call 	disableFLASH
 
 		call 	writeSTRBelow
-		DB 		0,"FL_OFF: Use only SRAM !",CR,LF,00
-
+		DB 		0," Use only 512k (16 banks) SRAM !",CR,LF,00
 
 		ret
 
-
-p_epwr:
+p_flwr:
 		; *** 	testwrite to EEPROM
 		
+		; call 	checkArgsTAL				; check necessary args ("string" $Adr1   Lvl1)
+		; jp		NZ,argumentsError			; show argument error and return
+		; 	*** Check if flashmem is enabled
+		ld 		A,(memBankID)
+		bit 	7,A
+		jr 		NZ,errNoFlash
+
 		call 	Flash_WR_Test
+		ret
+errNoFlash:
+		call 	writeSTRBelow
+		DB 		0," Can't write to deselected FLASH !",CR,LF,00
+
 		ret
 
 
-p_epse:
+p_flse:
 		; *** 	erase the sector that contain the address of HL
 
 		push	HL
@@ -856,6 +921,18 @@ p_C_Delete:
 
 		jp 		abort
 
+p_cptFl:
+p_flbank:
+		; ***	set flash bank #
+		ld 		A,(commLvl1) 			; load param into A
+		call 	setFLASHBank				; change to bank
+		ret
+p_srbank:
+		; ***	set sram bank #
+		ld 		A,(commLvl1) 			; load param into A
+		call 	setSRAMBank 			; change to bank
+		ret
+
 
 ;********************************************************************************************     
 ;********************************************************************************************     
@@ -909,13 +986,13 @@ bit_test9:
 	db	0x01,0x02,0x80,0x40
 
 
-debug:		equ	0		; Set to 1 to show debug printing, else 0 
+; debug:		equ	0		; Set to 1 to show debug printing, else 0 
 
 
 	; Spin loop here because there is nothing else to do
-halt_loop:
-	halt
-	jp	halt_loop
+; halt_loop:
+; 	halt
+; 	jp	halt_loop
 
 
 
@@ -926,31 +1003,31 @@ halt_loop:
 
 
 
-		ld 		hl,Textbuf
-		; call	ReadLine 			;to textbuf  (A=length of input string)
+		; ld 		hl,Textbuf
+		; ; call	ReadLine 			;to textbuf  (A=length of input string)
 
-		ld		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
-		ld		DE,Textbuf			;DE = 32767
-		call	BN2DEC				; C0NVERT
-		jp		textloop
+		; ld		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
+		; ld		DE,Textbuf			;DE = 32767
+		; call	BN2DEC				; C0NVERT
+		; jp		textloop
 
 
-		ld 		hl,Textbuf
-		call	DEC2BN			; result in HL
+		; ld 		hl,Textbuf
+		; call	DEC2BN			; result in HL
 
-		ld 		E,L
-			; Binary to HEX  BN2HEX   E->(HL)
-		ld 		hl,T_BUFFER
-		inc		hl
-		call	Bin2Hex8			;result in T_buffer
+		; ld 		E,L
+		; 	; Binary to HEX  BN2HEX   E->(HL)
+		; ld 		hl,T_BUFFER
+		; inc		hl
+		; call	Bin2Hex8			;result in T_buffer
 
-		ld 		iy,T_BUFFER
-		call 	WriteLineCRNL
+		; ld 		iy,T_BUFFER
+		; call 	WriteLineCRNL
 
-		ld 		iy,Textbuf
-		call	WriteLineCRNL
+		; ld 		iy,Textbuf
+		; call	WriteLineCRNL
 
-		jp 		next_line
+		; jp 		next_line
 
 
 
@@ -994,53 +1071,53 @@ textloop:
 		; call 		WriteLineCRNL ; print the copy string
 
 
-		; test DELETE
-		LD		HL,Str0		;HL	= BASE 	ADDRESS OF STRING
-		LD		A,8			
-		LD		C,8				;	C= STARTING INDEX FOR DELETION
-		LD		A,4			
-		LD		B,4			; B = NUMBER OF CHARACTERS TO DELETE
-		CALL 	DELETE 			; DELETE CHARACTERS
+		; ; test DELETE
+		; LD		HL,Str0		;HL	= BASE 	ADDRESS OF STRING
+		; LD		A,8			
+		; LD		C,8				;	C= STARTING INDEX FOR DELETION
+		; LD		A,4			
+		; LD		B,4			; B = NUMBER OF CHARACTERS TO DELETE
+		; CALL 	DELETE 			; DELETE CHARACTERS
 									; DELETING 4 CHARACTERS STARTING AT INDEX 1
 		; ld 		iy,Str0
 		; call 		WriteLineCRNL ; print the copy string
 
 
-		;test INSERT
+; 		;test INSERT
 
-		LD		HL,Str3				; HL = BASE ADDRESS OF STRING
-		LD		DE,subst			; DE = BASE ADDRESS OF SUBSTRING
+; 		LD		HL,Str3				; HL = BASE ADDRESS OF STRING
+; 		LD		DE,subst			; DE = BASE ADDRESS OF SUBSTRING
 
-		LD		C,7					; C = STARTING INDEX FOR INSERTION
+; 		LD		C,7					; C = STARTING INDEX FOR INSERTION
 
-		LD		B,0x40				; B = MAXIMUM LENGTH OF STRING
-		CALL 	INSERT_STR			; INSERT SUBSTRING
-		ld 		iy,Str3
-		; call	WriteLineCRNL 		; print the modified string
+; 		LD		B,0x40				; B = MAXIMUM LENGTH OF STRING
+; 		CALL 	INSERT_STR			; INSERT SUBSTRING
+; 		ld 		iy,Str3
+; 		; call	WriteLineCRNL 		; print the modified string
 
 
-		jp		next_line
+; 		jp		next_line
 
-		;TEST DATA. CHANGE FOR OTHER VALUES
-S1_8B:	DB		8H				; LENGTH OF SI
-		DB      "LASTNAME                        "	; 32 BYTE MAX LENGTH
-S2_8B:	DB		0BH				;LENGTH OF S2
-		DB		". FIRSTNAME                     "	; 32 BYTE MAX LENGTH
+; 		;TEST DATA. CHANGE FOR OTHER VALUES
+; S1_8B:	DB		8H				; LENGTH OF SI
+; 		DB      "LASTNAME                        "	; 32 BYTE MAX LENGTH
+; S2_8B:	DB		0BH				;LENGTH OF S2
+; 		DB		". FIRSTNAME                     "	; 32 BYTE MAX LENGTH
 
 ;********************************************************************************************
 ;********************************************************************************************	
-sh_test:
-		; turn shadow off then halt
-		xor A
-		out (_CE_RST_BANK),A 		;// clear '64K_SRAM' signal
+; sh_test:
+; 		; turn shadow off then halt
+; 		xor A
+; 		out (_CE_RST_BANK),A 		;// clear '64K_SRAM' signal
 
-		halt
+; 		halt
 
-		ld	A,$80
-		out (_Z80_BankCS),A			;// set '64K_SRAM' signal
-		ld 	A,1
-		out (_CE_RST_BANK),A 		; engage 3-state on bank#
-		ret
+; 		ld	A,$80
+; 		out (_Z80_BankCS),A			;// set '64K_SRAM' signal
+; 		ld 	A,1
+; 		out (_CE_RST_BANK),A 		; engage 3-state on bank#
+; 		ret
 
 
 ;********************************************************************************************
@@ -1066,169 +1143,172 @@ sh_test:
         ; THAT IS, IF IT IS TOO LARGE FOR TABLE OLENSUB -     1)
 
 
-JTAB:
-		CP		LENSUB			;COMPARE ROUTINE NUMBER, TABLE SIZE
-		CCF						;COMPLEMENT CARRY FOR ERROR INDICATOR
-		RET		C				;RETURN IF ROUTINE NUMBER TOO LARGE
-									; WITH CARRY SET
-		; INDEX INTO TABLE OF WORD-LENGTH ADDRESSES
-		; LEAVE REGISTER PAIRS UNCHANGED SO THEY CAN BE USED FOR PASSING PARAMETERS
+; JTAB:
+; 		CP		LENSUB			;COMPARE ROUTINE NUMBER, TABLE SIZE
+; 		CCF						;COMPLEMENT CARRY FOR ERROR INDICATOR
+; 		RET		C				;RETURN IF ROUTINE NUMBER TOO LARGE
+; 									; WITH CARRY SET
+; 		; INDEX INTO TABLE OF WORD-LENGTH ADDRESSES
+; 		; LEAVE REGISTER PAIRS UNCHANGED SO THEY CAN BE USED FOR PASSING PARAMETERS
 
-		PUSH	HL				;SAVE HL
-		ADD		A,A				;DOUBLE INDEX FOR WORD-LENGTH ENTRIES
-		LD		HL,JMPTAB		;INDEX INTO TABLE USING 8-BIT
-		ADD		A,L			; ADDITION TO AVOID DISTURBING
-		LD		L,A				; ANOTHER REGISTER PAIR
-		LD		A,0
-		ADC		A,H
-		LD		H,A			; ACCESS ROUTINE ADDRESS
-			;OBTAIN ROUTINE ADDRESS FROM TABLE AND TRANSFER
-			;CONTROL TO IT, LEAVING ALL REGISTER PAIRS UNCHANGED
+; 		PUSH	HL				;SAVE HL
+; 		ADD		A,A				;DOUBLE INDEX FOR WORD-LENGTH ENTRIES
+; 		LD		HL,JMPTAB		;INDEX INTO TABLE USING 8-BIT
+; 		ADD		A,L			; ADDITION TO AVOID DISTURBING
+; 		LD		L,A				; ANOTHER REGISTER PAIR
+; 		LD		A,0
+; 		ADC		A,H
+; 		LD		H,A			; ACCESS ROUTINE ADDRESS
+; 			;OBTAIN ROUTINE ADDRESS FROM TABLE AND TRANSFER
+; 			;CONTROL TO IT, LEAVING ALL REGISTER PAIRS UNCHANGED
 
-		LD		A, (HL)			;MOVE ROUTINE ADDRESS TO HL
-		INC		HL
-		LD		H, (HL)
-		LD		L,A
-		EX		(SP),HL				;RESTORE OLD HL, PUSH ROUTINE ADDRESS
-		RET						; JUMP TO ROUTI NE
+; 		LD		A, (HL)			;MOVE ROUTINE ADDRESS TO HL
+; 		INC		HL
+; 		LD		H, (HL)
+; 		LD		L,A
+; 		EX		(SP),HL				;RESTORE OLD HL, PUSH ROUTINE ADDRESS
+; 		RET						; JUMP TO ROUTI NE
 
-LENSUB		EQU		3				;NUMBER OF SUBROUTINES IN TABLE
-JMPTAB:                            ;JUMP TABLE
-		DW		SUB0			;ROUTINE 0
-		DW		SUB1			;ROUTINE 1
-		DW		SUB2			;ROUTINE 2
-           ;THREE TEST SUBROUTINES FOR JUMP TABLE
-SUB0:
-		LD		A,1				; TEST ROUTI NE 0 SETS (A)    1
-		RET
-SUB1:
-		LD		A,2				; TEST ROUTI NE 1 SETS (A) = 2
-		RET
-SUB2:
-		LD		A,3				;TEST ROUTINE 2 SETS (A)      3
-		RET
-
-
-
-			;SAMPLE EXECUTION:
+; LENSUB		EQU		3				;NUMBER OF SUBROUTINES IN TABLE
+; JMPTAB:                            ;JUMP TABLE
+; 		DW		SUB0			;ROUTINE 0
+; 		DW		SUB1			;ROUTINE 1
+; 		DW		SUB2			;ROUTINE 2
+;            ;THREE TEST SUBROUTINES FOR JUMP TABLE
+; SUB0:
+; 		LD		A,1				; TEST ROUTI NE 0 SETS (A)    1
+; 		RET
+; SUB1:
+; 		LD		A,2				; TEST ROUTI NE 1 SETS (A) = 2
+; 		RET
+; SUB2:
+; 		LD		A,3				;TEST ROUTINE 2 SETS (A)      3
+; 		RET
 
 
-SC9H:
-		SUB		A				;EXECUTE ROUTINE 0
-		CALL	JTAB			; AFTER EXECUTION, (A)   =1
 
-		LD		A,1				;EXECUTE ROUTINE 1
-		CALL	JTAB			; AFTER EXECUTION, (A) = 2
-		LD		A,2				;EXECUTE ROUTINE 2
-		CALL	JTAB			; AFTER EXECUTION, (A)   3
-		LD		A,3				;EXECUTE ROUTINE 3
-		CALL	JTAB			; AFTER EXECUTION, CARRY   1
-		JR		SC9H			;LOOP FOR MORE TESTS
+; 			;SAMPLE EXECUTION:
+
+
+; SC9H:
+; 		SUB		A				;EXECUTE ROUTINE 0
+; 		CALL	JTAB			; AFTER EXECUTION, (A)   =1
+
+; 		LD		A,1				;EXECUTE ROUTINE 1
+; 		CALL	JTAB			; AFTER EXECUTION, (A) = 2
+; 		LD		A,2				;EXECUTE ROUTINE 2
+; 		CALL	JTAB			; AFTER EXECUTION, (A)   3
+; 		LD		A,3				;EXECUTE ROUTINE 3
+; 		CALL	JTAB			; AFTER EXECUTION, CARRY   1
+; 		JR		SC9H			;LOOP FOR MORE TESTS
 
 
 ;********************************************************************************************
 ;********************************************************************************************	
-		xref  	RDATA,RDATA_END,TB_length
+; 		xref  	RDATA,RDATA_END,TB_length
 
-		;--------------------------------------------------
-		; ld A,5
-		; ld 	A,$00	
-		; out (_Z80_BankCS),A		;// set bank register number 	
-		ld 	A,$01
-		out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+; 		;--------------------------------------------------
+; 		; ld A,5
+; 		; ld 	A,$00	
+; 		; out (_Z80_BankCS),A		;// set bank register number 	
+; 		ld 	A,$01
+; 		out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
 
-		out (_8Bitsout),A
+; 		out (_8Bitsout),A
 
-		ld A, $0F                 ;mode 1 out
-		out (portA_Contr), A         ; set port A as output
-		ld A,$EB
+; 		ld A, $0F                 ;mode 1 out
+; 		out (portA_Contr), A         ; set port A as output
+; 		ld A,$EB
 
-Rtll:	
+; Rtll:	
 
-		ld (40000),A
-		ld A,0
-		ld A,(40000)
+; 		ld (40000),A
+; 		ld A,0
+; 		ld A,(40000)
 
-		out (portA_Data),A		; Data to PIO port A
-		out (_8Bitsout),A
-		;--------------------------------------------------
-		ld	DE,$8200
-		ld	HL,RDATA
-		ld	BC,TB_length
-		; ld	BC,RDATA_END-RDATA
-		ldir
-
-
-SIO_0_A_RESET:
-		ld	a,00110000b
-		out	(SIO_0_A_C),A		;write into WR0: error reset, select WR0
-
-		ld	a,018h				;write into WR0: channel reset
-		out (SIO_0_A_C),A 
-
-		ld	a,004h				;write into WR0: select WR4
-		out	(SIO_0_A_C),A
-		ld	a,44h				;44h write into WR4: clkx16,1 stop bit, no parity
-		out (SIO_0_A_C),A
-
-		ld	a,005h				;write into WR0: select WR5
-		out (SIO_0_A_C),A
-		ld	a,01101000b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS inactive (bit 2)
-		ld	a,01101010b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS active (bit 2)
-		out (SIO_0_A_C),A
-SIO_0_A_EI:
-			;enable SIO channel A RX
-		ld	a,003h				;write into WR0: select WR3
-		out (SIO_0_A_C),A
-		ld	a,11000001b				;RX 8bit, auto enable off 8(bit 5), RX on (bit 0)
-		ld	a,11100001b				;RX 8bit, auto enable on 8(bit 5), RX on (bit 0)
-		out (SIO_0_A_C),A
-		;Channel A RX active
+; 		out (portA_Data),A		; Data to PIO port A
+; 		out (_8Bitsout),A
+; 		;--------------------------------------------------
+; 		ld	DE,$8200
+; 		ld	HL,RDATA
+; 		ld	BC,TB_length
+; 		; ld	BC,RDATA_END-RDATA
+; 		ldir
 
 
-		ld 	HL,Str0
-tstout:
-		ld 	A,(HL)
-		out (SIO_0_A_D),A
-		inc HL
-		ld D,A
-chkTX:
-		in	A,(SIO_0_A_C)		; read status
-		bit	2,A					; all sent ?
-		jr z,chkTX				; not all sent..
+; SIO_0_A_RESET:
+; 		ld	a,00110000b
+; 		out	(SIO_0_A_C),A		;write into WR0: error reset, select WR0
 
-		ld 	A,(HL)
-		cp	0
-		jr 	z,endmsg
+; 		ld	a,018h				;write into WR0: channel reset
+; 		out (SIO_0_A_C),A 
 
-		ld	A,D
-		djnz	tstout
+; 		ld	a,004h				;write into WR0: select WR4
+; 		out	(SIO_0_A_C),A
+; 		ld	a,44h				;44h write into WR4: clkx16,1 stop bit, no parity
+; 		out (SIO_0_A_C),A
 
-endmsg:
-chkRX:
-		in	A,(SIO_0_A_C)		; read status
-		bit	0,A					; char present ??
-		jr z,chkRX				; check again
+; 		ld	a,005h				;write into WR0: select WR5
+; 		out (SIO_0_A_C),A
+; 		ld	a,01101000b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS inactive (bit 2)
+; 		ld	a,01101010b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS active (bit 2)
+; 		out (SIO_0_A_C),A
+; SIO_0_A_EI:
+; 			;enable SIO channel A RX
+; 		ld	a,003h				;write into WR0: select WR3
+; 		out (SIO_0_A_C),A
+; 		ld	a,11000001b				;RX 8bit, auto enable off 8(bit 5), RX on (bit 0)
+; 		ld	a,11100001b				;RX 8bit, auto enable on 8(bit 5), RX on (bit 0)
+; 		out (SIO_0_A_C),A
+; 		;Channel A RX active
 
-		in 	A,(SIO_0_A_D)		; read the char.
 
-		out (SIO_0_A_D),A
-chkTX2:
-		in	A,(SIO_0_A_C)		; read status
-		bit	2,A					; all sent ?
-		jr z,chkTX2
+; 		ld 	HL,Str0
+; tstout:
+; 		ld 	A,(HL)
+; 		out (SIO_0_A_D),A
+; 		inc HL
+; 		ld D,A
+; chkTX:
+; 		in	A,(SIO_0_A_C)		; read status
+; 		bit	2,A					; all sent ?
+; 		jr z,chkTX				; not all sent..
+
+; 		ld 	A,(HL)
+; 		cp	0
+; 		jr 	z,endmsg
+
+; 		ld	A,D
+; 		djnz	tstout
+
+; endmsg:
+; chkRX:
+; 		in	A,(SIO_0_A_C)		; read status
+; 		bit	0,A					; char present ??
+; 		jr z,chkRX				; check again
+
+; 		in 	A,(SIO_0_A_D)		; read the char.
+
+; 		out (SIO_0_A_D),A
+; chkTX2:
+; 		in	A,(SIO_0_A_C)		; read status
+; 		bit	2,A					; all sent ?
+; 		jr z,chkTX2
 		
-		jr	endmsg				; not all sent..
+; 		jr	endmsg				; not all sent..
 
 
 
 
-		halt
-		halt
-		halt
-		inc A
-		jr Rtll			
+; 		halt
+; 		halt
+; 		halt
+; 		inc A
+; 		jr Rtll			
 
-		align 4
+; 	if DOALIGN
+; 		align 4
+; 	endif
+
 
 .end

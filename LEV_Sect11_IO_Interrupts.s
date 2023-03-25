@@ -12,91 +12,91 @@
 
 					
 				
-					; Interrupts
-					; 11A    Unbuffered Input/Output Using an SIO_0          394
-					; 11B    Unbuffered Input/Output Using a PIO 404
-					; 11C    Buffered Input/Output Using an SIO_0          413
-					; 11D   Real-Time Clock and Calendar 425
+		; Interrupts
+		; 11A    Unbuffered Input/Output Using an SIO_0          394
+		; 11B    Unbuffered Input/Output Using a PIO 404
+		; 11C    Buffered Input/Output Using an SIO_0          413
+		; 11D   Real-Time Clock and Calendar 425
 
 
-					;*************************************************************************************************************
-					;*************************************************************************************************************
-					; Unbuffered Input/Output
-					; 														I if full
-					; 														5. INIT: none
-					; 		Title                 Simple interrupt input and output using an SIO_0
-					; 								and single character buffers
-					; 		Name:                 SINTIO
-					; 		Purpose:       This program consists of 5 subroutines which
-					; 					perform-interrupt driven input and output using
-					; 					an SIO_0.
-					; 					ReadChar
-					; 						Read a character
-					; 					INST
-					; 						Determine input status (whether input
-					; 						buffer is empty)
-					; 					OUTCH
-					; 						Write a character
-					; 					OUTST
-					; 						Determine output status (whether output
-					; 						buffer is full)
-					; 					INIT
-					; 						Initialize SIO_0 and interrupt system
-					; 		Entry:         ReadChar
-					; 						No parameters
-					; 					INST
-					; 						No parameters
-					; 					OUTCH
-					; 						Register A = character to transmit
-					; 					OUTST
-					; 						No parameters
-					; 					INIT
-					; 						No parameters
-					; 		Exit:          ReadChar
-					; 						Register A = character
-					; 					INST
-					; 						Carry = 0 if input buffer is empty,
-					; 						1 if character is available
-					; 					OUTCH
-					; 						No parameters
-					; 					OUTST
-					; 						Carry = 0 if output buffer is not
-					; 						full, 1 if i t is full
-					; 					INIT
-					; 						No parameters
-					; 		Registers used: ReadChar - AF
-					; 						INST - AF
-					; 						OUTCH - AF
-					; 						OUTST - AF
-					; 						INIT - AF,BC,HL,I
+;*************************************************************************************************************
+;*************************************************************************************************************
+		; Unbuffered Input/Output
+		; 														I if full
+		; 														5. INIT: none
+		; 		Title                 Simple interrupt input and output using an SIO_0
+		; 								and single character buffers
+		; 		Name:                 SINTIO
+		; 		Purpose:       This program consists of 5 subroutines which
+		; 					perform-interrupt driven input and output using
+		; 					an SIO_0.
+		; 					ReadChar
+		; 						Read a character
+		; 					INST
+		; 						Determine input status (whether input
+		; 						buffer is empty)
+		; 					OUTCH
+		; 						Write a character
+		; 					OUTST
+		; 						Determine output status (whether output
+		; 						buffer is full)
+		; 					INIT
+		; 						Initialize SIO_0 and interrupt system
+		; 		Entry:         ReadChar
+		; 						No parameters
+		; 					INST
+		; 						No parameters
+		; 					OUTCH
+		; 						Register A = character to transmit
+		; 					OUTST
+		; 						No parameters
+		; 					INIT
+		; 						No parameters
+		; 		Exit:          ReadChar
+		; 						Register A = character
+		; 					INST
+		; 						Carry = 0 if input buffer is empty,
+		; 						1 if character is available
+		; 					OUTCH
+		; 						No parameters
+		; 					OUTST
+		; 						Carry = 0 if output buffer is not
+		; 						full, 1 if i t is full
+		; 					INIT
+		; 						No parameters
+		; 		Registers used: ReadChar - AF
+		; 						INST - AF
+		; 						OUTCH - AF
+		; 						OUTST - AF
+		; 						INIT - AF,BC,HL,I
 
-					; 		Time:           ReadChar
-					; 						72 cycles if a character is available
-					; 						INST
-					; 						27 cycles
-					; 							OUTCH
-					; 							150 cycles if output buffer is not full
-					; 								and output interrupt is expected
-					; 							OUTST
-					; 							27 cycles
-					; 							INIT
-					; 							618 cycles
-					; 							RDHDLR
-					; 							82 cycles
-					; 							WRHDLR
-					; 							160 cycles
-					; 		Size:              Program 202 bytes
-					; 							Data      5 bytes
+		; 		Time:           ReadChar
+		; 						72 cycles if a character is available
+		; 						INST
+		; 						27 cycles
+		; 							OUTCH
+		; 							150 cycles if output buffer is not full
+		; 								and output interrupt is expected
+		; 							OUTST
+		; 							27 cycles
+		; 							INIT
+		; 							618 cycles
+		; 							RDHDLR
+		; 							82 cycles
+		; 							WRHDLR
+		; 							160 cycles
+		; 		Size:              Program 202 bytes
+		; 							Data      5 bytes
 
-					; 		,SIO_0 EQUATES
-					; 		SIO_0 IS PROGRAMMED FOR:
-					; 			ASYNCHRONOUS OPERATION
-					; 			16 X BAUD RATE
-					; 			8-BIT CHARACTERS
-					; 		, 1 1/2 STOP BITS
-					; 		,ARBITRARY SIO_0 PORT ADDRESSES
-					;***********************************************************************************************************************
-					;***********************************************************************************************************************
+		; 		,SIO_0 EQUATES
+		; 		SIO_0 IS PROGRAMMED FOR:
+		; 			ASYNCHRONOUS OPERATION
+		; 			16 X BAUD RATE
+		; 			8-BIT CHARACTERS
+		; 		, 1 1/2 STOP BITS
+		; 		,ARBITRARY SIO_0 PORT ADDRESSES
+;***********************************************************************************************************************
+;***********************************************************************************************************************
 ;
 ;
 ; INCH_11A:
@@ -377,84 +377,84 @@
 
 
 
-					;***********************************************************************************************************************
-					;***********************************************************************************************************************
-					; Unbuffered Input/Output
-					; 													5. INIT: none
-					; 		Title                Simple interrupt input and output usinQ a                zao
-					; 							PIa and single character buffers
-					; 		Name:                PINTIO
-					; 	Purpose:        This program consists of 5 subroutines which
-					; 					perform interrupt driven input and output using
-					; 					a Z80 PIO.
-					; 					INCH
-					; 						Read a character
-					; 					INST
-					; 						Determine input status (whether input
-					; 						buffer is empty)
-					; 					OUTCH
-					; 						Write a character
-					; 					OUTST
-					; 						Determine output status (whether output
-					; 						buffer is full)
-					; 					INIT
-					; 						Initialize PIO and interrupt system
-					; 	Entry:          INCH
-					; 						No parameters
-					; 					INST
-					; 						No parameters
-					; 					OUTCH
-					; 						Register A = character to transmit
-					; 					OUTST
-					; 						No parameters
-					; 					INIT
-					; 						No parameters
-					; 	Exit :          INCH
-					; 						Register A = character
-					; 					INST
-					; 						Carry = 0 if input buffer is empty,
-					; 						1 if character is available
-					; 					OUTCH
-					; 						No parameters
-					; 					OUTST
-					; 						Carry = 0 if output buffer is not
-					; 						full, 1 if it is full
-					; 					INIT
-					; 						No parameters
-					; 	Registers used: INCH
-					; 						A.F
-					; 					INST
-					; 						A,F
-					; 					OUTCH
-					; 						A,F
-					; 					OUTST
-					; 						A,F
-					; 					INIT
-					; 						A,F,eC,HL,I
-					; 		Time:               INCH
-					; 							72 cycles if a character is available
-					; 							INST
-					; 							27 cycles
-					; 							OUTCH
-					; 							150 cycles if output buffer is not full
-					; 								and output interrupt is expected
-					; 							OUTST
-					; 							27 cycles
-					; 							INIT
-					; 							377 cycles
-					; 							RDHDLR
-					; 							82 cycles
-					; 							WRHDLR
-					; 							178 cycles
-					; 		Size:               Program 166 bytes
-					; 							Data      5 bytes
-					; 		;PIO EQUATES
-					; 		; PIO IS PROGRAMMED FOR:
-					; 			PORT A INPUT
-					; 			PORT B OUTPUT
-					; 		;ARBITRARY PIO PORT ADDRESSES
-					;***********************************************************************************************************************
-					;***********************************************************************************************************************
+;***********************************************************************************************************************
+;***********************************************************************************************************************
+		; Unbuffered Input/Output
+		; 													5. INIT: none
+		; 		Title                Simple interrupt input and output usinQ a                zao
+		; 							PIa and single character buffers
+		; 		Name:                PINTIO
+		; 	Purpose:        This program consists of 5 subroutines which
+		; 					perform interrupt driven input and output using
+		; 					a Z80 PIO.
+		; 					INCH
+		; 						Read a character
+		; 					INST
+		; 						Determine input status (whether input
+		; 						buffer is empty)
+		; 					OUTCH
+		; 						Write a character
+		; 					OUTST
+		; 						Determine output status (whether output
+		; 						buffer is full)
+		; 					INIT
+		; 						Initialize PIO and interrupt system
+		; 	Entry:          INCH
+		; 						No parameters
+		; 					INST
+		; 						No parameters
+		; 					OUTCH
+		; 						Register A = character to transmit
+		; 					OUTST
+		; 						No parameters
+		; 					INIT
+		; 						No parameters
+		; 	Exit :          INCH
+		; 						Register A = character
+		; 					INST
+		; 						Carry = 0 if input buffer is empty,
+		; 						1 if character is available
+		; 					OUTCH
+		; 						No parameters
+		; 					OUTST
+		; 						Carry = 0 if output buffer is not
+		; 						full, 1 if it is full
+		; 					INIT
+		; 						No parameters
+		; 	Registers used: INCH
+		; 						A.F
+		; 					INST
+		; 						A,F
+		; 					OUTCH
+		; 						A,F
+		; 					OUTST
+		; 						A,F
+		; 					INIT
+		; 						A,F,eC,HL,I
+		; 		Time:               INCH
+		; 							72 cycles if a character is available
+		; 							INST
+		; 							27 cycles
+		; 							OUTCH
+		; 							150 cycles if output buffer is not full
+		; 								and output interrupt is expected
+		; 							OUTST
+		; 							27 cycles
+		; 							INIT
+		; 							377 cycles
+		; 							RDHDLR
+		; 							82 cycles
+		; 							WRHDLR
+		; 							178 cycles
+		; 		Size:               Program 166 bytes
+		; 							Data      5 bytes
+		; 		;PIO EQUATES
+		; 		; PIO IS PROGRAMMED FOR:
+		; 			PORT A INPUT
+		; 			PORT B OUTPUT
+		; 		;ARBITRARY PIO PORT ADDRESSES
+;***********************************************************************************************************************
+;***********************************************************************************************************************
 
 
 ; PIOAD    EQU      90H             ;PORT A DATA
@@ -697,86 +697,86 @@
 
 
 
-			;****************************************************************************************************************
-			;****************************************************************************************************************
-			; Buffered Input/Output
-			; Using an SIO_0 (SINTB)                                                                                    11C
-			; 		Title              Interrupt input and output using a ZSO SIO_0 and
-			; 						multiple-character buffers
-			; 		Name:              SINTB
-			; 		Purpose:           This program consists of 5 subroutines which
-			; 						perform interrupt driven input and output using
-			; 						a ZSO SIO_0.
-			; 						ReadChar
-			; 							Read a character
-			; 						RetInpStatus
-			; 							Determine input status (whether input
-			; 							buffer is empty)
-			; 						WriteChar
-			; 							Write a character
-			; 						RetOutStatus
-			; 							Determine output status (whether output
-			; 							buffer is full)
-			; 						InitBuffers
-			; 							Initialize SIO_0 and interrupt system
-			; 		Entry:             ReadChar
-			; 							No parameters
-			; 						RetInpStatus
-			; 							No pat'ameters
-			; 						WriteChar
-			; 							Register A = character to transmit
-			; 						RetOutStatus
-			; 							No parameters
-			; 						InitBuffers
-			; 							No parameters
-			; 		Exit :          ReadChar(INCH)
-			; 							Register A = character
-			; 						RetInpStatus(INST)
-			; 							Carry = 0 if input buffer is empty,
-			; 							1 if character is available
-			; 						WriteChar(OUTCH)
-			; 							No parameters
-			; 						OUTST
-			; 							Carry = 0 if output buffer is not
-			; 							full. 1 if it is full
-			; 						InitBuffers
-			; 							No parameters
-			; 		Reqisters used: ReadChar
-			; 							AF,C,DE,HL
-			; 						RetInpStatus
-			; 							AF
-			; 						WriteChar
-			; 							AF,DE,HL
-			; 						RetOutStatus
-			; 							AF
-			; 						InitBuffers
-			; 							AF,BC,HL,I
-			; 		Time:           ReadChar
-			; 							Approximately 197 cycles if a character is
-			; 							available
-			; 						RetInpStatus
-			; 							39 cycles
-			; 						WriteChar
-			; 							Approximately 240 cycles if output buffer
-			; 							is not full and output interrupt is expected
-			; 						RetOutStatus
-			; 							34 cycles
-			; 						InitBuffers
-			; 							732 cycles
-			; 						ReadINTHandler
-			; 							Approximately 249 cycles
-			; 						WriteINTHandler
-			; 							Approximately 308 cycles
-			; 		Size:           Program 299 bytes
-			; 						Data     11 bytes plus size of buffers
-			; 		:SIO_0 EQUATES
-			; 			SIO_0 IS PROGRAMMED FOR:
-			; 			ASYNCHRONOUS OPERATION
-			; 			16 X BAUD RATE
-			; 			8-BIT CHARACTERS
-			; 		; 1 1/2 STOP BITS
-			;****************************************************************************************************************
-			;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
+		; Buffered Input/Output
+		; Using an SIO_0 (SINTB)                                                                                    11C
+		; 		Title              Interrupt input and output using a ZSO SIO_0 and
+		; 						multiple-character buffers
+		; 		Name:              SINTB
+		; 		Purpose:           This program consists of 5 subroutines which
+		; 						perform interrupt driven input and output using
+		; 						a ZSO SIO_0.
+		; 						ReadChar
+		; 							Read a character
+		; 						RetInpStatus
+		; 							Determine input status (whether input
+		; 							buffer is empty)
+		; 						WriteChar
+		; 							Write a character
+		; 						RetOutStatus
+		; 							Determine output status (whether output
+		; 							buffer is full)
+		; 						InitBuffers
+		; 							Initialize SIO_0 and interrupt system
+		; 		Entry:             ReadChar
+		; 							No parameters
+		; 						RetInpStatus
+		; 							No pat'ameters
+		; 						WriteChar
+		; 							Register A = character to transmit
+		; 						RetOutStatus
+		; 							No parameters
+		; 						InitBuffers
+		; 							No parameters
+		; 		Exit :          ReadChar(INCH)
+		; 							Register A = character
+		; 						RetInpStatus(INST)
+		; 							Carry = 0 if input buffer is empty,
+		; 							1 if character is available
+		; 						WriteChar(OUTCH)
+		; 							No parameters
+		; 						OUTST
+		; 							Carry = 0 if output buffer is not
+		; 							full. 1 if it is full
+		; 						InitBuffers
+		; 							No parameters
+		; 		Reqisters used: ReadChar
+		; 							AF,C,DE,HL
+		; 						RetInpStatus
+		; 							AF
+		; 						WriteChar
+		; 							AF,DE,HL
+		; 						RetOutStatus
+		; 							AF
+		; 						InitBuffers
+		; 							AF,BC,HL,I
+		; 		Time:           ReadChar
+		; 							Approximately 197 cycles if a character is
+		; 							available
+		; 						RetInpStatus
+		; 							39 cycles
+		; 						WriteChar
+		; 							Approximately 240 cycles if output buffer
+		; 							is not full and output interrupt is expected
+		; 						RetOutStatus
+		; 							34 cycles
+		; 						InitBuffers
+		; 							732 cycles
+		; 						ReadINTHandler
+		; 							Approximately 249 cycles
+		; 						WriteINTHandler
+		; 							Approximately 308 cycles
+		; 		Size:           Program 299 bytes
+		; 						Data     11 bytes plus size of buffers
+		; 		:SIO_0 EQUATES
+		; 			SIO_0 IS PROGRAMMED FOR:
+		; 			ASYNCHRONOUS OPERATION
+		; 			16 X BAUD RATE
+		; 			8-BIT CHARACTERS
+		; 		; 1 1/2 STOP BITS
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 		; Section IOLIB
 
@@ -1398,7 +1398,10 @@ PIO_Init:
 		out (portB_Data), a
 	ret
 
+	if DOALIGN
 		align 4
+	endif
+
 
 ;********************************************************************************************     
 ;********************************************************************************************     

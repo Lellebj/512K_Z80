@@ -38,11 +38,17 @@ Result_NumToHex:	equ $FF40
 
 		call HD44780_main_init
 		JP  RAMPAGE
-		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 
 #code   INT_IM1, $38, *    ;EEPROM mem at 0000h
 		jp PIO_A_INT
+	if DOALIGN
 		align 8
+	endif
+
 		defw $0400          ; NMI adress table    
 
 
@@ -118,7 +124,10 @@ nextchar3:
 slut:      
 		rst 00h 
 
-		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 initbytes:   .byte $01, $38, $0E, $06, $B0
 t_string1:   .ascii "ARZ80 micro"
 t_string2:   .ascii "Waking up"
@@ -162,7 +171,10 @@ wait01: nop
 ;       BC ( count)
 ;       HL (value for conversion to HEX)
 ;       DE (positon of display 2004A)
-		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 ShowPC_HALT:
 		ld (SP_value), sp
 		ld iy,(SP_value)
@@ -450,7 +462,10 @@ wait_pe:
 		ret
 
 ;****************************************************************
+	if DOALIGN
 		align 8
+	endif
+
 
 sendTo595:              ;// send contents of A to 74LS595 
 		push AF

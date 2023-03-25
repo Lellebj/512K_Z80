@@ -115,7 +115,10 @@ nextchar3:
 slut:      
         rst 00h 
 
-		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 initbytes:   .byte $01, $38, $0E, $06, $B0
 t_string1:   .ascii "ARZ80 micro"
 t_string2:   .ascii "Waking up"

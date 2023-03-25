@@ -59,11 +59,17 @@ stack	= SPStack_end
 		call HD44780_main_init		; display unit setup
 
 		JP  RAMPAGE
-		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 
 #code   INT_IM1, $38, *    ;EEPROM mem at 0000h
 		jp PIO_A_INT
+	if DOALIGN
 		align 8
+	endif
+
 		defw $0400          ; NMI adress table    
 
 
@@ -198,7 +204,10 @@ PIO_Init:
 ;       BC ( count)
 ;       HL (value for conversion to HEX)
 ;       DE (positon of display 2004A)
-		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 ShowPC_HALT:
 		ld (SP_value), SP	; save contents of SP
 		push AF
@@ -374,7 +383,10 @@ inc_portB_value:
 #code DAT_TABLE, DataTables,  $200
 
 
-		align 8            
+	if DOALIGN
+		align 8
+	endif
+            
 initbytes:   .byte $01, $38, $0E, $06, $B0
 t_str1:		.ascii "Z80 micro and"
 t_str2:		.ascii "HD44780 display"
@@ -386,10 +398,16 @@ t_str7:		.ascii " IX:____ IY:____    "
 t_str8:		.ascii " "
 t_str9:		.ascii " "
 t_string_E: equ $
-		align 2
+	if DOALIGN
+		align 4
+	endif
+
 cur_pos: equ $
 		defw	$0004, $000C, $0104, $010C,$0204, $020C,$0304, $030C, $FFFF
-		align 2
+	if DOALIGN
+		align 4
+	endif
+
 t_str_table: equ $
 		defw	t_str1, t_str2, t_str3, t_str4, t_str5, t_str6, t_str7, t_str8
 

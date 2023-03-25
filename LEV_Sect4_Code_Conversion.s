@@ -11,7 +11,7 @@
 
 		
 		GLOBAL 	BN2BCD,BCD2BN, BN2HEX,Bin2Hex8,Bin2Hex16,HEX2BN,BN2DEC,DEC2BN,LC2UC
-		GLOBAL	DumpRegisters,MFILL,BLKMOV,putDEtoScreen,putDEtoScreenDEC
+		GLOBAL	DumpRegisters,MFILL,BLKMOV,putDEtoScreen,putDEtoScreenDEC,AddToT_Buf
 
 
 		; Code Conversion
@@ -98,19 +98,19 @@ BN2BCD:
 
 				; SAMPLE EXECUTI0N:
 
-		SC4A:
-				; C0NVERT    0A HEXADECIMAL T0 10 BCD
-			LD		A,0AH
-			CALL	BN2BCD          ;H = 0, L           10H
-				; C0NVERT       FF HEXADECIMAL T0 255 BCD
-			LD     A,0FFH
-			CALL   BN2BCD           ;H = 02H, L       55H
+		; SC4A:
+		; 		; C0NVERT    0A HEXADECIMAL T0 10 BCD
+		; 	LD		A,0AH
+		; 	CALL	BN2BCD          ;H = 0, L           10H
+		; 		; C0NVERT       FF HEXADECIMAL T0 255 BCD
+		; 	LD     A,0FFH
+		; 	CALL   BN2BCD           ;H = 02H, L       55H
 
-		;C0NVERT 0 HEXADECIMAL T0 0 BCD
-			LD      A,0
-			CALL    BN2BCD          ;H = 0, L     0
+		; ;C0NVERT 0 HEXADECIMAL T0 0 BCD
+		; 	LD      A,0
+		; 	CALL    BN2BCD          ;H = 0, L     0
 
-			JR    SC4A
+		; 	JR    SC4A
 ;*************************************************************************************************
 
 				; BCD t0 Binary C0nversi0n (BCD2BN)											4B
@@ -157,16 +157,16 @@ BCD2BN:
 
         ;   SAMPLE EXECUTI0N:
 SC4B:
-          ;C0NVERT 0 BCD T0 0 HEXADECIMAL
-          LD		A,0
-          CALL		BCD2BN          ; A = 0H
-          ;C0NVERT 99 BCD T0 63 HEXADECIMAL
-          LD		A,099H
-          CALL		BCD2BN          ;A=63H
-          ;C0NVERT 23 BCD T0 17 HEXADECIMAL
-          LD		A,23H
-          CALL		BCD2BN          ;A=17H
-          JR		SC4B
+        ;   ;C0NVERT 0 BCD T0 0 HEXADECIMAL
+        ;   LD		A,0
+        ;   CALL		BCD2BN          ; A = 0H
+        ;   ;C0NVERT 99 BCD T0 63 HEXADECIMAL
+        ;   LD		A,099H
+        ;   CALL		BCD2BN          ;A=63H
+        ;   ;C0NVERT 23 BCD T0 17 HEXADECIMAL
+        ;   LD		A,23H
+        ;   CALL		BCD2BN          ;A=17H
+        ;   JR		SC4B
 
 ;*************************************************************************************************
 
@@ -176,6 +176,8 @@ SC4B:
 					;                                                               Registers Used: AF, B, HL
 					;            Size:             Pr0gram 28 bytes
 ;*************************************************************************************************
+
+			;  input in DE, output 4 chars to textbuf (HL), output:  HL-> end of string '0'
 Bin2Hex16:
 			;**************************************
 			;  input in DE
@@ -222,11 +224,11 @@ cnv_byte:	ld 		A,D
            
 AddToT_Buf:
 			cp		10
-			jr		C,.AT1				;jump if high nibble < 10
+			jr		C,.AT1				; jump if high nibble < 10
 			add		A,7					; else add 7 s0 after add i ng .' 0" the
 										; character will be in 'a' .. 'f'
 .AT1:
-			add		A,'0'				;add ascii 0 t0 make a character
+			add		A,'0'				; add ascii 0 t0 make a character
 			ld		(hl),A				; add the char to text buffer
 			inc 	hl
 			ret
@@ -312,20 +314,20 @@ A2HEX1:
 			;    SAMPLE EXECUTI0N:
 
 SC4D:
-			; C0NVERT "C7" T0 C7 HEXADECIMAL
-			LD		H,'C'
-			LD		L,'7'
-			CALL	HEX2BN				;A=C7H
-			; C0NVERT "2F' T0 2F HEXADECIMAL
-			LD		H,'2'
-			LD		L,'F'
+			; ; C0NVERT "C7" T0 C7 HEXADECIMAL
+			; LD		H,'C'
+			; LD		L,'7'
+			; CALL	HEX2BN				;A=C7H
+			; ; C0NVERT "2F' T0 2F HEXADECIMAL
+			; LD		H,'2'
+			; LD		L,'F'
 
-			CALL	HEX2BN				;A=2FH
-			;C0NVERT ~2A~ T0 2A HEXADECIMAL
-			LD		H,'2'
-			LD		L,'A'
-			CALL	HEX2BN				;A=2AH
-			JR		SC4D
+			; CALL	HEX2BN				;A=2FH
+			; ;C0NVERT ~2A~ T0 2A HEXADECIMAL
+			; LD		H,'2'
+			; LD		L,'A'
+			; CALL	HEX2BN				;A=2AH
+			; JR		SC4D
 
 
 ;*************************************************************************************************
@@ -488,22 +490,22 @@ NGFLAG: DS	1							; SIGN 0F 0R I GI NAL VALUE
 			; SAMPLE EXECUTI0N:
 
 
-SC4E:
-		; C0NVERT 0 T0 .' 0·'
-		LD		HL,BUFFER			;HL = BASE ADDRESS 0F BUFFER
-		LD		DE,0				;DE = 0
-		CALL	BN2DEC				; C0NVERT
-									; BUFFER SH0ULD = .' 0·'
-		;C0NVERT 32767 T0     ~32767"'
-		LD		HL,BUFFER			;HL = BASE ADDRESS 0F BUFFER
-		LD		DE,32767			;DE = 32767
-		CALL	BN2DEC				; C0NVERT
-									; BUFFER SH0ULD = "32767"'
-		;C0NVERT -32768 T0    ~-32768"
-		LD		HL,BUFFER			;HL  = BASE ADDRESS 0F BUFFER
-		LD		DE,-32768			; DE = -3271':'8
-		CALL	BN2DEC				; C0NVERT
-		JR		SC4E				; BUFFER SH0ULD = ~-32768'
+; SC4E:
+; 		; C0NVERT 0 T0 .' 0·'
+; 		LD		HL,BUFFER			;HL = BASE ADDRESS 0F BUFFER
+; 		LD		DE,0				;DE = 0
+; 		CALL	BN2DEC				; C0NVERT
+; 									; BUFFER SH0ULD = .' 0·'
+; 		;C0NVERT 32767 T0     ~32767"'
+; 		LD		HL,BUFFER			;HL = BASE ADDRESS 0F BUFFER
+; 		LD		DE,32767			;DE = 32767
+; 		CALL	BN2DEC				; C0NVERT
+; 									; BUFFER SH0ULD = "32767"'
+; 		;C0NVERT -32768 T0    ~-32768"
+; 		LD		HL,BUFFER			;HL  = BASE ADDRESS 0F BUFFER
+; 		LD		DE,-32768			; DE = -3271':'8
+; 		CALL	BN2DEC				; C0NVERT
+; 		JR		SC4E				; BUFFER SH0ULD = ~-32768'
 
 BUFFER: DS	7						;7-BYTE BUFFER
 
@@ -696,16 +698,16 @@ EXIT_4G:
 
 			; SAMPLE EXECUTI0N:
 SC4G:
-			;C0NVERT L0WER CASE E T0 UPPER CASE
-			LD		A,'e'
-			CALL	LC2UC				;A='E'=45H
-			;C0NVERT L0WER CASE Z T0 UPPER CASE
-			LD		A,'z'
-			CALL	LC2UC				; A='Z'=5AH
-			;C0NVERT UPPER CASE A T0 UPPER CASE A
-			LD		A,'A'
-			CALL	LC2UC				;A='A'=41H
-			JR		SC4G
+			; ;C0NVERT L0WER CASE E T0 UPPER CASE
+			; LD		A,'e'
+			; CALL	LC2UC				;A='E'=45H
+			; ;C0NVERT L0WER CASE Z T0 UPPER CASE
+			; LD		A,'z'
+			; CALL	LC2UC				; A='Z'=5AH
+			; ;C0NVERT UPPER CASE A T0 UPPER CASE A
+			; LD		A,'A'
+			; CALL	LC2UC				;A='A'=41H
+			; JR		SC4G
 
 
 ;*************************************************************************************************
@@ -741,68 +743,68 @@ SC4G:
 ;*************************************************************************************************
 
 
-ASC2EB:
-			LD		HL,EBCDIC			;GET BASE ADDRESS 0F EBCDIC TABLE
-			AND		011111111B			;BE SURE BIT 7 = 0
-			LD		E,A					;USE ASCII AS INDEX INT0 EBCDIC TABLE
-			LD		D,0
-			ADD		HL,DE
-			LD		A, (HL)				;GET EBCDIC
-			RET
-;ASCII T0 EBCDIC TABLE
-;   A PRINTABLE ASCII CHARACTER WITH N0 EBCDIC EQUIVALENT IS
-;   TRANSLATED T0 AN EBCDIC SPACE (040H), A N0NPRINTABLE ASCII CHARACTER
-; WITH N0 EQUIVALENT IS TRANSLATED T0 A EBCDIC NUL (000H)
-EBCDIC:
-			;		 NUL  S0H  STX  ETX  E0T  ENQ  ACK  BEL			;ASCII
-			DB      000H,001H,002H,003H,037H,02DH,02EH,02FH         ;EBCDIC
-			;		 BS   HT   LF   VT   FF   CR   S0   SI			;ASCII
-			DB      016H,005H,025H,00BH,00CH,00DH,00EH,00FH         ;EBCDIC
-			;		DLE	 DC1  DC2  DC3  DC4  NAK  SYN  ETB			;ASCII
-			DB      010H,011H,012H,013H,03CH,03DH,032H,026H         ;EBCDIC
-			;		CAN  EM   SUB  ESC  IFS  IGS  IRS  IUS			;ASCII
-			DB      018H,019H,03FH,027H,01CH,01DH,01EH,01FH         ;EBCDIC
-			;		SPACE ! 	"   #	 $	  %	   & 	'			;ASCII
-			DB      040H,05AH,07FH,07BH,05BH,06CH,050H,00DH         ;EBCDIC
-			;		(     ) 	*   +    ,    _	   .   /			;ASCII
-			DB      04DH,05DH,05CH,04EH,06BH,060H,04BH,061H         ;EBCDIC
-			;		0	 1    2    3    4    5    6    7			;ASCII
-			DB		0F0H,0F1H,0F2H,0F3H,0F4H,0F5H,0F6H,0F7H         ;EBCDIC
-			;		 8    9    : 	;	 <     =   >	?			;ASCII
-			DB      0F8H,0F9H,07AH,05EH,04CH,07EH,06EH,06FH         ;EBCDIC
-			;        @    A    B    C    D    E    F    G			;ASCII
-			DB      07CH,0C1H,0C2H,0C3H,0C4H,0C5H,0C6H,0C7H         ;EBCDIC
-			;		 H    I    J    K    L    M    N    0			;ASCII
-			DB		0C8H,0C9H,0D1H,0D2H,0D3H,0D4H,0D5H,0D6H         ;EBCDIC
-			;		 P    Q    R    S    T    U    V    W			;ASCII
-			DB		0D7H,0D8H,0D9H,0E2H,0E3H,0E4H,0E5H,0E6H         ;EBCDIC
-			;	     X    Y    Z    [    \    ]    ^	-			;ASCII
-			DB		0E7H,0E8H,0E9H,040H,0E0H,040H,040H,06DH         ;EBCDIC
-			;		 '	  a	   b    c 	 d    e    f    g			;ASCII
-			DB		009H,081H,082H,083H,084H,085H,086H,087H         ;EBCDIC
-			;		 h 	  i    j    k    l	  m    n    0			;ASCII
-			DB		088H,089H,091H,092H,093H,094H,095H,096H			;EBCDIC
-			;		 p    q    r    s    t    u    v    w			;ASCII
-			DB		097H,098H,099H,0A2H,0A3H,0A4H,0A5H,0A6H         ;EBCDIC
-			;		 x    y    z    {   |     }    ~    DEL			; ASCII
-			DB		0A7H,0A8H,0A9H,0C0H,06AH,0D0H,0A1H,007H         ;EBCDIC
+; ASC2EB:
+; 			LD		HL,EBCDIC			;GET BASE ADDRESS 0F EBCDIC TABLE
+; 			AND		011111111B			;BE SURE BIT 7 = 0
+; 			LD		E,A					;USE ASCII AS INDEX INT0 EBCDIC TABLE
+; 			LD		D,0
+; 			ADD		HL,DE
+; 			LD		A, (HL)				;GET EBCDIC
+; 			RET
+; ;ASCII T0 EBCDIC TABLE
+; ;   A PRINTABLE ASCII CHARACTER WITH N0 EBCDIC EQUIVALENT IS
+; ;   TRANSLATED T0 AN EBCDIC SPACE (040H), A N0NPRINTABLE ASCII CHARACTER
+; ; WITH N0 EQUIVALENT IS TRANSLATED T0 A EBCDIC NUL (000H)
+; EBCDIC:
+; 			;		 NUL  S0H  STX  ETX  E0T  ENQ  ACK  BEL			;ASCII
+; 			DB      000H,001H,002H,003H,037H,02DH,02EH,02FH         ;EBCDIC
+; 			;		 BS   HT   LF   VT   FF   CR   S0   SI			;ASCII
+; 			DB      016H,005H,025H,00BH,00CH,00DH,00EH,00FH         ;EBCDIC
+; 			;		DLE	 DC1  DC2  DC3  DC4  NAK  SYN  ETB			;ASCII
+; 			DB      010H,011H,012H,013H,03CH,03DH,032H,026H         ;EBCDIC
+; 			;		CAN  EM   SUB  ESC  IFS  IGS  IRS  IUS			;ASCII
+; 			DB      018H,019H,03FH,027H,01CH,01DH,01EH,01FH         ;EBCDIC
+; 			;		SPACE ! 	"   #	 $	  %	   & 	'			;ASCII
+; 			DB      040H,05AH,07FH,07BH,05BH,06CH,050H,00DH         ;EBCDIC
+; 			;		(     ) 	*   +    ,    _	   .   /			;ASCII
+; 			DB      04DH,05DH,05CH,04EH,06BH,060H,04BH,061H         ;EBCDIC
+; 			;		0	 1    2    3    4    5    6    7			;ASCII
+; 			DB		0F0H,0F1H,0F2H,0F3H,0F4H,0F5H,0F6H,0F7H         ;EBCDIC
+; 			;		 8    9    : 	;	 <     =   >	?			;ASCII
+; 			DB      0F8H,0F9H,07AH,05EH,04CH,07EH,06EH,06FH         ;EBCDIC
+; 			;        @    A    B    C    D    E    F    G			;ASCII
+; 			DB      07CH,0C1H,0C2H,0C3H,0C4H,0C5H,0C6H,0C7H         ;EBCDIC
+; 			;		 H    I    J    K    L    M    N    0			;ASCII
+; 			DB		0C8H,0C9H,0D1H,0D2H,0D3H,0D4H,0D5H,0D6H         ;EBCDIC
+; 			;		 P    Q    R    S    T    U    V    W			;ASCII
+; 			DB		0D7H,0D8H,0D9H,0E2H,0E3H,0E4H,0E5H,0E6H         ;EBCDIC
+; 			;	     X    Y    Z    [    \    ]    ^	-			;ASCII
+; 			DB		0E7H,0E8H,0E9H,040H,0E0H,040H,040H,06DH         ;EBCDIC
+; 			;		 '	  a	   b    c 	 d    e    f    g			;ASCII
+; 			DB		009H,081H,082H,083H,084H,085H,086H,087H         ;EBCDIC
+; 			;		 h 	  i    j    k    l	  m    n    0			;ASCII
+; 			DB		088H,089H,091H,092H,093H,094H,095H,096H			;EBCDIC
+; 			;		 p    q    r    s    t    u    v    w			;ASCII
+; 			DB		097H,098H,099H,0A2H,0A3H,0A4H,0A5H,0A6H         ;EBCDIC
+; 			;		 x    y    z    {   |     }    ~    DEL			; ASCII
+; 			DB		0A7H,0A8H,0A9H,0C0H,06AH,0D0H,0A1H,007H         ;EBCDIC
 
-        ; SAMPLE EXECUTI0N:
+;         ; SAMPLE EXECUTI0N:
 
-SC4H:
-			; C0NVERT ASC I I -' A -' T0 EBCD I C
-			LD		A,'A'			; ASCI I ---A-'
-			CALL	ASC2EB			; EBCD I C -' A -'   0C 1 H
+; SC4H:
+; 			; C0NVERT ASC I I -' A -' T0 EBCD I C
+; 			LD		A,'A'			; ASCI I ---A-'
+; 			CALL	ASC2EB			; EBCD I C -' A -'   0C 1 H
 
-			; C0NVERT ASC I I '1 -' T0 EBCD I C
-			LD		A,'1'			;ASCII '1'
-			CALL	ASC2EB			; EBCD I C '1 -'       0F 1 H
+; 			; C0NVERT ASC I I '1 -' T0 EBCD I C
+; 			LD		A,'1'			;ASCII '1'
+; 			CALL	ASC2EB			; EBCD I C '1 -'       0F 1 H
 
-			;C0NVERT ASCII 'a' T0 EBCDIC
-			LD		A, 'a'			; ASC I I -' a-'
-			CALL	ASC2EB			; EBCD I C -' a -'          081 H
+; 			;C0NVERT ASCII 'a' T0 EBCDIC
+; 			LD		A, 'a'			; ASC I I -' a-'
+; 			CALL	ASC2EB			; EBCD I C -' a -'          081 H
 
-			JR	SC4H
+; 			JR	SC4H
 
 ;*************************************************************************************************
 ;*************************************************************************************************
@@ -837,99 +839,99 @@ SC4H:
 ;*************************************************************************************************
 
 
-EB2ASC:
-			LD		HL,ASCII			;0ET BASE ADDRESS 0F ASCII TABLE
-			LD		E,A					; USE EBCDIC AS INDEX
-			LD		D,0
-			ADD		HL,DE
-			LD		A,(HL)				;0ET ASC II CHARACTER
-			RET
-; EBCDIC T0 ASCII TABLE
-; A PRINTABLE EBCDIC CHARACTER WITH N0 ASCII EQUIVALENT IS
-; TRANSLATED T0 AN ASCII SPACE (020H). A N0NPRINTABLE EBCDIC CHARACTER
-; WITH N0 EQUIVALENT IS TRANSLATED T0 AN ASCII NUL (000H)
-ASCII:
-			; 	    NUL   S0H  STX  ETX       HT        DEL				;EBCDIC
-			DB      000H,001H,002H,003H,000H,009H,000H,07FH				;ASCII
-			;						VT   FF   CR   S0	S1				;EBCDIC
-			DB		000H,000H,000H,00BH,00CH,00DH,00EH,00FH				;ASCII
-			;	     DLE  DCl  DC2  DC3			   BS					;EBCDIC
-			DB      010H,011H,012H,013H,000H,000H,008H,000H  			;ASCII
-			;		 CAN  EM             IFS  IGS  IRS  IUS				;EBCDIC
-			DB		018H,019H,000H,000H,01CH,01DH,01EH,01FH				;ASCII
-			;								  LF   ETB  ESC				;EBCDIC
-			DB		000H,000H,000H,000H,000H,00AH,017H,01BH				;ASCII
-			;						          ENQ  ACK  BEL				;EBCDIC	
-			DB      000H,000H,000H,000H,000H,005H,006H,007H				;ASCII
-			;                  SYN						EOT				;EBCDIC
-			DB		000H,000H,016H,000H,000H,000H,000H,004H				;ASCII
-			;                            DC4  NAK  		SUB 			;EBCDIC
-			DB		000H,000H,000H,000H,014H,015H,000H,01AH				;ASCII
-			;     SPACE													;EBCDIC
-			DB		' ' ,000H,000H,000H,000H,000H,000H,000H				;ASCII
-			;						.	 <	  (    +					;EBCDIC
-			DB      000H,000H,' ' ,'.' ,'<' ,'(' ,'+' ,' '				;ASCII
-			;	  	 &													;EBCDIC
-			DB		'&' ,000H,000H,000H,000H,000H,000H,000H				;ASCII
-			;				   !    $    *    )    ;  					;EBCDIC
-			DB      000H,000H,'!' ,'$' ,'*' ,')' ,';' ,' '				;ASCII
-			;		 _    /												;EBCDIC
-			DB      '_' ,'/' ,000H,000H,000H,000H,000H,000H				;ASCII
-			;                  |    ,    %    -    >    ?     			;EBCDIC
-			DB      000H,000H,'|' ,',' ,'%' ,'-' ,'>' ,'?'  			;ASCII
-			;															;EBCDIC
-			DB      000H,000H,000H,000H,000H,000H,000H,000H 			;ASCII
-			;             `    :    #    @    '    =    "				;EBCDIC
-			DB      000H,'`' ,':' ,'#' ,'@' ,' ' ,'=' ,'"'   			;ASCII
-			;             a    b    c    d    e    f    g				;EBCDIC
-			DB      000H,'a' ,'b' ,'c' ,'d' ,'e' ,'f' ,'g'  			;ASCII
-			;		h     i												;EBCDIC
-			DB      'h' ,'i' ,000H,000H,000H,000H,000H,000H				;ASCII
-			;			  j    k    l    m    n    o    p				;EBCDIC
-			DB      000H,'j' ,'k' ,'l' ,'m' ,'n' ,'o' ,'p'				;ASCII
-			;		q    r												;EBCDIC
-			DB      'q' ,'r' ,000H,000H,000H,000H,000H,000H  			;ASCII
-			;			 ~	   s    t    u    v    w    x				;EBCDIC
-			DB      000H,'~' ,'s' ,'t' ,'u' ,'v' ,'w' ,'x'				;ASCII
-			;	     y    z												;EBCDIC
-			DB      'y' ,'z' ,000H,000H,000H,000H,000H,000H 			;ASCII
-			;															;EBCDIC
-			DB      000H,000H,000H,000H,000H,000H,000H,000H  			;ASCII
-			;                                                     		;EBCDIC
-			DB      000H,000H,000H,000H,000H,000H,000H,000H  			;ASCII
-			;		 {    A    B    C    D    E    F    G           	;EBCDIC
-			DB      '{' ,'A' ,'B' ,'C' ,'D' ,'E' ,'F' ,'G'				;ASCII
-			;		 H    I                                     		;EBCDIC
-			DB      'H' ,'I' ,000H,000H,000H,000H,000H,000H   			;ASCII
-			;		 }    J    K    L    M    N    O    P       		;EBCDIC
-			DB      '}' ,'J' ,'K' ,'L' ,'M' ,'N' ,'O' ,'P'      		;ASCII
-			;	     Q    R                                   			;EBCDIC
-			DB      'Q' ,'R' ,000H,000H,000H,000H,000H,000H				;ASCII
-			;		 \         S    T    U    V    W    X				;EBCDIC
-			DB      '\\' ,000H,'S' ,'T' ,'U' ,'V' ,'W' ,'X'     			;ASCII
-			;		 Y    Z                                				;EBCDIC
-			DB      'Y' ,'Z' ,000H,000H,000H,000H,000H,000H				;ASCII
-			;        0    1    2    3    4    5    6    7				;EBCDIC
-			DB      '0' ,'1' ,'2' ,'3' ,'4' ,'5' ,'6' ,'7'     			;ASCII
-			;		9													;EBCDIC
-			DB      '9' ,000H,000H,000H,000H,000H,000H,000H				;ASCII
+; EB2ASC:
+; 			LD		HL,ASCII			;0ET BASE ADDRESS 0F ASCII TABLE
+; 			LD		E,A					; USE EBCDIC AS INDEX
+; 			LD		D,0
+; 			ADD		HL,DE
+; 			LD		A,(HL)				;0ET ASC II CHARACTER
+; 			RET
+; ; EBCDIC T0 ASCII TABLE
+; ; A PRINTABLE EBCDIC CHARACTER WITH N0 ASCII EQUIVALENT IS
+; ; TRANSLATED T0 AN ASCII SPACE (020H). A N0NPRINTABLE EBCDIC CHARACTER
+; ; WITH N0 EQUIVALENT IS TRANSLATED T0 AN ASCII NUL (000H)
+; ASCII:
+; 			; 	    NUL   S0H  STX  ETX       HT        DEL				;EBCDIC
+; 			DB      000H,001H,002H,003H,000H,009H,000H,07FH				;ASCII
+; 			;						VT   FF   CR   S0	S1				;EBCDIC
+; 			DB		000H,000H,000H,00BH,00CH,00DH,00EH,00FH				;ASCII
+; 			;	     DLE  DCl  DC2  DC3			   BS					;EBCDIC
+; 			DB      010H,011H,012H,013H,000H,000H,008H,000H  			;ASCII
+; 			;		 CAN  EM             IFS  IGS  IRS  IUS				;EBCDIC
+; 			DB		018H,019H,000H,000H,01CH,01DH,01EH,01FH				;ASCII
+; 			;								  LF   ETB  ESC				;EBCDIC
+; 			DB		000H,000H,000H,000H,000H,00AH,017H,01BH				;ASCII
+; 			;						          ENQ  ACK  BEL				;EBCDIC	
+; 			DB      000H,000H,000H,000H,000H,005H,006H,007H				;ASCII
+; 			;                  SYN						EOT				;EBCDIC
+; 			DB		000H,000H,016H,000H,000H,000H,000H,004H				;ASCII
+; 			;                            DC4  NAK  		SUB 			;EBCDIC
+; 			DB		000H,000H,000H,000H,014H,015H,000H,01AH				;ASCII
+; 			;     SPACE													;EBCDIC
+; 			DB		' ' ,000H,000H,000H,000H,000H,000H,000H				;ASCII
+; 			;						.	 <	  (    +					;EBCDIC
+; 			DB      000H,000H,' ' ,'.' ,'<' ,'(' ,'+' ,' '				;ASCII
+; 			;	  	 &													;EBCDIC
+; 			DB		'&' ,000H,000H,000H,000H,000H,000H,000H				;ASCII
+; 			;				   !    $    *    )    ;  					;EBCDIC
+; 			DB      000H,000H,'!' ,'$' ,'*' ,')' ,';' ,' '				;ASCII
+; 			;		 _    /												;EBCDIC
+; 			DB      '_' ,'/' ,000H,000H,000H,000H,000H,000H				;ASCII
+; 			;                  |    ,    %    -    >    ?     			;EBCDIC
+; 			DB      000H,000H,'|' ,',' ,'%' ,'-' ,'>' ,'?'  			;ASCII
+; 			;															;EBCDIC
+; 			DB      000H,000H,000H,000H,000H,000H,000H,000H 			;ASCII
+; 			;             `    :    #    @    '    =    "				;EBCDIC
+; 			DB      000H,'`' ,':' ,'#' ,'@' ,' ' ,'=' ,'"'   			;ASCII
+; 			;             a    b    c    d    e    f    g				;EBCDIC
+; 			DB      000H,'a' ,'b' ,'c' ,'d' ,'e' ,'f' ,'g'  			;ASCII
+; 			;		h     i												;EBCDIC
+; 			DB      'h' ,'i' ,000H,000H,000H,000H,000H,000H				;ASCII
+; 			;			  j    k    l    m    n    o    p				;EBCDIC
+; 			DB      000H,'j' ,'k' ,'l' ,'m' ,'n' ,'o' ,'p'				;ASCII
+; 			;		q    r												;EBCDIC
+; 			DB      'q' ,'r' ,000H,000H,000H,000H,000H,000H  			;ASCII
+; 			;			 ~	   s    t    u    v    w    x				;EBCDIC
+; 			DB      000H,'~' ,'s' ,'t' ,'u' ,'v' ,'w' ,'x'				;ASCII
+; 			;	     y    z												;EBCDIC
+; 			DB      'y' ,'z' ,000H,000H,000H,000H,000H,000H 			;ASCII
+; 			;															;EBCDIC
+; 			DB      000H,000H,000H,000H,000H,000H,000H,000H  			;ASCII
+; 			;                                                     		;EBCDIC
+; 			DB      000H,000H,000H,000H,000H,000H,000H,000H  			;ASCII
+; 			;		 {    A    B    C    D    E    F    G           	;EBCDIC
+; 			DB      '{' ,'A' ,'B' ,'C' ,'D' ,'E' ,'F' ,'G'				;ASCII
+; 			;		 H    I                                     		;EBCDIC
+; 			DB      'H' ,'I' ,000H,000H,000H,000H,000H,000H   			;ASCII
+; 			;		 }    J    K    L    M    N    O    P       		;EBCDIC
+; 			DB      '}' ,'J' ,'K' ,'L' ,'M' ,'N' ,'O' ,'P'      		;ASCII
+; 			;	     Q    R                                   			;EBCDIC
+; 			DB      'Q' ,'R' ,000H,000H,000H,000H,000H,000H				;ASCII
+; 			;		 \         S    T    U    V    W    X				;EBCDIC
+; 			DB      '\\' ,000H,'S' ,'T' ,'U' ,'V' ,'W' ,'X'     			;ASCII
+; 			;		 Y    Z                                				;EBCDIC
+; 			DB      'Y' ,'Z' ,000H,000H,000H,000H,000H,000H				;ASCII
+; 			;        0    1    2    3    4    5    6    7				;EBCDIC
+; 			DB      '0' ,'1' ,'2' ,'3' ,'4' ,'5' ,'6' ,'7'     			;ASCII
+; 			;		9													;EBCDIC
+; 			DB      '9' ,000H,000H,000H,000H,000H,000H,000H				;ASCII
 
 
 
-        ;  SAMPLE EXECUTI0N:
+;         ;  SAMPLE EXECUTI0N:
 
 
-SC4I:
-			;C0NVERT EBCDIC            'A'    T0 ASCII
-			LD		A,0C1H                        ;EBCDIC           ~A~
-			CALL	EB2ASC                        ;ASCII "'A~             = 041H
-			;C0NVERT EBCDIC            ~1'"   T0 ASCII
-			LD		A,0F1H                        ;EBCDIC ~1"
-			CALL	EB2ASC                        ; ASCI I "1" = 031H
-			;C0NVERT EBCDIC            ~a"    T0 ASCII
-			LD		A,081H                        ; EBCDIC .' a'"
-			CALL	EB2ASC                        ; ASCII "'a'" = 061H
-			JR		SC4I
+; SC4I:
+; 			;C0NVERT EBCDIC            'A'    T0 ASCII
+; 			LD		A,0C1H                        ;EBCDIC           ~A~
+; 			CALL	EB2ASC                        ;ASCII "'A~             = 041H
+; 			;C0NVERT EBCDIC            ~1'"   T0 ASCII
+; 			LD		A,0F1H                        ;EBCDIC ~1"
+; 			CALL	EB2ASC                        ; ASCI I "1" = 031H
+; 			;C0NVERT EBCDIC            ~a"    T0 ASCII
+; 			LD		A,081H                        ; EBCDIC .' a'"
+; 			CALL	EB2ASC                        ; ASCII "'a'" = 061H
+; 			JR		SC4I
 
 
 ;*************************************************************************************************
@@ -1186,8 +1188,8 @@ adjust_txtbuf_length:
 		; 5A      Memory Fill    195
 		; 5B      Block Move    198
 
-				;*****************************************************************************************************
-				;*****************************************************************************************************
+;*****************************************************************************************************
+;*****************************************************************************************************
 				; Memory Fill (MFILL)                                                                                                        5A
 				; Places a specified value in each byte of a mem-
 				; ory area of known size, starting at a given ad-                 Registers Used: AF, BC, DE, HL
@@ -1197,8 +1199,8 @@ adjust_txtbuf_length:
 				;                                 50 cycles overhead
 				;         Size:                Program 11 bytes
 				;                                 Data    None
-				;*****************************************************************************************************
-				;*****************************************************************************************************
+;*****************************************************************************************************
+;*****************************************************************************************************
 
 MFILL:
 			LD		(HL),A			;FILL FIRST BYTE WITH VALUE
@@ -1236,8 +1238,8 @@ SC5A:
 ; BF2:	DS	SIZE2
 
 
-				;*****************************************************************************************************
-				;*****************************************************************************************************
+;*****************************************************************************************************
+;*****************************************************************************************************
 				; Block Move (BLKMOV)                                                                                                 58
 				; Moves a block of data from a source area to
 				; a destination area.                                              Registers Used: AF, BC, DE, HL
@@ -1256,8 +1258,8 @@ SC5A:
 				; 							if no overlap exists, 134 cycles overhead
 				; 							if overlap occurs
 				; 		Size:                Program 27 bytes
-				;*****************************************************************************************************
-				;*****************************************************************************************************
+;*****************************************************************************************************
+;*****************************************************************************************************
 
 
 BLKMOV:
@@ -1308,10 +1310,9 @@ DOLEFT:
 ; 			CALL	BLKMOV            ;MOVE    DATA FROM SOURCE TO DESTINATION
 ; 			JR		SC5B
 
-
-
+	if DOALIGN
 		align 4
-
+	endif
 
 
 

@@ -22,8 +22,8 @@
 
 	PROVIDE(_String_HEAP	= 0xF000);
 	
-	PROVIDE(_RAMSTART		= 0x8000);	
-	PROVIDE(_FUNCTIONS		= 0xA000);	
+	PROVIDE(_RAMSTART		= 0xD000);	
+	PROVIDE(_FUNCTIONS		= 0xD800);	
 	PROVIDE(_IOLIB			= 0x9000);	
 	PROVIDE(_SD_SPI_LIB		= 0xB000);	
 	PROVIDE(_EETESTPROG		= 0x100);	
@@ -155,8 +155,8 @@
 		}	> RAM
 
 
-		Functions	ALIGN (0x1000)  :
-		/* Functions	_FUNCTIONS : */
+		/* Functions	ALIGN (0x10)  :  */
+		Functions	_FUNCTIONS : 
 		{
 			KEEP ( *.o (Functions)) ;
 
@@ -164,21 +164,21 @@
 		} 	> RAM
 
 
-		SD_SPI_FUNC		ALIGN (0x20)  :
+		SD_SPI_FUNC		ALIGN (0x10)  :
 		/* SD_SPI_FUNC	_SD_SPI_LIB : */
 		{
 			KEEP ( *.o (SD_SPI_FUNC))
 			_SD_SPI_end = .;
 		} 	> RAM
 
-		SD_HELLO 	ALIGN (0x20)  :
+		SD_HELLO 	ALIGN (0x10)  :
 		/* SD_HELLO   0xC000 : */
 		{
 			KEEP ( *.o (SD_HELLO))
 		} 	> RAM
 
 /*
-		STR_HEAP		ALIGN (0x20)  :
+		STR_HEAP		ALIGN (0x10)  :
 		/* STR_HEAP	_String_HEAP :  /
 		{
 			_HEAP_init = .;
