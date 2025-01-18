@@ -1,6 +1,6 @@
 # Make Z80 SBC 
-# Copyright (c)2020 Ross Bamford
-# See LICENSE
+# Copyright LB
+
 SYSINCDIR?=include
 SYSLIBDIR?=libs/Build/lib
 BUILDLIBDIR?=Build

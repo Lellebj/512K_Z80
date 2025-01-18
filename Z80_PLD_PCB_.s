@@ -91,7 +91,7 @@ PLD_PCB_Start:
 		call 	writeSTRBelow
 		defb   	"\0\r\n"
 		defb	"##########################################################\r\n"
-		defb	"The Z80 Board Awakened 2023\r\n"
+		defb	"The Z80 Board Awakened 2024\r\n"
 		defb	"    git: @@GIT_VERSION@@\r\n"
 		defb	"    build: @@DATE@@\r\n"
 		defb	"    FLASH->SRAM 0xD000.\r\n"
