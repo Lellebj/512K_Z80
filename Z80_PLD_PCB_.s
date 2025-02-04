@@ -696,17 +696,58 @@ p_pc:
 p_clearmem:
 		ret
 p_exe:
+		ld 		DE,CTC_delay_INT_handler
+		ld 		(CTC_CH1_I_Vector),DE
+
+		ld  	DE,$0020
+		ld 		(TempVar4),DE
+
+		;GPIODEBUG
+		xor A
+		out (gpio_out),A
+
+		call 	purgeRXB					; XMODEM_CRC_SUB.s
+		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
+		call 	HC376S_ResetAll
+		jr 		.abort
+		call 	HC376S_CheckConnection
+
+		call 	HC376S_setUSBMode
+		call 	HC376S_diskConnectionStatus		; dont use with SD card
+		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+		jr 		NZ,.abort
+		call 	HC376S_setFileName
+		call 	HC376S_fileOpen
+		jr 		NZ,.abort
+
+		call 	HC376S_getFileSize
+		call 	HC376S_fileRead
+		call 	HC376S_fileClose
+.abort:
+
+		; ***	reset the interrupt handler for CTC
+		; call 	HC376S_ResetAll
+		call 	CTC1_INT_OFF
+		ld		HL,CTC_CH1_Interrupt_Handler
+		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+		ret
+
+
+
 		ret
 p_go:
 
-		ld 		A,(TempVar1)
-		inc 	A
-		ld 		(TempVar1),A
-		cp 		15
-		call 	DumpRegisters
+		jr 	p_exe
+
+
+		; ld 		A,(TempVar1)
+		; inc 	A
+		; ld 		(TempVar1),A
+		; cp 		15
+		; call 	DumpRegisters
 		
-		ret 	P
-		jr 		p_go
+		; ret 	P
+		; jr 		p_go
 p_incDecPC:
 		ld 		HL,commLvl1
 		ld 		A,0
