@@ -1,0 +1,2147 @@
+Sections:
+00: "Monitor" (0-711)
+
+
+Source: "stdin"
+                        	     1: ;Z80_PLD_PCB_.asm
+                        	     2: 
+                        	     3: 		include 	"Z80_Params_.inc"
+
+Source: "Z80_Params_.inc"
+                        	     1: ;Z80_PLD_PCB_.asm
+                        	     2: 
+                        	     3: 
+                        	     4: 
+                        	     5: ; ;Function addresses
+                        	     6: ; setcursor		= $3100
+                        	     7: ; writecommand	= $3180
+                        	     8: ; writedata		= $3140
+                        	     9: ; testBusyFlag    = $31B0
+                        	    10: ; HD44780_main_init = $3000
+                        	    11: stacktop: equ	0xFFF0	
+                        	    12: 
+                        	    13: 
+                        	    14: ; PIO addressess...
+                        	    15: ;******************************************
+                        	    16: 	  ; _Z80PIO_Base= $00
+                        	    17: portA_Contr:	equ _Z80PIO_Base + 1
+                        	    18: portB_Contr:	equ _Z80PIO_Base + 3
+                        	    19: portA_Data:		equ _Z80PIO_Base + 0
+                        	    20: portB_Data:		equ _Z80PIO_Base + 2
+                        	    21: 
+                        	    22: 
+                        	    23: gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
+                        	    24: gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
+                        	    25: gpioB:			equ		portB_Data
+                        	    26: 
+                        	    27: ; SIO_0 stuff
+                        	    28: ;******************************************
+                        	    29: SIO_A_D:		equ	_Z80SIO_Base	  ; = $20
+                        	    30: 				;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	    31: SIO_A_C:		equ	_Z80SIO_Base+2
+                        	    32: 				;SIO_0  CHANNEL B DATA
+                        	    33: SIO_B_D:		equ	_Z80SIO_Base+1
+                        	    34: 				;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	    35: SIO_B_C:		equ	_Z80SIO_Base+3
+                        	    36: 
+                        	    37: sio_ac: 		equ 	SIO_A_C
+                        	    38: sio_ad: 		equ 	SIO_A_D
+                        	    39: sio_bc: 		equ 	SIO_B_C
+                        	    40: sio_bd: 		equ 	SIO_B_D
+                        	    41: 
+                        	    42: Interupt_vector		= SIO_Int_Vec
+                        	    43: 
+                        	    44: SIO_Int_Vec		EQU     $F400				; interrupt vector 
+                        	    45: SIO_Int_WR_Vec	EQU     SIO_Int_Vec+8		;sio_0 channel A write interrupt vector
+                        	    46: SIO_Int_EXT_Vec	EQU     SIO_Int_Vec+10	;sio_0 channel A external/status ; interrupt vector
+                        	    47: SIO_Int_Read_Vec	EQU     SIO_Int_Vec+12	;sio_0 channel A read interrupt vector
+                        	    48: SIO_Int_Spec_Vec	EQU     SIO_Int_Vec+14	;sio_0 channel A special receive interrupt vector
+                        	    49: 
+                        	    50: 		
+                        	    51: SIO_USB_WR_Vec	EQU     SIO_Int_Vec+0		;sio_0 channel B write interrupt vector
+                        	    52: SIO_USB_EXT_Vec	EQU     SIO_Int_Vec+2		;sio_0 channel B external/status ; interrupt vector
+                        	    53: SIO_USB_Read_Vec	EQU     SIO_Int_Vec+4		;sio_0 channel B read interrupt vector
+                        	    54: SIO_USB_Spec_Vec	EQU     SIO_Int_Vec+6		;sio_0 channel B special receive interrupt vector
+                        	    55: 
+                        	    56: ;Write register 0
+                        	    57: WR0 equ 0
+                        	    58: _Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
+                        	    59: _Ch_Reset		equ 3<<3			; 18
+                        	    60: _EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
+                        	    61: _Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
+                        	    62: _Error_Reset 	equ $30				; (30)	
+                        	    63: _Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
+                        	    64: 
+                        	    65: ;Write register 1
+                        	    66: WR1 equ 1
+                        	    67: _Ext_INT_EN			equ 1
+                        	    68: _Tx_INT_EN 			equ 2
+                        	    69: _Status_Vector		equ 4
+                        	    70: _Rx_INT_Disable		equ 0
+                        	    71: _Rx_INT_First_Char  equ $08
+                        	    72: _INT_All_Rx_Char_P 	equ $10 
+                        	    73: _Int_All_Rx_Char_NP	equ $18
+                        	    74: _WAIT_READY_R_T 	equ $20
+                        	    75: _WAIT_READY_FUNC	equ $40
+                        	    76: _WAIT_READY_EN		equ $80
+                        	    77: 
+                        	    78: WR2 equ 2
+                        	    79: 
+                        	    80: ;Write register 3
+                        	    81: WR3 equ 3
+                        	    82: _Rx_Enable 			equ $01
+                        	    83: _Rx_Disable 		equ $00
+                        	    84: _Auto_Enable		equ $20
+                        	    85: _RX_5_bits			equ $00
+                        	    86: _RX_6_bits			equ $40
+                        	    87: _RX_7_bits			equ $80
+                        	    88: _RX_8_bits			equ $C0
+                        	    89: 
+                        	    90: ;Write register 4
+                        	    91: WR4 equ 4
+                        	    92: _Parity_EN			equ $01
+                        	    93: _Parity_Even		equ $02
+                        	    94: _Stop_1_bit			equ $04
+                        	    95: _Stop_1_2_bit		equ $08
+                        	    96: _Stop_2_bit			equ $0C
+                        	    97: _X1_Clock_mode		equ $00
+                        	    98: _X16_Clock_mode		equ $40
+                        	    99: _X32_Clock_mode		equ $80
+                        	   100: _X64_Clock_mode		equ $C0
+                        	   101: 
+                        	   102: ;Write register 5
+                        	   103: WR5 equ 5
+                        	   104: _RTS_Enable			equ $02
+                        	   105: _Tx_Enable 			equ $08
+                        	   106: _Send_Break			equ $10
+                        	   107: _Tx_5bits_char		equ $00
+                        	   108: _Tx_7bits_char		equ $20
+                        	   109: _Tx_6bits_char		equ $40
+                        	   110: _Tx_8bits_char		equ $60
+                        	   111: _DTR_Enable 		equ $80
+                        	   112: 
+                        	   113: EOT_FOUND			equ $02
+                        	   114: _err01_				equ	$08
+                        	   115: _err02_				equ	$09
+                        	   116: _err03_				equ	$0C
+                        	   117: _err04_				equ	$0D
+                        	   118: _err05_				equ	$0E
+                        	   119: CTCpulse			equ $0A
+                        	   120: CTCtimeout			equ $0B
+                        	   121: 
+                        	   122: 
+                        	   123: ; CTC stuff
+                        	   124: ;******************************************
+                        	   125: CH0		equ 	_Z80CTC_Base	  ; = $10
+                        	   126: CH1		equ 	_Z80CTC_Base+1	
+                        	   127: CH2		equ 	_Z80CTC_Base+2	
+                        	   128: CH3		equ 	_Z80CTC_Base+3	
+                        	   129: 
+                        	   130: _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
+                        	   131: _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
+                        	   132: _Timer 		equ 	$00
+                        	   133: _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
+                        	   134: _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
+                        	   135: _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
+                        	   136: _TC_Follow 	equ 	$04		; D2 - 1 time constant follows
+                        	   137: _Reset 		equ 	$02		; D1 - 1 Software reset
+                        	   138: _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
+                        	   139: 
+                        	   140: ; Interrupt vectors for CTC
+                        	   141: CTC_CH0_I_Vector	EQU     SIO_Int_Vec+$10		;CTC channel 0 interrupt vector 
+                        	   142: CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector 
+                        	   143: CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
+                        	   144: CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
+                        	   145: 
+                        	   146: ; Data tables  (upper EPROM/FLASH)
+                        	   147: ; stack  				= $FF00
+                        	   148: Heap				= $F000				; space for variable storage
+                        	   149: 
+                        	   150: ; variables  	(upper ram)
+                        	   151: PIO_B_value:		= $F1D0
+                        	   152: Result_NumToHex:	= $F1F0
+                        	   153: 
+                        	   154: 
+                        	   155: ; _RAMSTART		= $8010	
+                        	   156: ; _EETESTPROG		= $100	
+                        	   157: 	
+                        	   158: ; _Z80PIO_Base	= $0
+                        	   159: ; _Z80CTC_Base	= $10
+                        	   160: ; _Z80SIO_Base	= $20
+                        	   161: ; _Z80_BankCS  	= 0x30;		/*	 30 - 3F   */
+                        	   162: ; _8Bitsout 		= $40;		/*	 40 - 4F  */
+                        	   163: ; _CE_RST_BANK 	= 0x50;		/*	 50 - 5F  */
+                        	   164: 
+                        	   165: ;*****	ALIGN command  : 00 removes all align commands
+                        	   166: DOALIGN 	EQU 	00
+                        	   167: 
+                        	   168: EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
+                        	   169: TestChar:		EQU		'A'				;TEST CHARACTER = A
+                        	   170: CRChar:			EQU		0DH				; carrige return
+                        	   171: LFChar:			EQU		0AH				; line feed
+                        	   172: NUL			EQU		00
+                        	   173: SOH			EQU		01
+                        	   174: STX			EQU		02
+                        	   175: ETX			EQU		03
+                        	   176: EOT			EQU		04
+                        	   177: ENQ			EQU		05
+                        	   178: ACK			EQU		06
+                        	   179: BEL			EQU		07
+                        	   180: BS			EQU		08h
+                        	   181: HT			EQU		09h
+                        	   182: LF			EQU		0AH
+                        	   183: VT			EQU		0BH
+                        	   184: FF			EQU		0CH
+                        	   185: CR			EQU		0DH
+                        	   186: SO			EQU		0Eh
+                        	   187: SI			EQU		0Fh
+                        	   188: DLE			EQU		10h
+                        	   189: DC1			EQU		11h
+                        	   190: DC2			EQU		12h
+                        	   191: DC3			EQU		13h
+                        	   192: DC4			EQU		14h
+                        	   193: NAK			EQU		15h
+                        	   194: SYN			EQU		16h
+                        	   195: ETB			EQU		17h
+                        	   196: CAN			EQU		18h
+                        	   197: EM			EQU		19h
+                        	   198: SUB			EQU		1Ah
+                        	   199: ESC			EQU		1Bh
+                        	   200: FS			EQU		1Ch
+                        	   201: GS			EQU		1Dh
+                        	   202: RS			EQU		1Eh
+                        	   203: US			EQU		1Fh
+                        	   204: ITEM		EQU		1Ch
+                        	   205: STEND		EQU		1Dh
+                        	   206: LISTEND		EQU		1Eh
+                        	   207: SP			EQU		20h
+                        	   208: 
+                        	   209: 
+                        	   210: ; 	Variables in SRAM   HEAP TOP  - Moved to load script !
+                        	   211: ;DATA LOCATIONS
+                        	   212: ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
+                        	   213: ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
+                        	   214: ; BufStat:		EQU     0D07H ;The state of the buffer okay (00), error (EE), auto (AA)        (1-byte)
+                        	   215: ; CByteRec:		EQU     0D08H ;Current byte received from SIO_0                                  (1-byte)
+                        	   216: ; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to SIO_0, or by key press FF=auto  (1-byte)
+                        	   217: ; KeyPressed:		EQU     0D0AH ;Key Pressed Flag, 00-False, FF-True                             (1-byte)
+                        	   218: 
+                        	   219: ;BUFFER CONFIGURATION
+                        	   220: ; CBufLoc:		EQU     0B00H ;Location of circular buffer
+                        	   221: ; CBufHead:		EQU     0D0BH ;Pointer to the Head of the Circular buffer                      (1-byte)
+                        	   222: ; CBufTail:		EQU     0D0CH ;Pointer to the Tail of the Circular buffer                      (1-byte)
+                        	   223: 
+                        	   224: ;BUFFER SIZES, change to suit
+                        	   225: ; BUFF16:			EQU     0FH   ;16 bytes
+                        	   226: ; BUFF32:			EQU     1FH   ;32 bytes
+                        	   227: ; BUFF64:			EQU     3FH   ;64 bytes
+                        	   228: ; BUFF128:		EQU     7FH   ;128 bytes
+                        	   229: ; BUFF256:		EQU     0FFH  ;256 bytes
+                        	   230: ; CBufSize:		EQU     BUFF32  ;16 bytes (Change if required)
+                        	   231: 
+                        	   232: 
+                        	   233: ;INTERRUPT VECTOR TABLE SETUP
+                        	   234: ;The interrupt will call one of these service routines depending on the type of interrupt
+                        	   235: ;There are 4 reasons the interrupt will occur:
+                        	   236: ; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
+                        	   237: ; 2. External/Status Change - Indicating a change in the modem line or break condition
+                        	   238: ; 3. Receive Character Available - Indicating that data has been sent to CPU
+                        	   239: ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
+                        	   240: ;
+                        	   241: ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
+                        	   242: ;address is the value in the interrupt register 'I'.  The Low byte of the address is
+                        	   243: ;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
+                        	   244: ;shows what bits are set on the data bus.  This is used to index the vector table:
+                        	   245: ;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
+                        	   246: ;
+                        	   247: ; Channel   D3  D2  D1  Addr  Interrupt type
+                        	   248: ; -------   --  --  --  ----  --------------
+                        	   249: ;    B       0   0   0   00H  Transmit Buffer Empty
+                        	   250: ;    B       0   0   1   02H  External/Status Change
+                        	   251: ;    B       0   1   0   04H  Receive Character Available
+                        	   252: ;    B       0   1   1   06H  Special Receive Condition
+                        	   253: ;    A       1   0   0   08H  Transmit Buffer Empty
+                        	   254: ;    A       1   0   1   0AH  External/Status Change
+                        	   255: ;    A       1   1   0   0CH  Receive Character Available
+                        	   256: ;    A       1   1   1   0EH  Special Receive Condition
+                        	   257: ;
+                        	   258: ; SIO_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
+                        	   259: ; SIO_WriteVector:		EQU		SIO_IntVectors+08H ;Write Interrupt Vector
+                        	   260: ; SIO_ExternalVector:	EQU		SIO_IntVectors+0AH ;External Status Interrupt Vector
+                        	   261: ; SIO_ReadVector:		EQU		SIO_IntVectors+0CH ;Read Interrupt Vector
+                        	   262: ; SIO_SpecialVector:		EQU		SIO_IntVectors+0EH ;Special Receive Interrupt Vector
+                        	   263: 
+                        	   264: 
+                        	   265: 	; SIO_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+                        	   266: 	; SIO_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+                        	   267: 	; SIO_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	   268: 	; SIO_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	   269: 
+                        	   270: ;****************************************************************************
+                        	   271: 
+                        	   272: 
+                        	   273: 
+                        	   274: 
+                        	   275: ; Define the memory size to be used for the CP/M configuration
+                        	   276: ; MEM:    equ 60
+                        	   277: 
+                        	   278: ; The CPM origin will be at: (MEM-7)*1024
+                        	   279: ; This screwy convention is due to the way that that the CP/M origin is defined.
+                        	   280: ; CPM_BASE:	equ	(MEM-7)*1024
+                        	   281: 
+                        	   282: ; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
+                        	   283: 
+                        	   284: 
+                        	   285: 
+
+Source: "stdin"
+                        	     4:  
+                        	     5: 
+                        	     6: 		
+                        	     7: ;********************************************************		
+                        	     8: ;		section MainSRam			; main program in sram
+                        	     9: ;********************************************************		
+                        	    10: 
+                        	    11: 	
+                        	    12: 		section	Monitor
+                        	    13: 
+                        	    14: 
+                        	    15: 
+                        	    16: 			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, BN2DEC,BN2DEC_S,DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
+                        	    17: 			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
+                        	    18: 			xref	Textbuf, inBufferEnd,inBuffer,cleanInBuffer,cleanOutBuffer,InitInterrupt
+                        	    19: 			xref	dumpMemory
+                        	    20: 
+                        	    21: 			xref	st2g1,st1g2,steq,subst
+                        	    22: 			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
+                        	    23: 			xref	sourctext1,sourctext2,endtext,src_size, writeSTRBelow,isHex
+                        	    24: 
+                        	    25: 			xref 	crc16_2,CRC16
+                        	    26: 		
+                        	    27: 		xdef 	PLD_PCB_Start
+                        	    28: 		xref 	A_RTS_OFF,A_RTS_ON
+                        	    29: 
+                        	    30: 
+                        	    31: 	;***************************************************************
+                        	    32: 	;SAMPLE EXECUTION:
+                        	    33: 	;***************************************************************
+                        	    34: 
+                        	    35: 
+                        	    36: DO_Debug:	equ	1		; Set to 1 to show debug printing, else 0 
+                        	    37: 
+                        	    38: PLD_PCB_Start:	
+                        	    39: 		; ***	should be start address $D000
+00:0000 1806            	    40: 		jr 		.initRH
+                        	    41: 		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
+                        	    42: 		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
+                        	    43: 		; db 		"AAAA"
+00:0002 43434343        	    44: 		db 		"CCCC"
+                        	    45: 		align	3
+                        	    46: 
+                        	    47: .initRH:
+                        	    48: 		;GPIODEBUG
+00:0008 3E33            	    49: 		ld 		A,$33
+00:000A D302            	    50: 		out 	(gpio_out),A
+                        	    51: 
+                        	    52: 
+                        	    53: 
+                        	    54: 		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
+                        	    55: 
+                        	    56: 
+00:000C ED730000        	    57: 		ld 		(SP_value),SP
+00:0010 3EAA            	    58: 		ld 		A,$AA
+                        	    59: 		;GPIODEBUG
+00:0012 D302            	    60: 		out 	(gpio_out),A
+                        	    61: 
+00:0014 CD0000          	    62: 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+                        	    63: 			; initialize buffer counters and pointers.
+00:0017 3EBB            	    64: 	 	ld 		A,$BB
+                        	    65: 		;GPIODEBUG
+00:0019 D302            	    66: 		out 	(gpio_out),A
+                        	    67: 
+00:001B CD0000          	    68: 		call	PIO_Init
+00:001E 3ECC            	    69: 		ld 		A,$CC
+                        	    70: 		;GPIODEBUG
+00:0020 D302            	    71: 		out 	(gpio_out),A
+                        	    72: 
+00:0022 CD0000          	    73: 		call 	CTC_Init
+00:0025 3EDD            	    74: 		ld 		A,$DD
+                        	    75: 		;GPIODEBUG
+00:0027 D302            	    76: 		out 	(gpio_out),A
+                        	    77: 
+00:0029 CD0000          	    78: 		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+00:002C 3EDF            	    79: 		ld 		A,$DF
+                        	    80: 		;GPIODEBUG
+00:002E D302            	    81: 		out 	(gpio_out),A
+                        	    82: 
+00:0030 CD0000          	    83: 		call	S_head_tail			; save input heads and tails
+                        	    84: 		;GPIODEBUG
+00:0033 3E81            	    85: 		ld 		A,$81
+00:0035 D302            	    86: 		out 	(gpio_out),A
+                        	    87: 
+                        	    88: 		; call	sh_test
+                        	    89: 		; call 	Flash_WR_Test
+                        	    90: 		; ld	HL,$2010
+                        	    91: 		; call	Flash_SE_Erase
+                        	    92: 
+00:0037 CD0000          	    93: 		call	CRLF
+00:003A CD0000          	    94: 		call 	writeSTRBelow
+00:003D 000D0A          	    95: 		defb   	"\0\r\n"
+00:0040 2323232323232323	    96: 		defb	"##########################################################\r\n"
+00:0048 2323232323232323
+00:0050 2323232323232323
+00:0058 2323232323232323
+00:0060 2323232323232323
+00:0068 2323232323232323
+00:0070 2323232323232323
+00:0078 23230D0A
+00:007C 546865205A383020	    97: 		defb	"The Z80 Board Awakened 2025\r\n"
+00:0084 426F617264204177
+00:008C 616B656E65642032
+00:0094 3032350D0A
+00:0099 202020206769743A	    98: 		defb	"    git: UPdate_Jan_25-0-gf049c59-dirty\r\n"
+00:00A1 205550646174655F
+00:00A9 4A616E5F32352D30
+00:00B1 2D67663034396335
+00:00B9 392D64697274790D
+00:00C1 0A
+00:00C2 202020206275696C	    99: 		defb	"    build: 2025-02-04_17:49\r\n"
+00:00CA 643A20323032352D
+00:00D2 30322D30345F3137
+00:00DA 3A34390D0A
+00:00DF 20202020464C4153	   100: 		defb	"    FLASH->SRAM 0xD000.\r\n"
+00:00E7 482D3E5352414D20
+00:00EF 3078443030302E0D
+00:00F7 0A
+00:00F8 00              	   101: 		defb	"\0"
+                        	   102: 
+                        	   103: 		;GPIODEBUG
+00:00F9 3E83            	   104: 		ld 		A,$83
+00:00FB D302            	   105: 		out 	(gpio_out),A
+                        	   106: 
+00:00FD CD0000          	   107: 		call	CRLF
+                        	   108: 
+                        	   109: next_line:
+                        	   110: 
+00:0100 CD3003          	   111: 		call 	initCommParseTable
+                        	   112: 		;GPIODEBUG
+00:0103 3E85            	   113: 		ld 		A,$85
+00:0105 D302            	   114: 		out 	(gpio_out),A
+                        	   115: 
+                        	   116: 		; ***	indicate memory banks   F[x]  Flash memory bank x
+                        	   117: 		; ***	indicate memory banks   S[y]  SRAM memory bank y
+                        	   118: 				; if bit 7 (memBankID) = 1  no FLASH memory is selected
+                        	   119: 				; if bit 7 (memBankID) = 0 FLASH memory is lower 32k and SRAM upper 32k
+00:0107 210100          	   120: 		ld 		HL,T_BUFFER+1 			; prepare output buffer		
+00:010A 3646            	   121: 		ld 		(HL),'F'	
+00:010C 3A0000          	   122: 		ld 		A,(memBankID)
+00:010F CB7F            	   123: 		bit 	7,A					; bit 7 set -> 64kSRAM
+00:0111 2802            	   124: 		jr 		Z,useFlash
+00:0113 3653            	   125: 		ld 		(HL),'S'	
+                        	   126: useFlash:
+00:0115 23              	   127: 		inc 	HL
+00:0116 365B            	   128: 		ld 		(HL),'['	
+00:0118 23              	   129: 		inc 	HL
+00:0119 CB7F            	   130: 		bit 	7,A					; bit 7 set -> 64kSRAM
+00:011B 2807            	   131: 		jr 		Z,.IDflash
+                        	   132: 
+                        	   133: 		; ***	show sram bank number
+00:011D E60F            	   134: 		and 	$0F					; sram bank #
+00:011F CD0000          	   135: 		call 	AddToT_Buf			; convert to 1 ascii char in (HL+)
+00:0122 180D            	   136: 		jr 		.cont
+                        	   137: .IDflash:
+                        	   138: 		; ***	show flash bank number
+00:0124 CB3F            	   139: 		srl 	A
+00:0126 CB3F            	   140: 		srl 	A
+00:0128 CB3F            	   141: 		srl 	A
+00:012A CB3F            	   142: 		srl 	A
+00:012C E607            	   143: 		and 	A,$07				; flash bank #
+00:012E CD0000          	   144: 		call	AddToT_Buf			; convert to 1 ascii char in (HL+)
+                        	   145: .cont:
+00:0131 365D            	   146: 		ld  	(HL),']'
+00:0133 23              	   147: 		inc 	HL
+                        	   148: 
+00:0134 3E87            	   149: 		ld 		A,$87
+00:0136 D302            	   150: 		out 	(gpio_out),A
+                        	   151: 
+                        	   152: 		; 	*** Print prompt text to screen, value of PC and content in memory
+00:0138 ED5B0000        	   153: 		ld 		DE,(PCvalue)
+00:013C 365B            	   154: 		ld  	(HL),'['
+00:013E 23              	   155: 		inc 	HL
+                        	   156: 
+                        	   157: 		; ***	Address in parenthesis
+00:013F CD0000          	   158: 		call 	Bin2Hex16
+00:0142 365D            	   159: 		ld  	(HL),']'
+00:0144 23              	   160: 		inc 	HL
+00:0145 363D            	   161: 		ld  	(HL),'='
+00:0147 23              	   162: 		inc 	HL
+                        	   163: 
+                        	   164: 		; ***	Value of the bytes in address (2 bytes) to screen
+00:0148 E5              	   165: 		push 	HL
+00:0149 2A0000          	   166: 		ld 		HL,(PCvalue)
+00:014C 56              	   167: 		ld 		D,(HL)
+00:014D 23              	   168: 		inc 	HL
+00:014E 5E              	   169: 		ld 		E,(HL)
+00:014F E1              	   170: 		pop 	HL
+00:0150 CD0000          	   171: 		call	Bin2Hex16
+00:0153 362D            	   172: 		ld  	(HL),'-'
+00:0155 23              	   173: 		inc 	HL
+00:0156 363E            	   174: 		ld  	(HL),'>'
+00:0158 23              	   175: 		inc 	HL
+                        	   176: 
+00:0159 3600            	   177: 		ld  	(HL),$00
+00:015B FD210000        	   178: 		ld 		iy,T_BUFFER
+00:015F CD0000          	   179: 		call	WriteLine
+                        	   180: 
+00:0162 210000          	   181: 		ld 		hl,Textbuf
+00:0165 CD0000          	   182: 		call 	ReadLine
+                        	   183: 
+00:0168 FD210000        	   184: 		ld 		iy,Textbuf
+00:016C CD0000          	   185: 		call	WriteLineCRNL
+                        	   186: 		; ld 		A,5
+                        	   187: 		; out 	(portA_Data),A
+                        	   188: 
+                        	   189: 		;***  	compare input
+                        	   190: 		; ld 		HL,Textbuf
+                        	   191: 		; ld 		DE,command_list+2
+                        	   192: 		; call	strCompare
+                        	   193: 
+                        	   194: 	;***************************************************************
+                        	   195: 	;	Find /Identify command:
+                        	   196: 	;***************************************************************
+                        	   197: 
+00:016F 210000          	   198: 		ld 		HL,Textbuf
+00:0172 CD0000          	   199: 		call 	skipPriorDelimit			; set (HL) first char
+                        	   200: 		; ld 		A,7
+                        	   201: 		; out 	(portA_Data),A
+                        	   202: 
+00:0175 DA3D04          	   203: 		jp 		C,temp_finish 				; end encountered; no command (empty line)	
+                        	   204: 
+00:0178 E5              	   205: 		push 	HL
+00:0179 D1              	   206: 		pop  	DE							; typed command start in DE
+                        	   207: 
+                        	   208: 		; ***	Search command in 'command_list:'
+                        	   209: 		;  		DE = typed command first char in DE (Textbuf)
+00:017A 211002          	   210: 		ld 		HL,command_list+1			; first char in first command in the list
+                        	   211: 		; ld 		A,9
+                        	   212: 		; out 	(portA_Data),A
+                        	   213: 
+                        	   214: scanCommandList:
+00:017D 4E              	   215: 		ld 		C,(HL)						; command # in C
+00:017E 23              	   216: 		inc 	HL 							; (HL)=first char
+00:017F 46              	   217: 		ld 		B,(HL)						; # chars in command in list
+00:0180 23              	   218: 		inc 	HL 							; (HL)=first char
+00:0181 D5              	   219: 		push 	DE 							; save start of typed string (DE) for later
+                        	   220: 
+                        	   221: findCommandInList:
+00:0182 1A              	   222: 		ld 		a,(DE)						; next typed char
+                        	   223: 		; or 		$20							; make typed char lower case
+00:0183 BE              	   224: 		cp		(HL)
+00:0184 2008            	   225: 		jr 		nz,findNextITEM				; different chars-> test next item in list
+00:0186 13              	   226: 		inc 	DE
+00:0187 23              	   227: 		inc 	HL  
+00:0188 10F8            	   228: 		djnz 	findCommandInList
+                        	   229: 		
+                        	   230: 		; ***	test char (DE); should be a delimiter...
+                        	   231: 		; ex 		DE,HL
+                        	   232: 		; call 	isDelimit
+                        	   233: 		; 				;delimiters found ? =>Z, else ~Z
+                        	   234: 		; 				;char in (HL) is '0' ->  set C, else NC
+                        	   235: 		; ex 		DE,HL
+                        	   236: 
+                        	   237: 		; call 	writeSTRBelow
+                        	   238: 		; DB 		0,"pop 	HL.. !",CR,LF,00
+                        	   239: 		; call 	DumpRegisters
+                        	   240: 
+                        	   241: 		; jr 		nz,findNextITEM    			; command match but is longer (more chars) cp list					
+                        	   242: 
+                        	   243: 		; ***	Found a matching command, All char do match...
+                        	   244: 		; 		(HL) points to first after command
+00:018A C34303          	   245: 		jp 		matchInList
+00:018D 00              	   246: zero_byte:	db  0
+                        	   247: 
+                        	   248: findNextITEM:
+                        	   249: 		; ***	find next ITEM or LISTEND
+00:018E 7E              	   250: 		ld 		a,(HL)
+00:018F FE1C            	   251: 		cp		ITEM
+00:0191 2811            	   252: 		jr 		z,nextInList
+                        	   253: 
+00:0193 FE1E            	   254: 		cp 		LISTEND
+00:0195 200A            	   255: 		jr 		NZ,.cont
+                        	   256: 
+                        	   257: 		; ***	Command list did not match; check if direct address '$' or byte input
+00:0197 3EFF            	   258: 		ld 		A,$FF
+00:0199 320000          	   259: 		ld 		(PCinpFlag),A			; indicate ev. typed address to change PCV or bytes ...
+00:019C E1              	   260: 		pop 	HL					; HL start of typed string (again)
+00:019D 7E              	   261: 		ld 		A,(HL)
+00:019E C38403          	   262: 		jp 		checkaddress			; No more commands to check, check if address entered , '$'
+                        	   263: 										; or direct input of bytes.....
+                        	   264: 
+00:01A1 23              	   265: .cont:	inc 	HL
+00:01A2 18EA            	   266: 		jr 		findNextITEM
+                        	   267: 
+                        	   268: nextInList:
+00:01A4 23              	   269: 		inc 	HL						; points to item #
+00:01A5 D1              	   270: 		pop 	DE 						; DE start of typed string (again)
+00:01A6 18D5            	   271: 		jr 		scanCommandList
+                        	   272: 
+                        	   273: 
+                        	   274: 	;***************************************************************
+                        	   275: 	;	Semantic error occurred in input :
+                        	   276: 	;***************************************************************
+                        	   277: 
+                        	   278: inputerror:
+00:01A8 E5              	   279: 		push   	HL
+00:01A9 CD0000          	   280: 		call 	writeSTRBelow
+00:01AC 00              	   281: 		DB 		0,"Input Semantic Error... ! code(DE):",00
+00:01AD 496E707574205365
+00:01B5 6D616E7469632045
+00:01BD 72726F722E2E2E20
+00:01C5 2120636F64652844
+00:01CD 45293A
+00:01D0 00
+00:01D1 D1              	   282: 		pop 	DE
+00:01D2 CD0000          	   283: 		call 	putDEtoScreen
+00:01D5 CD0000          	   284: 		call 	CRLF
+00:01D8 C30001          	   285: 		jp 		next_line
+                        	   286: 
+                        	   287: command_addresses:
+00:01DB 0000            	   288: 		defw 	00
+00:01DD 9404            	   289: 		defw 	p_load			;1
+00:01DF 9504            	   290: 		defw 	p_dumpmem		;2
+00:01E1 9904            	   291: 		defw 	p_pc			;3
+00:01E3 9A04            	   292: 		defw 	p_clearmem		;4
+00:01E5 9B04            	   293: 		defw 	p_exe			;5
+00:01E7 DE04            	   294: 		defw 	p_go			;6
+00:01E9 E004            	   295: 		defw 	p_incDecPC		;7
+00:01EB E004            	   296: 		defw 	p_incDecPC		;8
+00:01ED 0505            	   297: 		defw 	p_FON			;9
+00:01EF 5105            	   298: 		defw 	p_FOFF			;10
+00:01F1 7C05            	   299: 		defw 	p_flwr			;11. write data to EEPROM
+00:01F3 B105            	   300: 		defw 	p_flse			;12. sector erase
+00:01F5 BA05            	   301: 		defw 	p_xmod			;13. transfer files via x-modem
+00:01F7 8004            	   302: 		defw 	p_reset			;14. Jump to $0000
+00:01F9 CF05            	   303: 		defw	p_C_Read		;15. Read from SD card   sdrd  "file"  $Addr
+00:01FB 2B06            	   304: 		defw	p_C_Write		;16. Write to SD card   sdrd  "file"  $Addr.l $Addr.h/Num
+00:01FD CF05            	   305: 		defw	p_C_Read		;17. Read from USB   sdrd  "file"  $Addr
+00:01FF 2B06            	   306: 		defw	p_C_Write		;18. Write to USB   sdrd  "file"  $Addr.l $Addr.h/Num
+00:0201 8306            	   307: 		defw	p_C_Delete		;19. delete file on SD card   sdrd  "file"  $Addr
+00:0203 8306            	   308: 		defw	p_C_Delete		;20. delete file on USB  sdrd  "file"  $Addr.l $Addr.h/Num
+00:0205 CF05            	   309: 		defw 	p_C_Read		;21. List root level files/dirs on sd card
+00:0207 CF05            	   310: 		defw 	p_C_Read 		;22. List root level files/dirs on USB
+00:0209 BA06            	   311: 		defw	p_cptFl			;23. copy from mem to flash memory (on selected bank)
+00:020B BA06            	   312: 		defw 	p_flbank		;24. Set flash bank #
+00:020D C106            	   313: 		defw	p_srbank		;25. Set sram bank #
+                        	   314: command_list:
+                        	   315: ;		*** command textstring1/2 	address1/2	 lvalue1/2
+                        	   316: 
+00:020F 1C              	   317: 		db		ITEM,1,4,"load",STEND,%100010,0
+00:0210 01
+00:0211 04
+00:0212 6C6F6164
+00:0216 1D
+00:0217 22
+00:0218 00
+00:0219 1C              	   318: 		db		ITEM,2,2,"dm",	STEND,%000010,0
+00:021A 02
+00:021B 02
+00:021C 646D
+00:021E 1D
+00:021F 02
+00:0220 00
+00:0221 1C              	   319: 		db		ITEM,3,2,"pc",	STEND,%000000,0
+00:0222 03
+00:0223 02
+00:0224 7063
+00:0226 1D
+00:0227 00
+00:0228 00
+00:0229 1C              	   320: 		db		ITEM,4,2,"cm",	STEND,%000000,0
+00:022A 04
+00:022B 02
+00:022C 636D
+00:022E 1D
+00:022F 00
+00:0230 00
+00:0231 1C              	   321: 		db		ITEM,5,3,"exe",	STEND,%000000,0
+00:0232 05
+00:0233 03
+00:0234 657865
+00:0237 1D
+00:0238 00
+00:0239 00
+00:023A 1C              	   322: 		db		ITEM,6,2,"go",	STEND,%000000,0
+00:023B 06
+00:023C 02
+00:023D 676F
+00:023F 1D
+00:0240 00
+00:0241 00
+00:0242 1C              	   323: 		db		ITEM,7,2,"++",	STEND,%000000,0
+00:0243 07
+00:0244 02
+00:0245 2B2B
+00:0247 1D
+00:0248 00
+00:0249 00
+00:024A 1C              	   324: 		db		ITEM,8,2,"--",	STEND,%000000,0
+00:024B 08
+00:024C 02
+00:024D 2D2D
+00:024F 1D
+00:0250 00
+00:0251 00
+00:0252 1C              	   325: 		db		ITEM,9,4,"f-on",	STEND,%000000,0
+00:0253 09
+00:0254 04
+00:0255 662D6F6E
+00:0259 1D
+00:025A 00
+00:025B 00
+00:025C 1C              	   326: 		db		ITEM,9,8,"flash-on",	STEND,%000000,0
+00:025D 09
+00:025E 08
+00:025F 666C6173682D6F6E
+00:0267 1D
+00:0268 00
+00:0269 00
+00:026A 1C              	   327: 		db		ITEM,10,5,"f-off",	STEND,%000000,0
+00:026B 0A
+00:026C 05
+00:026D 662D6F6666
+00:0272 1D
+00:0273 00
+00:0274 00
+00:0275 1C              	   328: 		db		ITEM,10,9,"flash-off",	STEND,%000000,0
+00:0276 0A
+00:0277 09
+00:0278 666C6173682D6F66
+00:0280 66
+00:0281 1D
+00:0282 00
+00:0283 00
+00:0284 1C              	   329: 		db		ITEM,11,4,"flwr",	STEND,%001110,0		; write to flash: flwr  <$Addr.mem> <$Addr.flash>  <Num> (0E)
+00:0285 0B
+00:0286 04
+00:0287 666C7772
+00:028B 1D
+00:028C 0E
+00:028D 00
+00:028E 1C              	   330: 		db		ITEM,12,4,"flse",	STEND,%000000,0
+00:028F 0C
+00:0290 04
+00:0291 666C7365
+00:0295 1D
+00:0296 00
+00:0297 00
+00:0298 1C              	   331: 		db		ITEM,13,4,"xmod",	STEND,%001000,0		; xmodem from PC   xmod <address>
+00:0299 0D
+00:029A 04
+00:029B 786D6F64
+00:029F 1D
+00:02A0 08
+00:02A1 00
+00:02A2 1C              	   332: 		db		ITEM,14,3,"rst",	STEND,%000000,0
+00:02A3 0E
+00:02A4 03
+00:02A5 727374
+00:02A8 1D
+00:02A9 00
+00:02AA 00
+00:02AB 1C              	   333: 		db		ITEM,15,4,"sdrd",	STEND,%101000,0		; Read from SD card   sdrd  "file"  $Addr
+00:02AC 0F
+00:02AD 04
+00:02AE 73647264
+00:02B2 1D
+00:02B3 28
+00:02B4 00
+00:02B5 1C              	   334: 		db		ITEM,16,4,"sdwr",	STEND,%101010,0 	; Write to SD card   sdwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+00:02B6 10
+00:02B7 04
+00:02B8 73647772
+00:02BC 1D
+00:02BD 2A
+00:02BE 00
+00:02BF 1C              	   335: 		db		ITEM,17,5,"usbrd",	STEND,%101000,0		; Read from USB      usbrd  "file"  $Addr
+00:02C0 11
+00:02C1 05
+00:02C2 7573627264
+00:02C7 1D
+00:02C8 28
+00:02C9 00
+00:02CA 1C              	   336: 		db		ITEM,18,5,"usbwr",	STEND,%101010,0 	; Write to USB        usbwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+00:02CB 12
+00:02CC 05
+00:02CD 7573627772
+00:02D2 1D
+00:02D3 2A
+00:02D4 00
+00:02D5 1C              	   337: 		db		ITEM,19,5,"sddel",	STEND,%100000,0 	; Delete file on SD card   sddel  "file"  
+00:02D6 13
+00:02D7 05
+00:02D8 736464656C
+00:02DD 1D
+00:02DE 20
+00:02DF 00
+00:02E0 1C              	   338: 		db		ITEM,20,6,"usbdel",	STEND,%100000,0 	; Delete file on USB   usbdel  "file"  
+00:02E1 14
+00:02E2 06
+00:02E3 75736264656C
+00:02E9 1D
+00:02EA 20
+00:02EB 00
+00:02EC 1C              	   339: 		db		ITEM,21,5,"sddir",	STEND,%100000,0 	; List root level files/dirs on sd card
+00:02ED 15
+00:02EE 05
+00:02EF 7364646972
+00:02F4 1D
+00:02F5 20
+00:02F6 00
+00:02F7 1C              	   340: 		db		ITEM,22,6,"usbdir",	STEND,%100000,0 	; List root level files/dirs on USB
+00:02F8 16
+00:02F9 06
+00:02FA 757362646972
+00:0300 1D
+00:0301 20
+00:0302 00
+00:0303 1C              	   341: 		db 		ITEM,23,5,"cptfl",	STEND,%001100,0		; copy from adress range to flash   cptfl  $Addr   $Addr
+00:0304 17
+00:0305 05
+00:0306 637074666C
+00:030B 1D
+00:030C 0C
+00:030D 00
+00:030E 1C              	   342: 		db 		ITEM,24,6,"flbank",	STEND,%000010,0		; set flash bank #	
+00:030F 18
+00:0310 06
+00:0311 666C62616E6B
+00:0317 1D
+00:0318 02
+00:0319 00
+00:031A 1C              	   343: 		db 		ITEM,25,6,"srbank",	STEND,%000010,0		; set sram bank #	
+00:031B 19
+00:031C 06
+00:031D 737262616E6B
+00:0323 1D
+00:0324 02
+00:0325 00
+00:0326 1C              	   344: 		db		ITEM,26,3,"nop",	STEND,%000000,0
+00:0327 1A
+00:0328 03
+00:0329 6E6F70
+00:032C 1D
+00:032D 00
+00:032E 00
+00:032F 1E              	   345: 		db		LISTEND
+                        	   346: commListLen  equ   27
+                        	   347: 
+                        	   348: 		; ld		HL,$6000
+                        	   349: 		; ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
+                        	   350: 		; ld		A,01
+                        	   351: 		; ld		(prevPacketByte01),A 				; store of packet numbers
+                        	   352: 
+                        	   353: 		; call 	SetupXMODEM_TXandRX					 
+                        	   354: 	
+                        	   355: 
+                        	   356: ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+                        	   357: ;---------------------------------------------------------------------------------
+                        	   358: ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+                        	   359: 
+                        	   360: ;		skipPriorDelimit 		; increase A0 until non delimiter (NZ) or #0 (Z) 
+                        	   361: ;		***		store string value in textarea and reference in table
+                        	   362: ;		skipCharsUntilDelim		; increase A0 until blank (NZ) or #0 (Z) 
+                        	   363: ;		***		read/store either address or lvalue and store in table
+                        	   364: ; 		isDelimit(S)  is char in (A0) any of the delimiters specified in (A1) ? =>Z, else ~Z
+                        	   365: ; 		Parameters returned; A0 - Address of char
+                        	   366: 
+                        	   367: ;		commParseTable
+                        	   368: ;		***************************************************
+                        	   369: ;		***	decode input line;
+                        	   370: ;		*** <cmd>    "TEXT"  	$xxyyzz  xxyyzz
+                        	   371: ;		*** command textstring 	address	 lvalue
+                        	   372: ;		************************************************************
+                        	   373: ;		*** commParseTable:
+                        	   374: ;		*** 00 : W : offset in jumptable  (F080)
+                        	   375: ;		*** 04 : L : address 1  (F084-F087)
+                        	   376: ;		*** 08 : L : address 2  (F088-F08B)
+                        	   377: ;		*** 10 : L : lvalue1  (F090-F09F)
+                        	   378: ;		*** 20 : L : lvalue2  (F0A0-F0AF)
+                        	   379: ;		*** 57 : L : text1   (F0B0-F0D7)
+                        	   380: ;		*** 58 : L : text2 	 (F0D8-F0FF)	
+                        	   381: ;		***
+                        	   382: ;		***--------------------------------------
+                        	   383: 
+                        	   384: ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+                        	   385: ;---------------------------------------------------------------------------------
+                        	   386: ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+                        	   387: 
+                        	   388: 		; call	skipCharsUntilDelim			; set (HL) to first delimiter
+                        	   389: 		; push 	HL
+                        	   390: 		; pop  	BC							; typed command end+1 in BC
+                        	   391: 
+                        	   392: 		; ***	Prepares the commParseTable. Consumes HL,B,A
+                        	   393: initCommParseTable:
+00:0330 3E00            	   394: 		ld 		A,0
+00:0332 320000          	   395: 		ld 		(PCinpFlag),A
+00:0335 320100          	   396: 		ld 		(PCinpFlag+1),A
+00:0338 210000          	   397: 		ld 		HL,commParseTable
+                        	   398: 
+00:033B 0680            	   399: 		ld 		B,$80
+00:033D 97              	   400: 		sub 	A 					; clear A.
+                        	   401: .icpt:
+00:033E 77              	   402: 		ld 		(HL),A
+00:033F 23              	   403: 		inc 	HL
+00:0340 10FC            	   404: 		djnz 	.icpt
+                        	   405: 
+00:0342 C9              	   406: 		ret
+                        	   407: 
+                        	   408: ;---------------------------------------------------------------------------------
+                        	   409: ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
+                        	   410: 
+                        	   411: 	;***************************************************************
+                        	   412: 	;	Command identified -> now search for stringh :
+                        	   413: 	;***************************************************************
+                        	   414: 
+                        	   415: matchInList:
+                        	   416: 		; ***	Command found. Then, check for string input "<string>"
+                        	   417: 		; ***	DE points to first delimiter after command 
+                        	   418: 						;delimiters found ? =>Z, else ~Z
+                        	   419: 						;char in (HL) is '0' ->  set C, else NC
+                        	   420: 
+00:0343 33              	   421: 		inc 	sp
+00:0344 33              	   422: 		inc 	sp						; restore PC from PUSH in <scanCommandList>
+00:0345 23              	   423: 		inc 	HL 						; HL point to first after <STEND>  ->req arguments
+00:0346 7E              	   424: 		ld 		A,(HL) 					; A= required arguments
+00:0347 210000          	   425:  		ld 		HL,commParseTable
+00:034A 71              	   426: 		ld 		(HL),C 					; store the command number in (commParseTable, F080)
+00:034B 23              	   427: 		inc 	HL
+00:034C 77              	   428: 		ld 		(HL),A					; store required arguments  in (commParseTable+1, F081)
+                        	   429: 		; call 	writeSTRBelow_CRLF
+                        	   430: 		; DB 		0,"Found a valid command  see (C).. !",CR,LF,00
+00:034D 62              	   431: 		ld 		H,D
+00:034E 6B              	   432: 		ld		L,E		
+00:034F 2B              	   433: 		dec 	HL							; DE -> HL -> last char before delimiter
+                        	   434: paramLoopEntry:	
+                        	   435: 
+00:0350 CD0000          	   436: 		call 	skipPriorDelimit 			; look for next char (  '"' ?)
+00:0353 DA2C04          	   437: 		jp 		C,executeCommand			; C set from 'skipPriorDelimit', no command parameters
+                        	   438: 
+00:0356 7E              	   439: 		ld 		A,(HL)
+                        	   440: 
+00:0357 FE22            	   441: 		cp 		'"'							; beginning of string ?̣
+00:0359 2029            	   442: 		jr 		NZ,checkaddress				;  NZ -> (HL) points to non delimiter
+                        	   443: 		; ***	extract string 
+00:035B 23              	   444: 		inc 	HL 							; skip '"' (HL)-> first char
+                        	   445: 
+00:035C 54              	   446: 		ld 		D,H
+00:035D 5D              	   447: 		ld		E,L							; DE -> first char after '"' <source>
+00:035E CD0000          	   448: 		call 	skipCharsUntilDelim			; find second '"'
+00:0361 2B              	   449: 		dec 	HL 							; skip first delimiter (ev. CR)
+00:0362 7E              	   450: 		ld 		A,(HL)
+00:0363 FE22            	   451: 		cp 		'"' 						; found second '"' ??
+00:0365 C2A801          	   452: 		jp 		NZ,inputerror
+00:0368 2B              	   453: 		dec 	HL 							; skip second '"'
+                        	   454: 	;***************************************************************
+                        	   455: 	;	copy string to  'commParseTable'
+                        	   456: 	;***************************************************************
+                        	   457: 
+00:0369 A7              	   458: 		and 	A
+00:036A ED52            	   459: 		sbc 	HL,DE 						; amount of chars...
+00:036C 44              	   460: 		ld 		B,H							; amount of chars...
+00:036D 4D              	   461: 		ld 		C,L							; amount of chars...
+00:036E 03              	   462: 		inc 	BC
+                        	   463: 
+00:036F 210000          	   464: 		ld 		HL,commStr1				; address for first string
+00:0372 7E              	   465: 		ld 		A,(HL)
+00:0373 B7              	   466: 		or 		A 						; =0?
+00:0374 2808            	   467: 		jr 		Z, .strone
+00:0376 210000          	   468: 		ld 		HL,commStr2				; address for second string
+00:0379 7E              	   469: 		ld 		A,(HL)
+00:037A B7              	   470: 		or  	A						; =0 ?
+00:037B C2A801          	   471: 		jp 		NZ,inputerror			; too many strings
+                        	   472: .strone:
+00:037E EB              	   473: 		ex 		DE,HL 					; HL = <source>, DE = <dest>, size = BC
+00:037F EDB0            	   474: 		ldir 							; make the copy
+                        	   475: 		; ex		DE,HL
+00:0381 23              	   476: 		inc 	HL 						; (HL) past the second '"'
+                        	   477: 
+00:0382 18CC            	   478: 		jr 		paramLoopEntry
+                        	   479: 
+                        	   480: 
+                        	   481: 	;***************************************************************
+                        	   482: 	;	Check if address is specified in input 
+                        	   483: 	;***************************************************************
+                        	   484: 
+                        	   485: 
+                        	   486: checkaddress:
+                        	   487: 		; ***	A = (HL), first char after delimiter
+                        	   488: 
+00:0384 320100          	   489: 		ld 		(PCinpFlag+1),A			; if value '(PCinpFlag+1)' == '$' -> address input
+00:0387 FE24            	   490: 		cp 		'$'						; identified address id
+00:0389 3E00            	   491: 		ld 		A,0
+00:038B 2023            	   492: 		jr 		NZ,getLvalue			; first value of A (PCinpFlag+1) is '$' ??
+00:038D 23              	   493: 		inc 	HL 						; skip past '$'
+                        	   494: 
+                        	   495: chkADR1:
+                        	   496: 	; ***		Check where to store address...
+                        	   497: 
+00:038E DD210000        	   498: 		ld 		IX,commAdr1
+                        	   499: 		; ld 		A,0
+00:0392 DDBE00          	   500: 		cp 		(IX)			; check if zero ? (already stored)
+00:0395 2007            	   501: 		jr 		NZ,chkADR2
+00:0397 DDBE01          	   502: 		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
+00:039A 2002            	   503: 		jr 		NZ,chkADR2
+00:039C 1832            	   504: 		jr 		makeASCIItoHEX
+                        	   505: chkADR2:
+                        	   506: 
+00:039E DD210000        	   507: 		ld 		IX,commAdr2
+                        	   508: 		; ld 		A,0
+00:03A2 DDBE00          	   509: 		cp 		(IX)			; check if zero ? (already stored)
+00:03A5 C2A801          	   510: 		jp 		NZ,inputerror	; error : No more addresses to store
+00:03A8 DDBE01          	   511: 		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
+00:03AB C2A801          	   512: 		jp 		NZ,inputerror	; error : No more addresses to store
+00:03AE 1820            	   513: 		jr 		makeASCIItoHEX
+                        	   514: 
+                        	   515: getLvalue:
+00:03B0 DD210000        	   516: 		ld 		IX,commLvl1
+00:03B4 DDBE00          	   517: 		cp 		(IX)			; check if zero ? (already stored)
+00:03B7 2007            	   518: 		jr 		NZ,chkLVL2
+00:03B9 DDBE01          	   519: 		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
+00:03BC 2002            	   520: 		jr 		NZ,chkLVL2
+00:03BE 1810            	   521: 		jr 		makeASCIItoHEX
+                        	   522: 
+                        	   523: chkLVL2:
+00:03C0 DD210000        	   524: 		ld 		IX,commLvl2
+00:03C4 DDBE00          	   525: 		cp 		(IX)			; check if zero ? (already stored)
+00:03C7 C2A801          	   526: 		jp 		NZ,inputerror	; error : No more addresses to store
+00:03CA DDBE01          	   527: 		cp 		(IX+1)			; check if zero (byte 2) ? (already stored)
+00:03CD C2A801          	   528: 		jp 		NZ,inputerror	; error : No more addresses to store
+                        	   529: 
+                        	   530: 
+                        	   531: makeASCIItoHEX:
+                        	   532: 		; ***	copy from command line to adr or lvalue in table
+                        	   533: 		; ***	only two bytes (four chars)....
+                        	   534: 		; 		IX point to destination...
+00:03D0 54              	   535: 		ld 		D,H
+00:03D1 5D              	   536: 		ld		E,L						; DE -> first char after '$' <source>
+00:03D2 CD0000          	   537: 		call 	skipCharsUntilDelim			; find next delimiter or CR ; adr in HL
+00:03D5 7E              	   538: 		ld 		A,(HL)
+                        	   539: 
+                        	   540: 	;***************************************************************
+                        	   541: 	;	copy string to  'commParseTable', IX points to dest address.
+                        	   542: 	;***************************************************************
+                        	   543: 
+00:03D6 A7              	   544: 		and 	A						; clear C
+00:03D7 ED52            	   545: 		sbc 	HL,DE 					; amount of chars...->HL ( H=0); DE -> first char after '$' <source>
+                        	   546: 
+                        	   547: 		; ***	Do not check even or odd...
+                        	   548: 		; bit 	0,L 					; even or odd (=1)?
+                        	   549: 		; jp 		NZ,inputerror
+                        	   550: 
+00:03D9 45              	   551: 		ld 		B,L 					; char counter
+00:03DA 210000          	   552: 		ld 		HL,00					;  
+                        	   553: 
+00:03DD EB              	   554: 		ex 		DE,HL					; HL -> first char after '$' <source>	
+                        	   555: 
+                        	   556: nextHalfByte:
+                        	   557: 
+00:03DE CD0000          	   558: 		call 	isHex					; return with Carry, value in A is NOT HEX
+00:03E1 DAA801          	   559: 		jp 		C,inputerror			; 		; return with Carry, value in A is NOT HEX
+                        	   560: 
+00:03E4 CB23            	   561: 		sla 	E						; shift left E-> Carry
+00:03E6 CB12            	   562: 		rl 		D 						; Carry -> rotate left D
+00:03E8 CB23            	   563: 		sla 	E						; shift left E-> Carry
+00:03EA CB12            	   564: 		rl 		D 						; Carry -> rotate left D
+00:03EC CB23            	   565: 		sla 	E						; shift left E-> Carry
+00:03EE CB12            	   566: 		rl 		D 						; Carry -> rotate left D
+00:03F0 CB23            	   567: 		sla 	E						; shift left E-> Carry
+00:03F2 CB12            	   568: 		rl 		D 						; Carry -> rotate left D
+00:03F4 B3              	   569: 		or      E  						; A OR E(0..3) are zero
+00:03F5 5F              	   570: 		ld 		E,A
+                        	   571: 
+00:03F6 DD7300          	   572: 		ld 		(IX),E					; store E value [big endian]
+00:03F9 DD7201          	   573: 		ld 		(IX+1),D				; store D value [big endian]
+                        	   574: 
+00:03FC 23              	   575: 		inc 	HL
+                        	   576: 		; inc 	IX
+00:03FD 10DF            	   577: 		djnz 	nextHalfByte
+                        	   578: 		;***	HL should point to first delimiter...
+                        	   579: 
+                        	   580: byteEnd:
+                        	   581: 
+00:03FF 3A0000          	   582: 		ld  	A,(PCinpFlag)
+00:0402 B7              	   583: 		or  	A 						; check Z; =0 -> normal parameter save
+00:0403 CA5003          	   584: 		jp 	   	Z,paramLoopEntry
+                        	   585: 
+00:0406 3A0100          	   586: 		ld  	A,(PCinpFlag+1) 		; address input for PCValue ?
+00:0409 FE24            	   587: 		cp 		'$' 					; adress flag ?
+00:040B 2814            	   588: 		jr 		Z,changePCVal
+                        	   589: 		; ***	Store Bytes from LVL1 to (PCval) this is not finished...
+                        	   590: 
+00:040D E5              	   591: 		push 	HL
+00:040E 2A0000          	   592: 		ld 		HL,(PCvalue)	
+00:0411 110000          	   593: 		ld 		DE,commLvl1
+00:0414 1A              	   594: 		ld 		A,(DE)
+00:0415 77              	   595: 		ld 		(HL),A
+00:0416 23              	   596: 		inc 	HL
+00:0417 13              	   597: 		inc 	DE
+00:0418 1A              	   598: 		ld 		A,(DE)
+00:0419 B7              	   599: 		or 		A
+00:041A 2801            	   600: 		jr 		Z,noHighNib
+00:041C 77              	   601: 		ld 		(HL),A
+                        	   602: noHighNib:
+00:041D E1              	   603: 		pop 	HL		
+                        	   604: 		; ***	reset flag
+                        	   605: 		; ld 		A,0
+                        	   606: 		; ld 		(PCinpFlag),A
+                        	   607: 		; ld 		(PCinpFlag+1),A
+00:041E C35003          	   608: 		jp 		paramLoopEntry 				; loop and check for more parameters
+                        	   609: 
+                        	   610: changePCVal:
+                        	   611: 		; ***	Change PCvalue from 'commAdr1'
+00:0421 E5              	   612: 		push 	HL
+00:0422 2A0000          	   613: 		ld 		HL,(commAdr1)
+00:0425 220000          	   614: 		ld 		(PCvalue),HL
+00:0428 E1              	   615: 		pop 	HL 						; restore value of first delimiter
+00:0429 C35003          	   616: 		jp 		paramLoopEntry 				; loop and check for more parameters
+                        	   617: 
+                        	   618: executeCommand:	
+                        	   619: 		; ***	execute commands (and arguments)
+                        	   620: 		; call 	writeSTRBelow
+                        	   621: 		; DB 		0,"Finish parsing !",CR,LF,00
+                        	   622: 		; call 	DumpRegisters			; checkpoint for list of arguments
+                        	   623: 
+00:042C 3A0000          	   624: 		ld 		A,(PCinpFlag)
+00:042F B7              	   625: 		or 		A   					; check if zero  
+00:0430 2003            	   626: 		jr 		NZ,.noJump
+                        	   627: 
+00:0432 CD4004          	   628: 		call 	JPTable01
+                        	   629: .noJump:
+                        	   630: 		; ***	reset flag
+00:0435 3E00            	   631: 		ld 		A,0
+00:0437 320000          	   632: 		ld 		(PCinpFlag),A
+00:043A 320100          	   633: 		ld 		(PCinpFlag+1),A
+                        	   634: 
+                        	   635: 		
+                        	   636: 		; jp 		paramLoopEntry 				; loop and check for more parameters
+                        	   637: 
+                        	   638: temp_finish:
+                        	   639: 		; call 	DumpRegisters
+00:043D C30001          	   640: 		jp 		next_line
+                        	   641: 
+                        	   642: 	;***************************************************************
+                        	   643: 	;	Check if LVALUE is specified in input 
+                        	   644: 	;***************************************************************
+                        	   645: 
+                        	   646: JPTable01:
+00:0440 3A0000          	   647: 		ld 		A,(commParseTable) 			; retrieve command number
+00:0443 B7              	   648: 		or 	  	A 							; error if 0
+00:0444 CAA801          	   649: 		jp 		Z,inputerror
+00:0447 FE1B            	   650: 		cp 		commListLen
+00:0449 3F              	   651: 		ccf 						;complement carry for error indicator
+                        	   652: 
+00:044A DAA801          	   653: 		jp      C,inputerror
+                        	   654: 
+00:044D E5              	   655: 		push  	HL
+00:044E CB27            	   656: 		sla 	A 							; multiply *2
+00:0450 21DB01          	   657: 		ld 		HL,command_addresses
+                        	   658: 
+00:0453 85              	   659: 		add		A, L						; addition to avoid disturbing
+00:0454 6F              	   660: 		ld 		L,A							; another register pair
+00:0455 3E00            	   661: 		ld		A,0
+00:0457 8C              	   662: 		adc		A,H
+00:0458 67              	   663: 		ld		H, A						; access routine address
+                        	   664: 
+                        	   665: 										;obtain routine address from table and transfer 
+                        	   666: 										;control to it, leaving all register pairs unchanged
+                        	   667: 		
+00:0459 7E              	   668: 		ld 		A,(HL)
+                        	   669: 
+00:045A 23              	   670: 		inc 	HL
+00:045B 66              	   671: 		ld 		H,(HL)
+00:045C 6F              	   672: 		ld 		L,A
+                        	   673: 
+00:045D E3              	   674: 		ex 		(SP),HL					;restore old HL, push routine address
+00:045E C9              	   675: 		ret 							; jump to routine
+                        	   676: 
+                        	   677: 		; exx
+                        	   678: 		; ld		HL,$0077
+                        	   679: 		; exx	
+                        	   680: 		; call DumpRegisters
+                        	   681: argumentsError:
+00:045F CD0000          	   682: 		call 	writeSTRBelow
+00:0462 00              	   683: 		DB 		0,"Some arguments mismatch !",CR,LF,00
+00:0463 536F6D6520617267
+00:046B 756D656E7473206D
+00:0473 69736D6174636820
+00:047B 21
+00:047C 0D
+00:047D 0A
+00:047E 00
+00:047F C9              	   684: 		ret
+                        	   685: 
+                        	   686: 
+                        	   687: p_reset:
+00:0480 AF              	   688: 		xor 	A
+00:0481 320000          	   689: 		ld 		(memBankID),A			; set memory banks #0
+00:0484 CD0000          	   690: 		call 	setFLASHBank			; FLASH bank #0
+00:0487 AF              	   691: 		xor 	A
+00:0488 CD0000          	   692: 		call 	setSRAMBank				; ram bank #0
+                        	   693: 
+00:048B CD0000          	   694: 		call 	enableFLASH			; start from FLASH
+                        	   695: 
+00:048E CD0000          	   696: 		call 	enableIC620_OE 			; enable the outputs.
+                        	   697: 
+00:0491 C30000          	   698: 		jp $0000
+                        	   699: 
+                        	   700: p_load:
+00:0494 C9              	   701: 		ret
+                        	   702: p_dumpmem:
+00:0495 CD0000          	   703: 		call 	dumpMemory
+                        	   704: 
+00:0498 C9              	   705: 		ret
+                        	   706: p_pc:
+00:0499 C9              	   707: 		ret
+                        	   708: p_clearmem:
+00:049A C9              	   709: 		ret
+                        	   710: p_exe:
+00:049B 110000          	   711: 		ld 		DE,CTC_delay_INT_handler
+00:049E ED5312F4        	   712: 		ld 		(CTC_CH1_I_Vector),DE
+                        	   713: 
+00:04A2 112000          	   714: 		ld  	DE,$0020
+00:04A5 ED530000        	   715: 		ld 		(TempVar4),DE
+                        	   716: 
+                        	   717: 		;GPIODEBUG
+00:04A9 AF              	   718: 		xor A
+00:04AA D302            	   719: 		out (gpio_out),A
+                        	   720: 
+00:04AC CD0000          	   721: 		call 	purgeRXB					; XMODEM_CRC_SUB.s
+                        	   722: 		; call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
+00:04AF CD0000          	   723: 		call 	HC376S_ResetAll
+00:04B2 181F            	   724: 		jr 		.abort
+00:04B4 CD0000          	   725: 		call 	HC376S_CheckConnection
+                        	   726: 
+00:04B7 CD0000          	   727: 		call 	HC376S_setUSBMode
+00:04BA CD0000          	   728: 		call 	HC376S_diskConnectionStatus		; dont use with SD card
+00:04BD CD0000          	   729: 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+00:04C0 2011            	   730: 		jr 		NZ,.abort
+00:04C2 CD0000          	   731: 		call 	HC376S_setFileName
+00:04C5 CD0000          	   732: 		call 	HC376S_fileOpen
+00:04C8 2009            	   733: 		jr 		NZ,.abort
+                        	   734: 
+00:04CA CD0000          	   735: 		call 	HC376S_getFileSize
+00:04CD CD0000          	   736: 		call 	HC376S_fileRead
+00:04D0 CD0000          	   737: 		call 	HC376S_fileClose
+                        	   738: .abort:
+                        	   739: 
+                        	   740: 		; ***	reset the interrupt handler for CTC
+                        	   741: 		; call 	HC376S_ResetAll
+00:04D3 CD0000          	   742: 		call 	CTC1_INT_OFF
+00:04D6 210000          	   743: 		ld		HL,CTC_CH1_Interrupt_Handler
+00:04D9 2212F4          	   744: 		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+00:04DC C9              	   745: 		ret
+                        	   746: 
+                        	   747: 
+                        	   748: 
+00:04DD C9              	   749: 		ret
+                        	   750: p_go:
+                        	   751: 
+00:04DE 18BB            	   752: 		jr 	p_exe
+                        	   753: 
+                        	   754: 
+                        	   755: 		; ld 		A,(TempVar1)
+                        	   756: 		; inc 	A
+                        	   757: 		; ld 		(TempVar1),A
+                        	   758: 		; cp 		15
+                        	   759: 		; call 	DumpRegisters
+                        	   760: 		
+                        	   761: 		; ret 	P
+                        	   762: 		; jr 		p_go
+                        	   763: p_incDecPC:
+00:04E0 210000          	   764: 		ld 		HL,commLvl1
+00:04E3 3E00            	   765: 		ld 		A,0
+00:04E5 5E              	   766: 		ld 		E,(HL)
+00:04E6 23              	   767: 		inc 	HL
+00:04E7 56              	   768: 		ld 		D,(hl) 				; DE = (commLvl1)
+                        	   769: 		; ***	if both D and E is 0 -> DE = 1 		; no param -> A=1
+00:04E8 BB              	   770: 		cp 		E
+00:04E9 2006            	   771: 		jr 		NZ,.justOne
+00:04EB BA              	   772: 		cp 		D
+00:04EC 2003            	   773: 		jr 		NZ,.justOne
+00:04EE 110100          	   774: 		ld 		DE,1
+                        	   775: .justOne:
+00:04F1 3A0000          	   776: 		ld 		A,(commParseTable)
+00:04F4 2A0000          	   777: 		ld 		HL,(PCvalue)
+00:04F7 FE07            	   778: 		cp 		7 					; ++ (increase) ??
+00:04F9 2003            	   779: 		jr  	nz,.sub
+00:04FB 19              	   780: 		add 	HL,DE 				; increase HL (PCvalue) with DE
+00:04FC 1803            	   781: 		jr 		.common
+                        	   782: .sub:
+00:04FE A7              	   783: 		and 	A					; clear C
+00:04FF ED52            	   784: 		sbc 	HL,DE 				; decrease HL (PCvalue) with DE
+                        	   785: .common:
+00:0501 220000          	   786: 		ld 		(PCvalue),HL
+00:0504 C9              	   787: 		ret
+                        	   788: 
+                        	   789: p_FON:
+                        	   790: 		; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0)
+                        	   791: 
+00:0505 CD0000          	   792: 		call 	enableFLASH
+                        	   793: 
+00:0508 CD0000          	   794: 		call 	writeSTRBelow
+00:050B 00              	   795: 		DB 		0," Use 256k FLASH (7 banks),lower 32k and SRAM (bank16),upper 32k !",CR,LF,00
+00:050C 2055736520323536
+00:0514 6B20464C41534820
+00:051C 28372062616E6B73
+00:0524 292C6C6F77657220
+00:052C 33326B20616E6420
+00:0534 5352414D20286261
+00:053C 6E6B3136292C7570
+00:0544 7065722033326B20
+00:054C 21
+00:054D 0D
+00:054E 0A
+00:054F 00
+00:0550 C9              	   796: 		ret
+                        	   797: 
+                        	   798: p_FOFF:
+                        	   799: 		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1)
+00:0551 CD0000          	   800: 		call 	disableFLASH
+                        	   801: 
+00:0554 CD0000          	   802: 		call 	writeSTRBelow
+00:0557 00              	   803: 		DB 		0," Use only 512k (16 banks) SRAM !",CR,LF,00
+00:0558 20557365206F6E6C
+00:0560 79203531326B2028
+00:0568 31362062616E6B73
+00:0570 29205352414D2021
+00:0578 0D
+00:0579 0A
+00:057A 00
+                        	   804: 
+00:057B C9              	   805: 		ret
+                        	   806: 
+                        	   807: p_flwr:
+                        	   808: 		; *** 	testwrite to EEPROM
+                        	   809: 		
+                        	   810: 		; call 	checkArgsTAL				; check necessary args ("string" $Adr1   Lvl1)
+                        	   811: 		; jp		NZ,argumentsError			; show argument error and return
+                        	   812: 		; 	*** Check if flashmem is enabled
+00:057C 3A0000          	   813: 		ld 		A,(memBankID)
+00:057F CB7F            	   814: 		bit 	7,A
+00:0581 2004            	   815: 		jr 		NZ,errNoFlash
+                        	   816: 
+00:0583 CD0000          	   817: 		call 	Flash_WR_Test
+00:0586 C9              	   818: 		ret
+                        	   819: errNoFlash:
+00:0587 CD0000          	   820: 		call 	writeSTRBelow
+00:058A 00              	   821: 		DB 		0," Can't write to deselected FLASH !",CR,LF,00
+00:058B 2043616E27742077
+00:0593 7269746520746F20
+00:059B 646573656C656374
+00:05A3 656420464C415348
+00:05AB 2021
+00:05AD 0D
+00:05AE 0A
+00:05AF 00
+                        	   822: 
+00:05B0 C9              	   823: 		ret
+                        	   824: 
+                        	   825: 
+                        	   826: p_flse:
+                        	   827: 		; *** 	erase the sector that contain the address of HL
+                        	   828: 
+00:05B1 E5              	   829: 		push	HL
+00:05B2 211020          	   830: 		ld 		HL,$2010
+00:05B5 CD0000          	   831: 		call 	Flash_SE_Erase
+00:05B8 E1              	   832: 		pop 	HL
+00:05B9 C9              	   833: 		ret
+                        	   834: 
+                        	   835: p_xmod:
+                        	   836: 		; ***	Transfer files via x-modem
+                        	   837: 		; ***	Check commParseTable+1 if required parameters
+                        	   838: 
+00:05BA 3A0100          	   839: 		ld 		A,(commParseTable+1)
+00:05BD CB47            	   840: 		bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
+00:05BF 2804            	   841: 		jr 		Z,.nxta
+                        	   842: 		; ***	check the commLvl1 if zero
+00:05C1 ED5B0000        	   843: 		ld 		DE,(commLvl1)
+                        	   844: .nxta:		
+                        	   845: 
+                        	   846: 
+00:05C5 CD0000          	   847: 		call 	doImportXMODEM
+                        	   848: 
+00:05C8 CD0000          	   849: 		call 	SIO_A_TXRX_INTon
+00:05CB CD0000          	   850: 		call 	CTC1_INT_OFF
+                        	   851: 	
+00:05CE C9              	   852: 		ret
+                        	   853: 
+                        	   854: p_C_Read:
+                        	   855: 
+00:05CF CDC806          	   856: 		call 	checkArgsTAL				; check necessary args
+00:05D2 C25F04          	   857: 		jp		NZ,argumentsError			; show argument error and return
+                        	   858: 	
+00:05D5 110000          	   859: 		ld 		DE,CTC_delay_INT_handler
+00:05D8 ED5312F4        	   860: 		ld 		(CTC_CH1_I_Vector),DE
+                        	   861: 
+00:05DC 112000          	   862: 		ld  	DE,$0020
+00:05DF ED530000        	   863: 		ld 		(TempVar4),DE
+                        	   864: 
+                        	   865: 		;GPIODEBUG
+00:05E3 AF              	   866: 		xor A
+00:05E4 D302            	   867: 		out (gpio_out),A
+                        	   868: 
+00:05E6 CD0000          	   869: 		call 	purgeRXB					; XMODEM_CRC_SUB.s
+00:05E9 CD0000          	   870: 		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
+00:05EC CD0000          	   871: 		call 	HC376S_ResetAll
+00:05EF CD0000          	   872: 		call 	HC376S_CheckConnection
+00:05F2 3A0000          	   873: 		ld 		A,(commParseTable)
+00:05F5 FE0F            	   874: 		cp 		15							; 15 read SD; 17-read USB
+00:05F7 280C            	   875: 		jr 		Z,.doSD
+00:05F9 FE15            	   876: 		cp 		21							; 21 read SD enumerate, 22 read USB enumerate
+00:05FB 2808            	   877: 		jr 		Z,.doSD
+00:05FD CD0000          	   878: 		call 	HC376S_setUSBMode
+00:0600 CD0000          	   879: 		call 	HC376S_diskConnectionStatus		; dont use with SD card
+00:0603 1803            	   880: 		jr 		.cont
+                        	   881: .doSD:
+00:0605 CD0000          	   882: 		call 	HC376S_setSDMode
+                        	   883: 		
+                        	   884: .cont:
+00:0608 CD0000          	   885: 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+00:060B 2011            	   886: 		jr 		NZ,abort
+00:060D CD0000          	   887: 		call 	HC376S_setFileName
+00:0610 CD0000          	   888: 		call 	HC376S_fileOpen
+00:0613 2009            	   889: 		jr 		NZ,abort
+                        	   890: 
+00:0615 CD0000          	   891: 		call 	HC376S_getFileSize
+00:0618 CD0000          	   892: 		call 	HC376S_fileRead
+00:061B CD0000          	   893: 		call 	HC376S_fileClose
+                        	   894: abort:
+                        	   895: 
+                        	   896: 		; ***	reset the interrupt handler for CTC
+00:061E CD0000          	   897: 		call 	HC376S_ResetAll
+00:0621 CD0000          	   898: 		call 	CTC1_INT_OFF
+00:0624 210000          	   899: 		ld		HL,CTC_CH1_Interrupt_Handler
+00:0627 2212F4          	   900: 		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+00:062A C9              	   901: 		ret
+                        	   902: 
+                        	   903: 		
+                        	   904: p_C_Write:
+00:062B CDC806          	   905: 		call 	checkArgsTAL				; check necessary args ("string" $Adr1   Lvl1)
+00:062E 2816            	   906: 		jr 		Z,.contWR
+                        	   907: 		; ***	check alternative (2 adresses)
+00:0630 3E2C            	   908: 		ld 		A,%101100					; alt. with "string" $Adr1 < $Adr2
+00:0632 77              	   909: 		ld 		(HL),A						; HL-> (commParseTable+1);
+00:0633 23              	   910: 		inc 	HL			; HL-> (commParseTable+2); get the resulting arguments counted
+00:0634 BE              	   911: 		cp 		(HL) 						; compare resulting arguments with req arguments
+                        	   912: 
+00:0635 C25F04          	   913: 		jp		NZ,argumentsError			; show argument error and return
+                        	   914: 		
+                        	   915: 		; ***	calculate size from addresses $Adr2 - $Adr1
+00:0638 37              	   916: 		scf
+00:0639 3F              	   917: 		ccf
+00:063A 2A0000          	   918: 		ld 		HL,(commAdr2)
+00:063D ED5B0000        	   919: 		ld		DE,(commAdr1)
+00:0641 ED52            	   920: 		sbc		HL,DE
+00:0643 220000          	   921: 		ld 		(commLvl1),HL				; resulting size in commLvl1
+                        	   922: 
+                        	   923: 
+                        	   924: .contWR:
+00:0646 110000          	   925: 		ld 		DE,CTC_delay_INT_handler
+00:0649 ED5312F4        	   926: 		ld 		(CTC_CH1_I_Vector),DE
+                        	   927: 
+00:064D CD0000          	   928: 		call 	purgeRXB
+00:0650 CD0000          	   929: 		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S)
+00:0653 CD0000          	   930: 		call 	HC376S_ResetAll
+00:0656 CD0000          	   931: 		call 	HC376S_CheckConnection
+00:0659 3A0000          	   932: 		ld 		A,(commParseTable)
+00:065C FE10            	   933: 		cp 		16							; 16 read SD; 18-read USB
+00:065E 2808            	   934: 		jr 		Z,.doSD
+00:0660 CD0000          	   935: 		call 	HC376S_setUSBMode
+00:0663 CD0000          	   936: 		call 	HC376S_diskConnectionStatus		; dont use with SD card
+00:0666 1803            	   937: 		jr 		.cont
+                        	   938: .doSD:
+00:0668 CD0000          	   939: 		call 	HC376S_setSDMode
+                        	   940: .cont:
+00:066B CD0000          	   941: 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+00:066E 20AE            	   942: 		jr 		NZ,abort
+00:0670 CD0000          	   943: 		call 	HC376S_setFileName
+00:0673 CD0000          	   944: 		call 	HC376S_fileCreate
+00:0676 20A6            	   945: 		jr		NZ,abort
+00:0678 CD0000          	   946: 		call 	HC376S_fileWrite
+                        	   947: 		
+00:067B CD0000          	   948: 		call 	HC376S_fileClose
+00:067E CD0000          	   949: 		call 	HC376S_ResetAll
+00:0681 189B            	   950: 		jr 		abort
+                        	   951: 
+                        	   952: p_C_Delete:
+00:0683 CDC806          	   953: 		call 	checkArgsTAL				; check necessary args ("string" $Adr1  )
+00:0686 C25F04          	   954: 		jP 		NZ,argumentsError
+00:0689 110000          	   955: 		ld 		DE,CTC_delay_INT_handler
+00:068C ED5312F4        	   956: 		ld 		(CTC_CH1_I_Vector),DE
+                        	   957: 
+00:0690 CD0000          	   958: 		call 	purgeRXB
+00:0693 CD0000          	   959: 		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S)
+                        	   960: 
+00:0696 CD0000          	   961: 		call 	HC376S_ResetAll
+00:0699 CD0000          	   962: 		call 	HC376S_CheckConnection
+00:069C 3A0000          	   963: 		ld 		A,(commParseTable)
+00:069F FE13            	   964: 		cp 		19							; 19 delete file SD; 20-delete file USB
+00:06A1 2808            	   965: 		jr 		Z,.doSD
+00:06A3 CD0000          	   966: 		call 	HC376S_setUSBMode
+00:06A6 CD0000          	   967: 		call 	HC376S_diskConnectionStatus
+00:06A9 1803            	   968: 		jr 		.cont
+                        	   969: .doSD:
+00:06AB CD0000          	   970: 		call 	HC376S_setSDMode
+                        	   971: .cont:
+00:06AE CD0000          	   972: 		call 	HC376S_USBdiskMount
+                        	   973: 		 
+                        	   974: 		; call 	HC376S_fileOpen
+                        	   975: 		; call 	HC376S_getFileSize
+                        	   976: 		; call 	HC376S_fileRead
+                        	   977: 
+00:06B1 CD0000          	   978: 		call 	HC376S_fileDelete
+00:06B4 CD0000          	   979: 		call 	HC376S_ResetAll
+                        	   980: 
+00:06B7 C31E06          	   981: 		jp 		abort
+                        	   982: 
+                        	   983: p_cptFl:
+                        	   984: p_flbank:
+                        	   985: 		; ***	set flash bank #
+00:06BA 3A0000          	   986: 		ld 		A,(commLvl1) 			; load param into A
+00:06BD CD0000          	   987: 		call 	setFLASHBank				; change to bank
+00:06C0 C9              	   988: 		ret
+                        	   989: p_srbank:
+                        	   990: 		; ***	set sram bank #
+00:06C1 3A0000          	   991: 		ld 		A,(commLvl1) 			; load param into A
+00:06C4 CD0000          	   992: 		call 	setSRAMBank 			; change to bank
+00:06C7 C9              	   993: 		ret
+                        	   994: 
+                        	   995: 
+                        	   996: ;********************************************************************************************     
+                        	   997: ;********************************************************************************************     
+                        	   998: 
+                        	   999: 		; ***	Check commParseTable+1 if required parameters
+                        	  1000: checkArgsTAL:		
+                        	  1001: ;		*** command textstring1/2 	address1/2	 lvalue1/2
+                        	  1002: 
+                        	  1003: 		; ***	try to connect to USB
+00:06C8 210200          	  1004: 		ld 		HL,commParseTable+2				; resulting typed arguments
+00:06CB 3E00            	  1005: 		ld 		A,0
+00:06CD 77              	  1006: 		ld 		(HL),A
+                        	  1007: 
+00:06CE DD210000        	  1008: 		ld 		IX,commStr1			; commStr1 =			0xB0
+00:06D2 CDFC06          	  1009: 		call 	shift_0_1:
+00:06D5 DD210000        	  1010: 		ld 		IX,commStr2			; commStr2 =			0xD8
+00:06D9 CDFC06          	  1011: 		call 	shift_0_1:
+00:06DC DD210000        	  1012: 		ld 		IX,commAdr1			; commAdr1 =			0x84
+00:06E0 CDFC06          	  1013: 		call 	shift_0_1:
+00:06E3 DD210000        	  1014: 		ld 		IX,commAdr2			; commAdr2 =			0x88
+00:06E7 CDFC06          	  1015: 		call 	shift_0_1:
+00:06EA DD210000        	  1016: 		ld 		IX,commLvl1			; commLvl1 =			0x90
+00:06EE CDFC06          	  1017: 		call 	shift_0_1:
+00:06F1 DD210000        	  1018: 		ld 		IX,commLvl2			; commLvl2 =			0xA0
+00:06F5 CDFC06          	  1019: 		call 	shift_0_1:
+                        	  1020: 
+00:06F8 7E              	  1021: 		ld 		A,(HL)						; get the resulting arguments counted
+00:06F9 2B              	  1022: 		dec 	HL
+00:06FA BE              	  1023: 		cp 		(HL) 						; compare resulting arguments with req arguments
+00:06FB C9              	  1024: 		ret 	 					; return with Z or NZ  arguments
+                        	  1025: 
+                        	  1026: shift_0_1:
+00:06FC DDBE00          	  1027: 		cp 		(IX)
+00:06FF 2008            	  1028: 		jr 		NZ,shiftIn1
+00:0701 DDBE01          	  1029: 		cp 		(IX+1)
+00:0704 2003            	  1030: 		jr 		NZ,shiftIn1
+                        	  1031: 		; ***	both =0 shift in '0'
+00:0706 CB26            	  1032: 		sla		(HL)
+00:0708 C9              	  1033: 		ret
+                        	  1034: shiftIn1:
+                        	  1035: 		; ***	least one not '0' shift in '1'
+00:0709 37              	  1036: 		scf		
+00:070A CB16            	  1037: 		rl 		(HL)
+00:070C C9              	  1038: 		ret
+                        	  1039: 
+                        	  1040: 
+                        	  1041: ;********************************************************************************************     
+                        	  1042: ;********************************************************************************************     
+                        	  1043: 
+                        	  1044: bit_test9:
+00:070D 01              	  1045: 	db	0x01,0x02,0x80,0x40
+00:070E 02
+00:070F 80
+00:0710 40
+                        	  1046: 
+                        	  1047: 
+                        	  1048: ; debug:		equ	0		; Set to 1 to show debug printing, else 0 
+                        	  1049: 
+                        	  1050: 
+                        	  1051: 	; Spin loop here because there is nothing else to do
+                        	  1052: ; halt_loop:
+                        	  1053: ; 	halt
+                        	  1054: ; 	jp	halt_loop
+                        	  1055: 
+                        	  1056: 
+                        	  1057: 
+                        	  1058: 
+                        	  1059: 
+                        	  1060: ;*******************************************************************************     
+                        	  1061: ;*******************************************************************************     
+                        	  1062: 
+                        	  1063: 
+                        	  1064: 
+                        	  1065: 		; ld 		hl,Textbuf
+                        	  1066: 		; ; call	ReadLine 			;to textbuf  (A=length of input string)
+                        	  1067: 
+                        	  1068: 		; ld		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
+                        	  1069: 		; ld		DE,Textbuf			;DE = 32767
+                        	  1070: 		; call	BN2DEC				; C0NVERT
+                        	  1071: 		; jp		textloop
+                        	  1072: 
+                        	  1073: 
+                        	  1074: 		; ld 		hl,Textbuf
+                        	  1075: 		; call	DEC2BN			; result in HL
+                        	  1076: 
+                        	  1077: 		; ld 		E,L
+                        	  1078: 		; 	; Binary to HEX  BN2HEX   E->(HL)
+                        	  1079: 		; ld 		hl,T_BUFFER
+                        	  1080: 		; inc		hl
+                        	  1081: 		; call	Bin2Hex8			;result in T_buffer
+                        	  1082: 
+                        	  1083: 		; ld 		iy,T_BUFFER
+                        	  1084: 		; call 	WriteLineCRNL
+                        	  1085: 
+                        	  1086: 		; ld 		iy,Textbuf
+                        	  1087: 		; call	WriteLineCRNL
+                        	  1088: 
+                        	  1089: 		; jp 		next_line
+                        	  1090: 
+                        	  1091: 
+                        	  1092: 
+                        	  1093: textloop:
+                        	  1094: 		; LD		HL,sourctext1
+                        	  1095: 		; LD		DE,S1x
+                        	  1096: 		; LD		BC,src_size
+                        	  1097: 		; CALL 	BLKMOV		;	MOVE DATA FROM SOURCE TO DESTINATION
+                        	  1098: 
+                        	  1099: 
+                        	  1100: 		; LD		HL,sourctext2
+                        	  1101: 		; LD		DE,S2x
+                        	  1102: 		; LD		BC,14
+                        	  1103: 		; CALL 	BLKMOV		;	MOVE DATA FROM SOURCE TO DESTINATION
+                        	  1104: 
+                        	  1105: 		; test of string concat
+                        	  1106: 		; LD		HL,S1_8B		;HL = BASE ADDRESS OF S1
+                        	  1107: 		; LD		DE,S2_8B		;DE = BASE ADDRESS OF S2
+                        	  1108: 		; LD		B,40			;B = MAXIMUM LENGTH OF STRING 1
+                        	  1109: 		; CALL 	CONCAT 			;CONCATENATE STRINGS to S1_8B
+                        	  1110: 
+                        	  1111: 
+                        	  1112: 		; test of POS
+                        	  1113: 		; LD		HL,Str2			;HL = BASE ADDRESS OF STRING
+                        	  1114: 		; LD		DE,subst		;DE = BASE ADDRESS OF SUBSTRING	
+                        	  1115: 		; CALL	POS				;FIND POSITION OF SUBSTRING
+                        	  1116: 								; RESULTS IN REGISTER A = 8
+                        	  1117: 
+                        	  1118: 
+                        	  1119: 		; test copy
+                        	  1120: 		; LD		HL,Str4			; SOURCE STRING
+                        	  1121: 		; LD		DE,COPY_BUFFER	;	DESTINATION STRING
+                        	  1122: 		
+                        	  1123: 		; LD		C,4				; STARTING INDEX FOR COPYING
+                        	  1124: 
+                        	  1125: 		; LD		B,6				; NUMBER OF BYTES TO COPY
+                        	  1126: 		; LD		A, 25			; MAXIMUM LENGTH OF SUBSTRING
+                        	  1127: 		; CALL 	COPY			; COPY SUBSTRING
+                        	  1128: 
+                        	  1129: 		; ld 		iy,COPY_BUFFER
+                        	  1130: 		; call 		WriteLineCRNL ; print the copy string
+                        	  1131: 
+                        	  1132: 
+                        	  1133: 		; ; test DELETE
+                        	  1134: 		; LD		HL,Str0		;HL	= BASE 	ADDRESS OF STRING
+                        	  1135: 		; LD		A,8			
+                        	  1136: 		; LD		C,8				;	C= STARTING INDEX FOR DELETION
+                        	  1137: 		; LD		A,4			
+                        	  1138: 		; LD		B,4			; B = NUMBER OF CHARACTERS TO DELETE
+                        	  1139: 		; CALL 	DELETE 			; DELETE CHARACTERS
+                        	  1140: 									; DELETING 4 CHARACTERS STARTING AT INDEX 1
+                        	  1141: 		; ld 		iy,Str0
+                        	  1142: 		; call 		WriteLineCRNL ; print the copy string
+                        	  1143: 
+                        	  1144: 
+                        	  1145: ; 		;test INSERT
+                        	  1146: 
+                        	  1147: ; 		LD		HL,Str3				; HL = BASE ADDRESS OF STRING
+                        	  1148: ; 		LD		DE,subst			; DE = BASE ADDRESS OF SUBSTRING
+                        	  1149: 
+                        	  1150: ; 		LD		C,7					; C = STARTING INDEX FOR INSERTION
+                        	  1151: 
+                        	  1152: ; 		LD		B,0x40				; B = MAXIMUM LENGTH OF STRING
+                        	  1153: ; 		CALL 	INSERT_STR			; INSERT SUBSTRING
+                        	  1154: ; 		ld 		iy,Str3
+                        	  1155: ; 		; call	WriteLineCRNL 		; print the modified string
+                        	  1156: 
+                        	  1157: 
+                        	  1158: ; 		jp		next_line
+                        	  1159: 
+                        	  1160: ; 		;TEST DATA. CHANGE FOR OTHER VALUES
+                        	  1161: ; S1_8B:	DB		8H				; LENGTH OF SI
+                        	  1162: ; 		DB      "LASTNAME                        "	; 32 BYTE MAX LENGTH
+                        	  1163: ; S2_8B:	DB		0BH				;LENGTH OF S2
+                        	  1164: ; 		DB		". FIRSTNAME                     "	; 32 BYTE MAX LENGTH
+                        	  1165: 
+                        	  1166: ;********************************************************************************************
+                        	  1167: ;********************************************************************************************	
+                        	  1168: ; sh_test:
+                        	  1169: ; 		; turn shadow off then halt
+                        	  1170: ; 		xor A
+                        	  1171: ; 		out (_CE_RST_BANK),A 		;// clear '64K_SRAM' signal
+                        	  1172: 
+                        	  1173: ; 		halt
+                        	  1174: 
+                        	  1175: ; 		ld	A,$80
+                        	  1176: ; 		out (_Z80_BankCS),A			;// set '64K_SRAM' signal
+                        	  1177: ; 		ld 	A,1
+                        	  1178: ; 		out (_CE_RST_BANK),A 		; engage 3-state on bank#
+                        	  1179: ; 		ret
+                        	  1180: 
+                        	  1181: 
+                        	  1182: ;********************************************************************************************
+                        	  1183: ;********************************************************************************************	
+                        	  1184: 			;9H JUMP TABLE (JTAB)   353
+                        	  1185:         ; Title               Jump table
+                        	  1186:         ; Name:               JTAB
+                        	  1187:         ; Purpose:            Given an index, jump to the subroutine with
+                        	  1188:         ;                     that index in a table.
+                        	  1189:         ; Entry:              Register A is the subroutine number (0 to
+                        	  1190:         ;                                LENSUB-l, the number of subroutines)
+                        	  1191:         ;                                LENSUB must be less than or equal to
+                        	  1192:         ;                                128.
+                        	  1193:         ; Exit:               If the routine number is valid then
+                        	  1194:         ;                       execute the routine
+                        	  1195:         ;                     else
+                        	  1196:         ;                       Carry flag = 1
+                        	  1197:         ; Registers used: AF
+                        	  1198:         ; Time:               117 cycles plus execution time of subroutine
+                        	  1199:         ; Size:               Program 21 bytes plus size of table (2*LENSUB)
+                        	  1200: 
+                        	  1201:         ;EXIT WITH CARRY SET IF ROUTINE NUMBER IS INVALID
+                        	  1202:         ; THAT IS, IF IT IS TOO LARGE FOR TABLE OLENSUB -     1)
+                        	  1203: 
+                        	  1204: 
+                        	  1205: ; JTAB:
+                        	  1206: ; 		CP		LENSUB			;COMPARE ROUTINE NUMBER, TABLE SIZE
+                        	  1207: ; 		CCF						;COMPLEMENT CARRY FOR ERROR INDICATOR
+                        	  1208: ; 		RET		C				;RETURN IF ROUTINE NUMBER TOO LARGE
+                        	  1209: ; 									; WITH CARRY SET
+                        	  1210: ; 		; INDEX INTO TABLE OF WORD-LENGTH ADDRESSES
+                        	  1211: ; 		; LEAVE REGISTER PAIRS UNCHANGED SO THEY CAN BE USED FOR PASSING PARAMETERS
+                        	  1212: 
+                        	  1213: ; 		PUSH	HL				;SAVE HL
+                        	  1214: ; 		ADD		A,A				;DOUBLE INDEX FOR WORD-LENGTH ENTRIES
+                        	  1215: ; 		LD		HL,JMPTAB		;INDEX INTO TABLE USING 8-BIT
+                        	  1216: ; 		ADD		A,L			; ADDITION TO AVOID DISTURBING
+                        	  1217: ; 		LD		L,A				; ANOTHER REGISTER PAIR
+                        	  1218: ; 		LD		A,0
+                        	  1219: ; 		ADC		A,H
+                        	  1220: ; 		LD		H,A			; ACCESS ROUTINE ADDRESS
+                        	  1221: ; 			;OBTAIN ROUTINE ADDRESS FROM TABLE AND TRANSFER
+                        	  1222: ; 			;CONTROL TO IT, LEAVING ALL REGISTER PAIRS UNCHANGED
+                        	  1223: 
+                        	  1224: ; 		LD		A, (HL)			;MOVE ROUTINE ADDRESS TO HL
+                        	  1225: ; 		INC		HL
+                        	  1226: ; 		LD		H, (HL)
+                        	  1227: ; 		LD		L,A
+                        	  1228: ; 		EX		(SP),HL				;RESTORE OLD HL, PUSH ROUTINE ADDRESS
+                        	  1229: ; 		RET						; JUMP TO ROUTI NE
+                        	  1230: 
+                        	  1231: ; LENSUB		EQU		3				;NUMBER OF SUBROUTINES IN TABLE
+                        	  1232: ; JMPTAB:                            ;JUMP TABLE
+                        	  1233: ; 		DW		SUB0			;ROUTINE 0
+                        	  1234: ; 		DW		SUB1			;ROUTINE 1
+                        	  1235: ; 		DW		SUB2			;ROUTINE 2
+                        	  1236: ;            ;THREE TEST SUBROUTINES FOR JUMP TABLE
+                        	  1237: ; SUB0:
+                        	  1238: ; 		LD		A,1				; TEST ROUTI NE 0 SETS (A)    1
+                        	  1239: ; 		RET
+                        	  1240: ; SUB1:
+                        	  1241: ; 		LD		A,2				; TEST ROUTI NE 1 SETS (A) = 2
+                        	  1242: ; 		RET
+                        	  1243: ; SUB2:
+                        	  1244: ; 		LD		A,3				;TEST ROUTINE 2 SETS (A)      3
+                        	  1245: ; 		RET
+                        	  1246: 
+                        	  1247: 
+                        	  1248: 
+                        	  1249: ; 			;SAMPLE EXECUTION:
+                        	  1250: 
+                        	  1251: 
+                        	  1252: ; SC9H:
+                        	  1253: ; 		SUB		A				;EXECUTE ROUTINE 0
+                        	  1254: ; 		CALL	JTAB			; AFTER EXECUTION, (A)   =1
+                        	  1255: 
+                        	  1256: ; 		LD		A,1				;EXECUTE ROUTINE 1
+                        	  1257: ; 		CALL	JTAB			; AFTER EXECUTION, (A) = 2
+                        	  1258: ; 		LD		A,2				;EXECUTE ROUTINE 2
+                        	  1259: ; 		CALL	JTAB			; AFTER EXECUTION, (A)   3
+                        	  1260: ; 		LD		A,3				;EXECUTE ROUTINE 3
+                        	  1261: ; 		CALL	JTAB			; AFTER EXECUTION, CARRY   1
+                        	  1262: ; 		JR		SC9H			;LOOP FOR MORE TESTS
+                        	  1263: 
+                        	  1264: 
+                        	  1265: ;********************************************************************************************
+                        	  1266: ;********************************************************************************************	
+                        	  1267: ; 		xref  	RDATA,RDATA_END,TB_length
+                        	  1268: 
+                        	  1269: ; 		;--------------------------------------------------
+                        	  1270: ; 		; ld A,5
+                        	  1271: ; 		; ld 	A,$00	
+                        	  1272: ; 		; out (_Z80_BankCS),A		;// set bank register number 	
+                        	  1273: ; 		ld 	A,$01
+                        	  1274: ; 		out (_CE_RST_BANK),A 		;// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+                        	  1275: 
+                        	  1276: ; 		out (_8Bitsout),A
+                        	  1277: 
+                        	  1278: ; 		ld A, $0F                 ;mode 1 out
+                        	  1279: ; 		out (portA_Contr), A         ; set port A as output
+                        	  1280: ; 		ld A,$EB
+                        	  1281: 
+                        	  1282: ; Rtll:	
+                        	  1283: 
+                        	  1284: ; 		ld (40000),A
+                        	  1285: ; 		ld A,0
+                        	  1286: ; 		ld A,(40000)
+                        	  1287: 
+                        	  1288: ; 		out (portA_Data),A		; Data to PIO port A
+                        	  1289: ; 		out (_8Bitsout),A
+                        	  1290: ; 		;--------------------------------------------------
+                        	  1291: ; 		ld	DE,$8200
+                        	  1292: ; 		ld	HL,RDATA
+                        	  1293: ; 		ld	BC,TB_length
+                        	  1294: ; 		; ld	BC,RDATA_END-RDATA
+                        	  1295: ; 		ldir
+                        	  1296: 
+                        	  1297: 
+                        	  1298: ; SIO_A_RESET:
+                        	  1299: ; 		ld	a,00110000b
+                        	  1300: ; 		out	(SIO_A_C),A		;write into WR0: error reset, select WR0
+                        	  1301: 
+                        	  1302: ; 		ld	a,018h				;write into WR0: channel reset
+                        	  1303: ; 		out (SIO_A_C),A 
+                        	  1304: 
+                        	  1305: ; 		ld	a,004h				;write into WR0: select WR4
+                        	  1306: ; 		out	(SIO_A_C),A
+                        	  1307: ; 		ld	a,44h				;44h write into WR4: clkx16,1 stop bit, no parity
+                        	  1308: ; 		out (SIO_A_C),A
+                        	  1309: 
+                        	  1310: ; 		ld	a,005h				;write into WR0: select WR5
+                        	  1311: ; 		out (SIO_A_C),A
+                        	  1312: ; 		ld	a,01101000b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS inactive (bit 2)
+                        	  1313: ; 		ld	a,01101010b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS active (bit 2)
+                        	  1314: ; 		out (SIO_A_C),A
+                        	  1315: ; SIO_A_EI:
+                        	  1316: ; 			;enable SIO channel A RX
+                        	  1317: ; 		ld	a,003h				;write into WR0: select WR3
+                        	  1318: ; 		out (SIO_A_C),A
+                        	  1319: ; 		ld	a,11000001b				;RX 8bit, auto enable off 8(bit 5), RX on (bit 0)
+                        	  1320: ; 		ld	a,11100001b				;RX 8bit, auto enable on 8(bit 5), RX on (bit 0)
+                        	  1321: ; 		out (SIO_A_C),A
+                        	  1322: ; 		;Channel A RX active
+                        	  1323: 
+                        	  1324: 
+                        	  1325: ; 		ld 	HL,Str0
+                        	  1326: ; tstout:
+                        	  1327: ; 		ld 	A,(HL)
+                        	  1328: ; 		out (SIO_A_D),A
+                        	  1329: ; 		inc HL
+                        	  1330: ; 		ld D,A
+                        	  1331: ; chkTX:
+                        	  1332: ; 		in	A,(SIO_A_C)		; read status
+                        	  1333: ; 		bit	2,A					; all sent ?
+                        	  1334: ; 		jr z,chkTX				; not all sent..
+                        	  1335: 
+                        	  1336: ; 		ld 	A,(HL)
+                        	  1337: ; 		cp	0
+                        	  1338: ; 		jr 	z,endmsg
+                        	  1339: 
+                        	  1340: ; 		ld	A,D
+                        	  1341: ; 		djnz	tstout
+                        	  1342: 
+                        	  1343: ; endmsg:
+                        	  1344: ; chkRX:
+                        	  1345: ; 		in	A,(SIO_A_C)		; read status
+                        	  1346: ; 		bit	0,A					; char present ??
+                        	  1347: ; 		jr z,chkRX				; check again
+                        	  1348: 
+                        	  1349: ; 		in 	A,(SIO_A_D)		; read the char.
+                        	  1350: 
+                        	  1351: ; 		out (SIO_A_D),A
+                        	  1352: ; chkTX2:
+                        	  1353: ; 		in	A,(SIO_A_C)		; read status
+                        	  1354: ; 		bit	2,A					; all sent ?
+                        	  1355: ; 		jr z,chkTX2
+                        	  1356: 		
+                        	  1357: ; 		jr	endmsg				; not all sent..
+                        	  1358: 
+                        	  1359: 
+                        	  1360: 
+                        	  1361: 
+                        	  1362: ; 		halt
+                        	  1363: ; 		halt
+                        	  1364: ; 		halt
+                        	  1365: ; 		inc A
+                        	  1366: ; 		jr Rtll			
+                        	  1367: 
+                        	  1368: ; 	if DOALIGN
+                        	  1369: ; 		align 4
+                        	  1370: ; 	endif
+                        	  1371: 
+                        	  1372: 
+                        	  1373: .end
+                        	  1374: 
+
+
+Symbols by name:
+A_RTS_OFF                       external EXP
+A_RTS_ON                        external EXP
+AddToT_Buf                      external
+BLKMOV                          external EXP
+BN2DEC                          external EXP
+BN2DEC_S                        external EXP
+Bin2Hex16                       external EXP
+Bin2Hex8                        external EXP
+CH0                             external
+CH1                             external
+CH2                             external
+CH3                             external
+CONCAT                          external EXP
+COPY                            external EXP
+CR                               E:000D
+CRC16                           external EXP
+CRLF                            external
+CTC1_INT_OFF                    external
+CTC_CH1_I_Vector                 E:F412
+CTC_CH1_Interrupt_Handler       external
+CTC_Init                        external
+CTC_delay_INT_handler           external
+DEC2BN                          external EXP
+DELETE                          external EXP
+Flash_SE_Erase                  external
+Flash_WR_Test                   external
+HC376S_CheckConnection          external
+HC376S_ResetAll                 external
+HC376S_USBdiskMount             external
+HC376S_diskConnectionStatus     external
+HC376S_fileClose                external
+HC376S_fileCreate               external
+HC376S_fileDelete               external
+HC376S_fileOpen                 external
+HC376S_fileRead                 external
+HC376S_fileWrite                external
+HC376S_getFileSize              external
+HC376S_setFileName              external
+HC376S_setSDMode                external
+HC376S_setUSBMode               external
+HEX2BN                          external EXP
+INSERT_STR                      external EXP
+ITEM                             E:001C
+InitBuffers                     external EXP
+InitInterrupt                   external EXP
+JPTable01                       00:0440
+LF                               E:000A
+LISTEND                          E:001E
+MFILL                           external EXP
+PCinpFlag                       external
+PCvalue                         external
+PIO_Init                        external
+PLD_PCB_Start                   00:0000 EXP
+POS                             external EXP
+ReadChar                        external EXP
+ReadLine                        external EXP
+RegFlags                        external EXP
+RegLabels1                      external EXP
+RegLabels2                      external EXP
+RegLabels3                      external EXP
+SIO_A_C                         external
+SIO_A_D                         external
+SIO_A_TXRX_INTon                external
+SIO_B_C                         external
+SIO_B_D                         external
+SIO_Init                        external
+SIO_Int_Vec                      E:F400
+SP_value                        external
+STEND                            E:001D
+S_head_tail                     external EXP
+T_BUFFER                        external
+TempVar4                        external
+Textbuf                         external EXP
+WriteChar                       external EXP
+WriteLine                       external
+WriteLineCRNL                   external
+_Z80CTC_Base                    external
+_Z80PIO_Base                    external
+_Z80SIO_Base                    external
+abort                           00:061E
+argumentsError                  00:045F
+bit_test9                       00:070D
+byteEnd                         00:03FF
+changePCVal                     00:0421
+checkArgsTAL                    00:06C8
+checkaddress                    00:0384
+chkADR1                         00:038E
+chkADR2                         00:039E
+chkLVL2                         00:03C0
+cleanInBuffer                   external EXP
+cleanOutBuffer                  external EXP
+commAdr1                        external
+commAdr2                        external
+commListLen                      E:001B
+commLvl1                        external
+commLvl2                        external
+commParseTable                  external
+commStr1                        external
+commStr2                        external
+command_addresses               00:01DB
+command_list                    00:020F
+crc16_2                         external EXP
+disableFLASH                    external
+doImportXMODEM                  external
+dumpMemory                      external EXP
+enableFLASH                     external
+enableIC620_OE                  external
+endtext                         external EXP
+errNoFlash                      00:0587
+executeCommand                  00:042C
+findCommandInList               00:0182
+findNextITEM                    00:018E
+getLvalue                       00:03B0
+gpioB                           external
+gpio_in                         external
+gpio_out                        external
+inBuffer                        external EXP
+inBufferEnd                     external EXP
+initCommParseTable              00:0330
+initSIOBInterrupt               external
+inputerror                      00:01A8
+isHex                           external EXP
+makeASCIItoHEX                  00:03D0
+matchInList                     00:0343
+memBankID                       external
+nextHalfByte                    00:03DE
+nextInList                      00:01A4
+next_line                       00:0100
+noHighNib                       00:041D
+p_C_Delete                      00:0683
+p_C_Read                        00:05CF
+p_C_Write                       00:062B
+p_FOFF                          00:0551
+p_FON                           00:0505
+p_clearmem                      00:049A
+p_cptFl                         00:06BA
+p_dumpmem                       00:0495
+p_exe                           00:049B
+p_flbank                        00:06BA
+p_flse                          00:05B1
+p_flwr                          00:057C
+p_go                            00:04DE
+p_incDecPC                      00:04E0
+p_load                          00:0494
+p_pc                            00:0499
+p_reset                         00:0480
+p_srbank                        00:06C1
+p_xmod                          00:05BA
+paramLoopEntry                  00:0350
+portA_Contr                     external
+portA_Data                      external
+portB_Contr                     external
+portB_Data                      external
+purgeRXB                        external
+putDEtoScreen                   external
+scanCommandList                 00:017D
+setFLASHBank                    external
+setSRAMBank                     external
+shiftIn1                        00:0709
+shift_0_1                       00:06FC
+sio_ac                          external
+sio_ad                          external
+sio_bc                          external
+sio_bd                          external
+skipCharsUntilDelim             external
+skipPriorDelimit                external
+sourctext1                      external EXP
+sourctext2                      external EXP
+src_size                        external EXP
+st1g2                           external EXP
+st2g1                           external EXP
+steq                            external EXP
+strCompare                      external EXP
+subst                           external EXP
+temp_finish                     00:043D
+textloop                        00:0711
+useFlash                        00:0115
+writeSTRBelow                   external EXP
+zero_byte                       00:018D
+
+Symbols by value:
+0000 PLD_PCB_Start
+000A LF
+000D CR
+001B commListLen
+001C ITEM
+001D STEND
+001E LISTEND
+0100 next_line
+0115 useFlash
+017D scanCommandList
+0182 findCommandInList
+018D zero_byte
+018E findNextITEM
+01A4 nextInList
+01A8 inputerror
+01DB command_addresses
+020F command_list
+0330 initCommParseTable
+0343 matchInList
+0350 paramLoopEntry
+0384 checkaddress
+038E chkADR1
+039E chkADR2
+03B0 getLvalue
+03C0 chkLVL2
+03D0 makeASCIItoHEX
+03DE nextHalfByte
+03FF byteEnd
+041D noHighNib
+0421 changePCVal
+042C executeCommand
+043D temp_finish
+0440 JPTable01
+045F argumentsError
+0480 p_reset
+0494 p_load
+0495 p_dumpmem
+0499 p_pc
+049A p_clearmem
+049B p_exe
+04DE p_go
+04E0 p_incDecPC
+0505 p_FON
+0551 p_FOFF
+057C p_flwr
+0587 errNoFlash
+05B1 p_flse
+05BA p_xmod
+05CF p_C_Read
+061E abort
+062B p_C_Write
+0683 p_C_Delete
+06BA p_cptFl
+06BA p_flbank
+06C1 p_srbank
+06C8 checkArgsTAL
+06FC shift_0_1
+0709 shiftIn1
+070D bit_test9
+0711 textloop
+F400 SIO_Int_Vec
+F412 CTC_CH1_I_Vector

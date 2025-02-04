@@ -16,10 +16,6 @@
 	}
 
 	
-	/* ROM absolute addresses */
-	/*PROVIDE(_FIRMWARE       = 0x00FC0000);  /* firmware address             */
-	/*PROVIDE(_FIRMWARE_REV   = 0x00FC0400);  /* firmware revision code       */
-
 	PROVIDE(_String_HEAP	= 0xF000);
 	
 	PROVIDE(_RAMSTART		= 0xD000);	
@@ -32,10 +28,10 @@
 	
 	PROVIDE(_Z80PIO_Base	= 0x0);
 	PROVIDE(_Z80CTC_Base	= 0x10);
-	PROVIDE(_Z80SIO_0_Base	= 0x20);
+	PROVIDE(_Z80SIO_Base	= 0x20);
 	PROVIDE(_Z80_BankCS  	= 0x30);		/*	 30 - 3F   */
 	PROVIDE(_8Bitsout 		= 0x40);		/*	 40 - 4F  */
-	PROVIDE(_CE_RST_BANK 	= 0x80);		/*	 80 - 8F  */
+	PROVIDE(_CE_RST_BANK 	= 0x50);		/*	 50 - 5F  */
 
 	PROVIDE( SRAM_VAR_END = 0xFFF0 );
 	PROVIDE( SRAM_VAR_START =  _String_HEAP);
@@ -67,6 +63,7 @@
 	PROVIDE( inBufferEnd	=	0x194 + _String_HEAP);      	/*;END OF INPUT BUFFER */
 	PROVIDE( inbufferDeactivate = 0x196+ _String_HEAP); 		/* if > 0: do not update inbuffer at char read */			
 	PROVIDE( memBankID		= 	0x198 + _String_HEAP); 			/* memoryBank value  b7-flash on/off b4-6:EEPBank b0-3:RAMBank */	
+	PROVIDE( rstBankID		= 	0x199 + _String_HEAP); 			/* reset memoryBank  b3-flash on/off b2 reset inhibit/ b0 OE IC62 */	
 
 	PROVIDE( inHeadAdr		=	0x19A + _String_HEAP);			/*	address of oldest character in input buffer DS	2	*/
 	PROVIDE( inTailAdr		=	0x19C + _String_HEAP);			/*	address of newest character in input buffer DS	2	*/
@@ -155,8 +152,8 @@
 		}	> RAM
 
 
-		/* Functions	ALIGN (0x10)  :  */
-		Functions	_FUNCTIONS : 
+		/* Functions	ALIGN (0x10)  : */
+		Functions	_FUNCTIONS :  
 		{
 			KEEP ( *.o (Functions)) ;
 

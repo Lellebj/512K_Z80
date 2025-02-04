@@ -32,7 +32,7 @@
 	
 	PROVIDE(_Z80PIO_Base	= 0x0);
 	PROVIDE(_Z80CTC_Base	= 0x10);
-	PROVIDE(_Z80SIO_0_Base	= 0x20);
+	PROVIDE(_Z80SIO_Base	= 0x20);
 	PROVIDE(_Z80_BankCS  	= 0x30);		/*	 30 - 3F   */
 	PROVIDE(_8Bitsout 		= 0x40);		/*	 40 - 4F  */
 	PROVIDE(_CE_RST_BANK 	= 0x80);		/*	 80 - 8F  */

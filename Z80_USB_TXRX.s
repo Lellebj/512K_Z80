@@ -8,7 +8,7 @@
 		section 	Functions
 
 ;****************************************************************
-USB_TEXT_LABLES		equ 1		; No additional text when using USB.
+USB_TEXT_LABLES		equ 15		; No additional text when using USB.
 								; 1-low level of info; 15-high level of info
 
 USB_INT_SUCCESS		equ $14
@@ -38,7 +38,7 @@ CTC_TIMEOUT 		equ $EE
 		GLOBAL	getResponseFromUSB,HC376S_CheckConnection,HC376S_ResetAll,HC376S_setUSBMode,HC376S_diskConnectionStatus
 		GLOBAL 	HC376S_USBdiskMount,HC376S_setFileName,HC376S_fileOpen,HC376S_fileClose,HC376S_fileCreate
 		GLOBAL 	HC376S_getFileSize,HC376S_fileRead,HC376S_fileDelete,HC376S_fileWrite,HC376S_setSDMode
-		GLOBAL  delay100ms,CTC_delay_INT_handler,ReadUSBHandler
+		GLOBAL  delay100ms,CTC_delay_INT_handler
 
 HC376S_CheckConnection::
 
@@ -53,13 +53,15 @@ HC376S_CheckConnection::
 		ld	 	E,$81					;(hspace+8)			; Testvalue $55 response $AA
 		call 	outByte367S
 
-		call 	delay10ms   				; start timout counter 1 ms
+		call 	delay20ms   			; start timout counter 20 ms
 
 		call 	waitForResponse 		; Z is set if no response from 376S, response in E
 		jp 		Z,endtest				; branch on timeout
 		; ; call 	getResponseFromUSB		; get the actual data, in D0
 		; ; response in E
 
+		call 	SIO_B_DI
+		ld  	A,E
 		ld 		B,$81
 		cpl 
 		cp 		B 						; compare complement response with B 
@@ -98,7 +100,7 @@ HC376S_ResetAll::
 		ld 		E,$05
 		call 	outByte367S
 		
-		call	delay200ms    			; 200 msec
+		call	delay350ms    			; 350 msec
 		halt	
 
 		ret
@@ -122,15 +124,24 @@ HC376S_setUSBMode::
 		
 		call 	delay20ms			;delay 20 ms
 
-		call	waitForResponse	 		;test rxrdy-B
+		call	waitForResponse	 	;test rxrdy-B
+	
+		;GPIODEBUG
+		ld a,2
+		out (gpio_out),A
+		ld a,0
+		out (gpio_out),A
+		ld a,e
+
 		jr 		Z,NoUSBpres			; no response from 'waitForResponse'
 		
-		cp	 	CMD_RET_SUCCESS
+
+		cp	 	CMD_RET_SUCCESS		; 51?
 		jp 		NZ,someUSBerror
 
 		call 	delay10ms
 		call 	waitForResponse				; read data in inport -> A&E
-	
+
 	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow_CRLF
 		db		0,">USB Mode command acknowledged !",0,0
@@ -1000,8 +1011,17 @@ delay_D0_ms:
    		;wait for a response from the CH376S. If CH376S responds, it will be true. If it times out, it will be false. 
 		;Response in A&E, use CTC timeout, Z -> no response, NZ -> 376S has responded
 waitForResponse:  
+
+		;GPIODEBUG
+		ld a,4
+		out (gpio_out),A
+		ld a,0
+		out (gpio_out),A
+		ld a,e
+
 		ei
 		halt    
+
 		ld 		A,(CTCdelayFlag)
 		cp 		CTC_TIMEOUT 						; if A=EE, Z is set, timeout (set by CTC interrupt)
 		ret 	Z							; return with Z -> timeout set
@@ -1009,10 +1029,17 @@ waitForResponse:
 				; jr 		Z,.loop
 		; *** 	SIO B interrupt place data in E				; 
 		; ***	No timeout - read data.
+		;GPIODEBUG
+		ld a,4
+		out (gpio_out),A
+		ld a,0
+		out (gpio_out),A
+		ld a,e
 
-		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0)
-		inc 	A
-		ld 		A,E
+
+		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
+		inc 	A						; => NZ
+		ld 		A,E						; no flags set.
 		ret								; NZ set, 376S has responded
 
 
@@ -1039,82 +1066,62 @@ outByte367S:
 
 		ret
 
-		; *** 	interrupt at input from HC376S
-ReadUSBHandler:
-		in  	A,(sio_bd)		  		;read char from SIO B
-		ld 		E,A
-
-		out 	(gpioB),A			; out to ledbardm
-
-		; in  	A,(CH1)
-		; ld 		(TempVar8),A
-		; in  	A,(CH0)
-		; ld 		(TempVar7),A
-; 		cp 		USB_INT_CONNECT
-; 		jr  	NZ,.p2
-; 		call 	writeSTRBelow_CRLF
-; 		db		0,">USB_INT_CONNECT",0,0
-; 		jr 		.p3
-; .p2:
-; 		cp 		USB_INT_DISCONNECT
-; 		jr 		NZ,.p3
-; 		call 	writeSTRBelow_CRLF
-; 		db		0,">USB_INT_DISCONNECT",0,0
-.p3:
-		
-
-		ei
-		reti
-;******************************************************************************
-
 		GLOBAL		delay2s,delay1s,delay500ms,delay200ms,delay100ms,delay50ms,delay20ms,delay10ms
 
-delay2s:	
-		ld 		DE,$7DFA		; 8MHz: $48D9  10MHz:  9BFC, Prescaler
-		ld 		A,_Prescaler
-		jr 		CTC_Delay
 delay1s:	
-		ld 		DE,$5AD9		; 8MHz: $48D9  10MHz:  5AD9, Prescaler
+		ld 		DE,$9BFC		; 8MHz: $----  10MHz:  9BFC, Prescaler
 		ld 		A,_Prescaler
 		jr 		CTC_Delay
 delay500ms:	
-		ld 		DE,$2DD9		; 8MHz: $24D9  10MHz:  2DD9, Prescaler
+		ld 		DE,$5AD9		; 8MHz: $----  10MHz:  5AD9, Prescaler
+		ld 		A,_Prescaler
+		jr 		CTC_Delay
+delay350ms:	
+		ld 		DE,$3FD9		; 8MHz: $----  10MHz:  3FD9, Prescaler
 		ld 		A,_Prescaler
 		jr 		CTC_Delay
 delay250ms:	
-		ld 		DE,$287A		; 8MHz: $24D9  10MHz:  287A, Prescaler
+		ld 		DE,$2DD9		; 8MHz: $----  10MHz:  2DD9, Prescaler
 		ld 		A,_Prescaler
 		jr 		CTC_Delay
 delay200ms:
-		ld 		DE,$12D9		; 8MHz: $197D  10MHz:  12D9, Prescaler
+		ld 		DE,$2ABA		; 8MHz: $----  10MHz:  2ABA, Prescaler
 		ld 		A,_Prescaler
 		jr 		CTC_Delay
 delay100ms:
-		ld 		DE,$155D		; 8MHz: $1647  10MHz:  155D, Prescaler
-		ld 		A,_Prescaler
+		ld 		DE,$FAFA		; 8MHz: $----  10MHz:  FAFA, Prescaler
+		ld 		A,0
 		jr 		CTC_Delay
 delay50ms:
-		ld 		DE,$087A		; 8MHz: $0B47  10MHz:  087A, Prescaler
-		ld 		A,_Prescaler
+		ld 		DE,$7DFA		; 8MHz: $----  10MHz:  7DFA, Prescaler
+		ld 		A,0
 		jr 		CTC_Delay
 delay20ms:
-		ld 		DE,$0A27		; 8MHz: $180D  10MHz:  0A27, Prescaler
-		ld 		A,_Prescaler
+		ld 		DE,$32FA		; 8MHz: $----  10MHz:  32FA, Prescaler
+		ld 		A,0
 		jr 		CTC_Delay
 delay10ms:
-		ld 		DE,$197D		; 8MHz: $147D  10MHz:  197D, Prescaler
+		ld 		DE,$19FA		; 8MHz: $----  10MHz:  19FA, Prescaler
 		ld 		A,00
 		jr 		CTC_Delay
 delay5ms:
-		ld 		DE,$0B8E		; 8MHz: $24D9  10MHz:  0B8E, Prescaler
+		ld 		DE,$197D		; 8MHz: $----  10MHz:  197D, Prescaler
 		ld 		A,00
 		jr 		CTC_Delay
 delay2ms:
-		ld 		DE,$057D		; 8MHz: $1914  10MHz:  057D, Prescaler
+		ld 		DE,$0A7D		; 8MHz: $----  10MHz:  0A7D, Prescaler
 		ld 		A,00
 		jr 		CTC_Delay
 delay1ms:
-		ld 		DE,$0D18		; 8MHz: $24D9  10MHz:  0D18, Prescaler
+		ld 		DE,$1919		; 8MHz: $----  10MHz:  1919, Prescaler
+		ld 		A,00
+		jr 		CTC_Delay
+delay500us:
+		ld 		DE,$0827		; 8MHz: $----  10MHz:  0827, Prescaler
+		ld 		A,00
+		jr 		CTC_Delay
+delay200us:
+		ld 		DE,$0519		; 8MHz: $----  10MHz:  0519, Prescaler
 		ld 		A,00
 		jr 		CTC_Delay
 CTC_Delay:
@@ -1151,6 +1158,19 @@ CTC_delay_INT_handler:
 		out		(CH1),A					; reset and turn off interrupt CH1
 		ld		A,CTC_TIMEOUT 			; set timeout flag
 		ld 		(CTCdelayFlag),A 		; reset timeout flag
+		;GPIODEBUG
+		push HL
+		ld  HL,(TempVar4)
+		ld  (HL),a
+		inc HL
+		ld (TempVar4),HL
+		pop HL
+		;GPIODEBUG
+		ld a,8
+		out (gpio_out),A
+		ld a,0
+		out (gpio_out),A
+		ld a,e
 
 		ei
 		reti

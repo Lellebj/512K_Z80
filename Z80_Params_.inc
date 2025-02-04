@@ -8,46 +8,50 @@
 ; writedata		= $3140
 ; testBusyFlag    = $31B0
 ; HD44780_main_init = $3000
+stacktop: equ	0xFFF0	
 
 
 ; PIO addressess...
+;******************************************
+	  ; _Z80PIO_Base= $00
 portA_Contr:	equ _Z80PIO_Base + 1
 portB_Contr:	equ _Z80PIO_Base + 3
 portA_Data:		equ _Z80PIO_Base + 0
 portB_Data:		equ _Z80PIO_Base + 2
 
 
+gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
+gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
+gpioB:			equ		portB_Data
+
 ; SIO_0 stuff
-				;SIO_0 CHANNEL A DATA
-SIO_0_A_D:		equ	_Z80SIO_0_Base
+;******************************************
+SIO_A_D:		equ	_Z80SIO_Base	  ; = $20
 				;SIO_0 CHANNEL A COMMANDS/STATUS
-SIO_0_A_C:		equ	_Z80SIO_0_Base+2
+SIO_A_C:		equ	_Z80SIO_Base+2
 				;SIO_0  CHANNEL B DATA
-SIO_0_B_D:		equ	_Z80SIO_0_Base+1
+SIO_B_D:		equ	_Z80SIO_Base+1
 				;SIO_0 CHANNEL B COMMANDS/STATUS
-SIO_0_B_C:		equ	_Z80SIO_0_Base+3
+SIO_B_C:		equ	_Z80SIO_Base+3
 
-sio_ac: 		equ 	SIO_0_A_C
-sio_ad: 		equ 	SIO_0_A_D
-sio_bc: 		equ 	SIO_0_B_C
-sio_bd: 		equ 	SIO_0_B_D
+sio_ac: 		equ 	SIO_A_C
+sio_ad: 		equ 	SIO_A_D
+sio_bc: 		equ 	SIO_B_C
+sio_bd: 		equ 	SIO_B_D
 
+Interupt_vector		= SIO_Int_Vec
 
-SIO_0_Int_Vec		EQU     $F400					; interrupt vector 
-SIO_0_Int_WR_Vec	EQU     SIO_0_Int_Vec+8			;sio_0 channel A write interrupt vector
-SIO_0_Int_EXT_Vec	EQU     SIO_0_Int_Vec+10		;sio_0 channel A external/status ; interrupt vector
-SIO_0_Int_Read_Vec	EQU     SIO_0_Int_Vec+12		;sio_0 channel A read interrupt vector
-SIO_0_Int_Spec_Vec	EQU     SIO_0_Int_Vec+14		;sio_0 channel A special receive interrupt vector
+SIO_Int_Vec		EQU     $F400				; interrupt vector 
+SIO_Int_WR_Vec	EQU     SIO_Int_Vec+8		;sio_0 channel A write interrupt vector
+SIO_Int_EXT_Vec	EQU     SIO_Int_Vec+10	;sio_0 channel A external/status ; interrupt vector
+SIO_Int_Read_Vec	EQU     SIO_Int_Vec+12	;sio_0 channel A read interrupt vector
+SIO_Int_Spec_Vec	EQU     SIO_Int_Vec+14	;sio_0 channel A special receive interrupt vector
 
-		;sio_0 channel B write interrupt vector
-SIO_0_USB_WR_Vec	EQU     SIO_0_Int_Vec+0	
-		;sio_0 channel B external/status ; interrupt vector
-SIO_0_USB_EXT_Vec	EQU     SIO_0_Int_Vec+2	
-		;sio_0 channel B read interrupt vector
-SIO_0_USB_Read_Vec	EQU     SIO_0_Int_Vec+4	
-			;sio_0 channel B special receive interrupt vector
-SIO_0_USB_Spec_Vec	EQU     SIO_0_Int_Vec+6
-
+		
+SIO_USB_WR_Vec	EQU     SIO_Int_Vec+0		;sio_0 channel B write interrupt vector
+SIO_USB_EXT_Vec	EQU     SIO_Int_Vec+2		;sio_0 channel B external/status ; interrupt vector
+SIO_USB_Read_Vec	EQU     SIO_Int_Vec+4		;sio_0 channel B read interrupt vector
+SIO_USB_Spec_Vec	EQU     SIO_Int_Vec+6		;sio_0 channel B special receive interrupt vector
 
 ;Write register 0
 WR0 equ 0
@@ -117,7 +121,8 @@ CTCtimeout			equ $0B
 
 
 ; CTC stuff
-CH0		equ 	_Z80CTC_Base	
+;******************************************
+CH0		equ 	_Z80CTC_Base	  ; = $10, linker script
 CH1		equ 	_Z80CTC_Base+1	
 CH2		equ 	_Z80CTC_Base+2	
 CH3		equ 	_Z80CTC_Base+3	
@@ -133,13 +138,12 @@ _Reset 		equ 	$02		; D1 - 1 Software reset
 _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
 
 ; Interrupt vectors for CTC
-CTC_CH0_I_Vector	EQU     SIO_0_Int_Vec+$10		;CTC channel 0 interrupt vector 
-CTC_CH1_I_Vector	EQU     SIO_0_Int_Vec+$12		;CTC channel 1 interrupt vector 
-CTC_CH2_I_Vector	EQU     SIO_0_Int_Vec+$14		;CTC channel 2 interrupt vector 
-CTC_CH3_I_Vector	EQU     SIO_0_Int_Vec+$16		;CTC channel 3 interrupt vector 
+CTC_CH0_I_Vector	EQU     SIO_Int_Vec+$10		;CTC channel 0 interrupt vector 
+CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector 
+CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
+CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
 
 ; Data tables  (upper EPROM/FLASH)
-; Interupt_vector		= SIO_0_Int_Vec
 ; stack  				= $FF00
 Heap				= $F000				; space for variable storage
 
@@ -147,16 +151,6 @@ Heap				= $F000				; space for variable storage
 PIO_B_value:		= $F1D0
 Result_NumToHex:	= $F1F0
 
-
-; _RAMSTART		= $8010	
-; _EETESTPROG		= $100	
-	
-; _Z80PIO_Base	= $0
-; _Z80CTC_Base	= $10
-; _Z80SIO_0_Base	= $20
-; _Z80_BankCS  	= 0x30;		/*	 30 - 3F   */
-; _8Bitsout 		= $40;		/*	 40 - 4F  */
-; _CE_RST_BANK 	= 0x80;		/*	 40 - 4F  */
 
 ;*****	ALIGN command  : 00 removes all align commands
 DOALIGN 	EQU 	00
@@ -251,25 +245,21 @@ SP			EQU		20h
 ;    A       1   1   0   0CH  Receive Character Available
 ;    A       1   1   1   0EH  Special Receive Condition
 ;
-; SIO_0_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
-; SIO_0_WriteVector:		EQU		SIO_0_IntVectors+08H ;Write Interrupt Vector
-; SIO_0_ExternalVector:	EQU		SIO_0_IntVectors+0AH ;External Status Interrupt Vector
-; SIO_0_ReadVector:		EQU		SIO_0_IntVectors+0CH ;Read Interrupt Vector
-; SIO_0_SpecialVector:		EQU		SIO_0_IntVectors+0EH ;Special Receive Interrupt Vector
+; SIO_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
+; SIO_WriteVector:		EQU		SIO_IntVectors+08H ;Write Interrupt Vector
+; SIO_ExternalVector:	EQU		SIO_IntVectors+0AH ;External Status Interrupt Vector
+; SIO_ReadVector:		EQU		SIO_IntVectors+0CH ;Read Interrupt Vector
+; SIO_SpecialVector:		EQU		SIO_IntVectors+0EH ;Special Receive Interrupt Vector
 
 
-	; SIO_0_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
-	; SIO_0_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
-	; SIO_0_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
-	; SIO_0_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+	; SIO_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+	; SIO_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+	; SIO_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+	; SIO_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
 
 ;****************************************************************************
 
 
-
-gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
-gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
-gpioB:			equ		portB_Data
 
 
 ; Define the memory size to be used for the CP/M configuration
@@ -281,5 +271,4 @@ gpioB:			equ		portB_Data
 
 ; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
 
-stacktop: equ	0xFFF0	
 

@@ -149,18 +149,18 @@
 ; 		LD		(OutINTExpect),A				;NO OUTPUT INTERRUPT EXPECTED
 ; 									; SIO_0 IS READY TO TRANSMIT INITIALLY
 ; 			;INITIALIZE INTERRUPT VECTORS
-; 		LD      A,SIO_0_Int_Vec >> 8			;GET INTERRUPT PAGE NUMBER
+; 		LD      A,SIO_Int_Vec >> 8			;GET INTERRUPT PAGE NUMBER
 ; 		LD      I,A				;SET INTERRUPT VECTOR IN zao
 ; 		IM      2				;INTERRUPT MODE 2 - VECTORS IN TABLE
 ; 								; ON INTERRUPT PAGE
 ; 		LD		HL,RDHDLR_11A			;STORE READ VECTOR (INPUT INTERRUPT)
-; 		LD		(SIO_0_Int_Read_Vec),HL
+; 		LD		(SIO_Int_Read_Vec),HL
 ; 		LD		HL,WRHDLR_11A			;STORE WRITE VECTOR (OUTPUT INTERRUPT)
-; 		LD		(SIO_0_Int_WR_Vec),HL
+; 		LD		(SIO_Int_WR_Vec),HL
 ; 		LD		HL,EXHDLR_11A			;STORE EXTERNAL/STATUS VECTOR
-; 		LD		(SIO_0_Int_EXT_Vec),HL
+; 		LD		(SIO_Int_EXT_Vec),HL
 ; 		LD		HL,REHDLR_11A			;STORE RECEIVE ERROR VECTOR
-; 		LD		(SIO_0_Int_Spec_Vec),HL
+; 		LD		(SIO_Int_Spec_Vec),HL
 ; 			; INITIALIZE SIO_0
 ; 		LD		HL,SIO_0INT			;GET BASE OF INITIALIZATION ARRAY
 ; 		CALL	IPORTS_11A            	;INITIALIZE SIO_0
@@ -170,7 +170,7 @@
 ; 			;INPUT (READ) INTERRUPT HANDLER
 ; RDHDLR_11A:
 ; 		PUSH	AF					;SAVE AF
-; RD1_11A:	IN		A, (SIO_0_A_D)			;READ DATA FROM SIO_0
+; RD1_11A:	IN		A, (SIO_A_D)			;READ DATA FROM SIO_0
 ; 		LD		(RECDAT), A			;SAVE DATA IN INPUT BUFFER
 ; 		LD		A,0FFH
 ; 		LD		(RECDF),A			;INDICATE INPUT DATA AVAILABLE
@@ -206,9 +206,9 @@
 ; NODATA_11A:
 ; 		SUB		A
 ; 		LD		(OutINTExpect),A				;DO NOT EXPECT AN INTERRUPT
-; 		OUT		(SIO_0_A_C),A			;SELECT REGISTER 0
+; 		OUT		(SIO_A_C),A			;SELECT REGISTER 0
 ; 		LD		A,00101000B			;RESET SIO_0 TRANSMITTER INTERRUPT
-; 		OUT		(SIO_0_A_C),A
+; 		OUT		(SIO_A_C),A
 ; WRDONE_11A:
 ; 		POP		AF					;RESTORE AF
 ; 		EI
@@ -217,7 +217,7 @@
 ; EXHDLR_11A:
 ; 		PUSH	AF
 ; 		LD		A,00010000B			;RESET STATUS INTERRUPT
-; 		OUT		(SIO_0_A_C),A
+; 		OUT		(SIO_A_C),A
 ; 		EI							;DCD OR CTS CHANGED STATE, OR A BREAK
 
 ; 		POP		AF					; WAS DETECTED
@@ -226,7 +226,7 @@
 ; REHDLR_11A:
 ; 		PUSH	AF
 ; 		LD		A,00110000B			;RESET RECEIVE ERROR INTERRUPT
-; 		OUT		(SIO_0_A_C),A
+; 		OUT		(SIO_A_C),A
 ; 		EI							; FRAMING ERROR OR OVERRUN ERROR
 ; 		POP		AF					; OCCURRED
 ; 		RETI						; SERVICE HERE IF NECESSARY
@@ -240,7 +240,7 @@
 ; 		;***************************************
 ; OUTDAT_11A:
 ; 		LD		A,(TRNDAT)			; GET DATA FROM OUTPUT BUFFER
-; 		OUT		(SIO_0_A_D),A			; SEND DATA TO SIO_0
+; 		OUT		(SIO_A_D),A			; SEND DATA TO SIO_0
 ; 		SUB		A					; INDICATE OUTPUT BUFFER EMPTY
 ; 		LD		(TRNDF),A
 ; 		DEC		A					; INDICATE OUTPUT INTERRUPT EXPECTED
@@ -274,21 +274,21 @@
 ; SIO_0INT_11A:
 ; 			;RESET CHANNEL A
 ; 		DB		1					;OUTPUT 1 BYTE
-; 		DB		SIO_0_A_C				;DESTINATION IS CHANNEL A COMMAND/STATUS
+; 		DB		SIO_A_C				;DESTINATION IS CHANNEL A COMMAND/STATUS
 ; 		DB		00011000B			;SELECT WRITE REGISTER 0
 ; 									;BITS 2,1,0 = 0 (WRITE REGISTER 0)
 ; 									;BITS 5.4.3 = 011 (CHANNEL RESET)
 ; 									;BITS 7,6 = 0 (DO NOT CARE)
 ; 			;SET INTERRUPT VECTOR AND ALLOW STATUS TO AFFECT IT
 ; 		DB		4					;OUTPUT 2 BYTES
-; 		DB		SIO_0_B_C				;DESTINATION IS COMMAND REGISTER B
+; 		DB		SIO_B_C				;DESTINATION IS COMMAND REGISTER B
 ; 		DB		00000010B			; SELECT WRITE REGISTER 2
-; 		DB		SIO_0_Int_Vec&0FFH			;SET INTERRUPT VECTOR FOR SIO_0
+; 		DB		SIO_Int_Vec&0FFH			;SET INTERRUPT VECTOR FOR SIO_0
 ; 		DB		00000001B			;SELECT WRITE REGISTER 1
 ; 		DB		00000100B			;ALLOW STATUS TO AFFECT VECTOR
 ; 			; INITIALIZE CHANNEL A
 ; 		DB		8					;OUTPUT 8 BYTES
-; 		DB		SIO_0_A_C				;DESTINATION IS COMMAND REGISTER A
+; 		DB		SIO_A_C				;DESTINATION IS COMMAND REGISTER A
 ; 			; INITIALIZE BAUD RATE CONTROL
 ; 		DB		00010100B			;SELECT WRITE REGISTER 4
 ; 									; RESET EXTERNAL/STATUS INTERRUPT
@@ -698,7 +698,6 @@
 
 
 ;****************************************************************************************************************
-;****************************************************************************************************************
 		; Buffered Input/Output
 		; Using an SIO_0 (SINTB)                                                                                    11C
 		; 		Title              Interrupt input and output using a ZSO SIO_0 and
@@ -777,13 +776,18 @@
 		; 		; 1 1/2 STOP BITS
 ;****************************************************************************************************************
 ;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
 
 		; Section IOLIB
 
 
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
 		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey,RetInpStatus
-		GLOBAL	PIO_Init,CTC_Init,SIO_0_Init,InitInterrupt,CTC1_INT_OFF,initSIOBInterrupt
+		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterrupt,CTC1_INT_OFF,initSIOBInterrupt
+		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB
+		GLOBAL 	SIO_B_EI,SIO_B_RX_INTon,SIO_B_TXRX_INToff,SIO_B_EI,SIO_B_DI
 
 
 			;ARBITRARY SIO_0 PORT ADDRESSES
@@ -968,7 +972,7 @@ GetOutStatus:
 			; INITIALIZE SIO_0, Interrupt system
 InitBuffers:
 			; initialize buffer counters and pointers.
-		sub		A
+		sub		A					; zero A
 		ld		(OutINTExpect),A	; indicate no output interruptS
 		ld		(inBufCount),A		; buffer counters = 0
 		ld		(OutBufCount),A
@@ -978,7 +982,7 @@ InitBuffers:
 		ret
 
 cleanInBuffer:
-		sub		A
+		sub		A					; zero A
 		ld		(inBufCount),A		; buffer counters = 0
 		ld 		(inbufferDeactivate),A  ; clear flag for input buffer update...
 		ld		HL,inBuffer			; all buffer pointers = base address
@@ -986,29 +990,38 @@ cleanInBuffer:
 		ld		(inTailAdr),HL
 		ret
 cleanOutBuffer:
-		sub		A
+		sub		A					; zero A
 		ld		(OutBufCount),A
 		ld		HL,outBuffer
 		ld		(outHeadAdr),HL
 		ld		(outTailAdr),HL
 		ret
+
+;******************************************************************************
 InitInterrupt:
 			;INITIALIZE INTERRUPT VECTORS (SIO_0)
 			; initialize . interrupt flag
-		ld		A,SIO_0_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE
+		ld		A,SIO_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE   (F400 >> 8 = F4)
 		ld		I,A             ;SET INTERRUPT VECTOR IN zao
 		im		2               ; INTERRUPT MODE 2 - VECTORS IN TABLE
 		ld		HL,ReadINTHandler      	 ; ON INTERRUPT PAGE
-		ld		(SIO_0_Int_Read_Vec),HL		;STORE READ VECTOR
+		ld		(SIO_Int_Read_Vec),HL		;STORE READ VECTOR
 		ld		HL,WriteINTHandler
-		ld		(SIO_0_Int_WR_Vec),HL		;STORE WRITE VECTOR
+		ld		(SIO_Int_WR_Vec),HL		;STORE WRITE VECTOR
 		ld		HL,ExternINTHandler
-		ld		(SIO_0_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
+		ld		(SIO_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
 		ld		HL,SpecINTHandler
-		ld		(SIO_0_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
+		ld		(SIO_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
 		ld		HL,ReadUSBHandler      	 ; ON INTERRUPT PAGE
-		ld		(SIO_0_USB_Read_Vec),HL		;STORE READ VECTOR
-
+		ld		(SIO_USB_Read_Vec),HL		;STORE READ VECTOR
+		
+		ld 		HL,Write_USB_Handler
+		ld		(SIO_USB_WR_Vec),HL		;STORE READ VECTOR
+		ld 		HL,Extern_B_USB_Handler
+		ld 		(SIO_USB_EXT_Vec),HL
+		ld 		HL,SpecINT_B_USB_Handler
+		ld 		(SIO_USB_Spec_Vec),HL
+		
 				; INT Vectors  for the CTC 
 		ld		HL,CTC_CH0_Interrupt_Handler
 		ld		(CTC_CH0_I_Vector),HL		;STORE CTC channel 0 VECTOR
@@ -1020,20 +1033,23 @@ InitInterrupt:
 		ld		(CTC_CH3_I_Vector),HL		;STORE CTC channel 3 VECTOR
 
 		ret
-SIO_0_Init:		
+SIO_Init:		
 		;INITIALIZE I/O PORTS
 		ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
 		call    InitSIO_0Ports			; INITIALIZE SIO_0
 		ei						; ENABLE INTERRUPTS
 		ret
-			;INPUT (READ) INTERRUPT HANDLER
+
+
+;******************************************************************************
+				;Channel A: INPUT (READ) INTERRUPT HANDLER
 ReadINTHandler:
 		push	AF				;SAVE REGISTERS
 		push	BC
 		push	DE
 		push   	HL
 	
-		in		A,(SIO_0_A_D)		; read data from SIO_0
+		in		A,(SIO_A_D)		; read data from SIO_0
 		ld		C,A					; save data in register c
 		ld 		a,(inbufferDeactivate)
 		cp 		$00 					; =0 		
@@ -1055,16 +1071,18 @@ exitRHandler:
 		pop		AF
 		ei						;reenable interrupts
 		reti
-			;output (write) interrupt handler
+
+;******************************************************************************
+			;Channel A: output (write) interrupt handler
 WriteINTHandler:
 		push	AF					;save registers
 		push	BC
 		push	DE
 		push	HL
-		ld		A, (OutBufCount)			;get output buffer counter
+		ld		A, (OutBufCount)	;get output buffer counter
 		or		A					;test for empty buffer
 		jr		Z,nodata			;jump if no data to transmit
-		call	CharToSIO_0				;else output data
+		call	CharToSIO_0			;else output data
 		jr		wrdone
 			;if an output interrupt occurs when no data is available.
 			; we must disable output interrupts to avoid an endless loop.
@@ -1075,9 +1093,9 @@ WriteINTHandler:
 nodata:
 		sub		A
 		ld		(OutINTExpect),a				;00 not expect an interrupt
-		out		(SIO_0_A_C),a			;select register 0
+		out		(SIO_A_C),a			;select register 0
 		ld		a,00101000b			;reset transmitter interrupt
-		out		(SIO_0_A_C),a
+		out		(SIO_A_C),a
 wrdone:
 		pop		HL					;restore registers
 		pop		DE
@@ -1085,12 +1103,142 @@ wrdone:
 		pop		AF
 		ei
 		reti
+;******************************************************************************
+
+
+
+		; *** 	interrupt at input from HC376S
+ReadUSBHandler:
+		in  	A,(sio_bd)		  		;read char from SIO B
+		ld 		E,A
+
+		;GPIODEBUG
+		push HL
+		ld  HL,(TempVar4)
+		ld  (HL),a
+		inc HL
+		ld (TempVar4),HL
+		pop HL
+
+		;GPIODEBUG
+		ld a,1
+		out (gpio_out),A
+		ld a,0
+		out (gpio_out),A
+		ld a,e
+
+		call 	purgeRXB
+
+		; in  	A,(CH1)
+		; ld 		(TempVar8),A
+		; in  	A,(CH0)
+		; ld 		(TempVar7),A
+; 		cp 		USB_INT_CONNECT
+; 		jr  	NZ,.p2
+; 		call 	writeSTRBelow_CRLF
+; 		db		0,">USB_INT_CONNECT",0,0
+; 		jr 		.p3
+; .p2:
+; 		cp 		USB_INT_DISCONNECT
+; 		jr 		NZ,.p3
+; 		call 	writeSTRBelow_CRLF
+; 		db		0,">USB_INT_DISCONNECT",0,0
+.p3:
+		
+
+		ei
+		reti
+;********************************************************************************************     
+Write_USB_Handler:
+		;GPIODEBUG
+		ld a,20
+		out (gpio_out),A
+		ld a,0
+		out (gpio_out),A
+		ld a,e
+
+		ei
+		reti
+			;external/status changed interrupt handler
+Extern_B_USB_Handler:
+		;GPIODEBUG
+		ld a,21
+		out (gpio_out),A
+		ld a,0
+		out (gpio_out),A
+		ld a,e
+		ei							; dcd or cts line changed state. or a
+		reti						; break was detected
+									; service here if necessary
+			;special receive error interrupt
+SpecINT_B_USB_Handler:
+		;GPIODEBUG
+		ld a,22
+		out (gpio_out),A
+		ld a,0
+		out (gpio_out),A
+		ld a,e
+		ei							;framing error or overrun error occurred
+		reti						; service here if necessary
+
+
+SIO_B_RX_INTon:
+		;enable SIO_0 channel A RX
+		ld		A,WR1							;write into WR0: select WR1
+		out		(sio_bc),A
+		ld 		A,_Int_All_Rx_Char_NP|_Status_Vector  		;RX interrupt on
+		out		(sio_bc),A	Channel A RX active
+		RET
+
+
+SIO_B_TXRX_INToff:
+		;enable SIO_0 channel B RX
+		ld		A,WR1			; write into WR0: select WR1
+		out		(sio_bc),A
+		ld		A,00h			; RX and TX interrupt off
+		out		(sio_bc),A		; Channel B RX 
+		RET
+
+SIO_B_EI:
+		;enable SIO_0 channel B RX
+		ld		a,003h			;write into WR0: select WR3
+		out		(sio_bc),A
+		ld		a,0C1h			;RX 8bit, auto enable off, RX on
+		out		(sio_bc),A	Channel A RX active
+		RET
+	
+	
+SIO_B_DI:
+		;disable SIO_0 channel B RX
+		ld		a,WR3			;write into WR0: select WR3
+		out		(sio_bc),A
+		ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
+		out		(sio_bc),A
+		;Channel A RX inactive
+		ret
+
+
+
+
+;********************************************************************************************     
+
+
+				; return with A=0, Z set
+CTC1_INT_OFF:
+		ld		A,_Counter|_Rising|_Reset|_CW	
+		out		(CH1),A			; reset and turn off interrupt CH1
+		xor 	A 				; clear A
+		ld 		(CTCdelayFlag),A ; reset timeout flag
+		ret							; return with A=0, Z set
+;******************************************************************************
+
+
 			;external/status changed interrupt handler
 ExternINTHandler:
 		push	AF
 		ld		A,00010000b			;reset status interrupt
 
-		out		(SIO_0_A_C),a
+		out		(SIO_A_C),a
 		pop		AF
 		ei							; dcd or cts line changed state. or a
 		reti						; break was detected
@@ -1099,7 +1247,7 @@ ExternINTHandler:
 SpecINTHandler:
 		push	AF
 		ld		A,00110000b			;reset receive error interrupt
-		out		(SIO_0_A_C),a
+		out		(SIO_A_C),a
 		pop		AF
 		ei							;framing error or overrun error occurred
 		reti						; service here if necessary
@@ -1114,7 +1262,9 @@ SpecINTHandler:
 CharToSIO_0:
 		ld		HL,(outHeadAdr)
 		ld		A, (HL)					;get data from head of output buffer
-		out		(SIO_0_A_D),A			;output data
+		out		(SIO_A_D),A			;output data
+
+
 		call	incOutPointer			; increment head pointer
 		ld		(outHeadAdr),HL
 		ld		HL,OutBufCount			;decrement output buffer count
@@ -1217,16 +1367,16 @@ SIO_0INT:
 
 
 		;sET INTERRUPT VECTOR AND ALLOW STATUS TO AFFECT IT
-		db	4					;OUTPUT 2 BYTES
-		db	SIO_0_B_C			;DESTINATION IS COMMAND REGISTER B
+		db	4					;OUTPUT 4 BYTES
+		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
 		db	WR2					;SELECT WRITE REGISTER 2
-		db	SIO_0_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR SIO_0
+		db	SIO_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR SIO_0
 		db	WR1					;SELECT WRITE REGISTER 1
 		db	_Status_Vector		;TURN ON STATUS AFFECTS VECTOR
 
 		; INITIALIZE CHANNEL A
 		db	8					;OUTPUT 8 BYTES
-		db	SIO_0_A_C			;DESTINATION IS COMMAND REGISTER A
+		db	SIO_A_C			;DESTINATION IS COMMAND REGISTER A
 
 		;iNITIALIZE BAUD RATE CONTROL
 		db	_Reset_STAT_INT|4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
@@ -1268,7 +1418,7 @@ SIO_0INT:
 
 		; INITIALIZE CHANNEL B
 		db	8					;OUTPUT 8 BYTES
-		db	SIO_0_B_C			;DESTINATION IS COMMAND REGISTER B
+		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
 
 		;iNITIALIZE BAUD RATE CONTROL
 		db	_Reset_STAT_INT|WR4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
@@ -1286,6 +1436,12 @@ SIO_0INT:
 		; DB	_Tx_INT_EN|_Int_All_Rx_Char_NP|_Status_Vector
 
 		DB	0               ; END OF TABLE
+		
+;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
+;****************************************************************************************************************
 		; DATA SECTION
 		; Moved to linker script 
 ; inHeadAdr:	DS	2					; address of oldest character in input buffer
@@ -1388,11 +1544,11 @@ PIO_Init:
 		di
 ;----------******************* PIO PORT B
 		ld A, %11001111                 ;mode 3 in/out
-		out (portB_Contr), A         ; set port A as output
+		out (portB_Contr), A         ; set port B as output
 		ld A, $00                    ;mode 0 output 
-		out (portB_Contr), A         ; set port A as output
+		out (portB_Contr), A         ; set port B as output
 		ld A, $03
-		out (portB_Contr), A         ; PIO A interrupt disable
+		out (portB_Contr), A         ; PIO B interrupt disable
 		ld a,0
 		ld (PIO_B_value),a
 		out (portB_Data), a
@@ -1460,22 +1616,22 @@ showtimeout:
 
 CTC_Init:
 
+		; ------Reset all---------------
+		ld		A,_Reset		; reset channel
+		out		(CH0),A
+		out		(CH1),A
+		out		(CH2),A
+		out		(CH3),A
+
 		; ------INIT interrupt vectors for SIO /CTC---------------
 		ld 		HL,CTC_CH0_I_Vector          (F410)
 		ld  	A,L					; copy low byte
 		out 	(CH0),A
 
-		; ------INIT CTC2 Baud frequence  for  10 MHz version SIO------- 
-		; 		Baud 		SIO_0,clockmode  CTCprescaler freq
-		;		115200		16x				2			3,684	
-		;		57600		16x				4			3,684
-		;		38400		16x				6			3,684
-		;		19200		16x				12			3,684
-		; 		9600		16x				24			3,684
 
 		ld 	 	A,_Counter|_TC_Follow|_Reset|_CW
 		out		(CH2),A
-		ld		A,2			; time constant defined
+		ld		A,2				; time constant defined
 		out		(CH2),A			; and loaded into channel 2
 
 
@@ -1489,17 +1645,16 @@ CTC_Init:
 		; out		(CH0),A			; and loaded into channel 0
 		ret
 
+		; ------INIT CTC2 Baud frequence  for  10 MHz version SIO------- 
+		; 		Baud 		SIO_0,clockmode  CTCprescaler freq
+		;		115200		16x				2			3,684	
+		;		57600		16x				4			3,684
+		;		38400		16x				6			3,684
+		;		19200		16x				12			3,684
+		; 		9600		16x				24			3,684
+
 
 ;********************************************************************************************     
-;********************************************************************************************     
-
-				; return with A=0, Z set
-CTC1_INT_OFF:
-		ld		A,_Counter|_Rising|_Reset|_CW	
-		out		(CH1),A			; reset and turn off interrupt CH1
-		xor 	A 				; clear A
-		ld 		(CTCdelayFlag),A ; reset timeout flag
-		ret							; return with A=0, Z set
 
 .end
 

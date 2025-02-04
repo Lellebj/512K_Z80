@@ -45,64 +45,73 @@ PLD_PCB_Start:
 		align	3
 
 .initRH:
+		;GPIODEBUG
 		ld 		A,$33
 		out 	(gpio_out),A
 
 
 
-		
-
 		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
-		ld		DE,SRAM_VAR_START		; defined in linker script
-		ld		hl,zero_byte
-		
-		ld 		BC,HEAP_SIZE			; defined in linker script
 
-.cl_vars:
-		ldi
-		dec 	hl
-		jp		PE,.cl_vars			; 		P/V is set if BC – 1 ≠ 0; otherwise, it is reset.
 
-		ld 		($F120),SP
+		ld 		(SP_value),SP
 		ld 		A,$AA
+		;GPIODEBUG
 		out 	(gpio_out),A
 
 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
 			; initialize buffer counters and pointers.
-	 
-		call	PIO_Init
-		
-		call 	CTC_Init
-		ld 		A,$CC
+	 	ld 		A,$BB
+		;GPIODEBUG
 		out 	(gpio_out),A
 
-		call 	SIO_0_Init
-		
+		call	PIO_Init
+		ld 		A,$CC
+		;GPIODEBUG
+		out 	(gpio_out),A
+
+		call 	CTC_Init
+		ld 		A,$DD
+		;GPIODEBUG
+		out 	(gpio_out),A
+
+		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+		ld 		A,$DF
+		;GPIODEBUG
+		out 	(gpio_out),A
+
 		call	S_head_tail			; save input heads and tails
+		;GPIODEBUG
 		ld 		A,$81
 		out 	(gpio_out),A
 
 		; call	sh_test
-		;call 	Flash_WR_Test
-		;ld		HL,$2010
-		;call	Flash_SE_Erase
+		; call 	Flash_WR_Test
+		; ld	HL,$2010
+		; call	Flash_SE_Erase
 
 		call	CRLF
 		call 	writeSTRBelow
 		defb   	"\0\r\n"
 		defb	"##########################################################\r\n"
-		defb	"The Z80 Board Awakened 2024\r\n"
+		defb	"The Z80 Board Awakened 2025\r\n"
 		defb	"    git: @@GIT_VERSION@@\r\n"
 		defb	"    build: @@DATE@@\r\n"
 		defb	"    FLASH->SRAM 0xD000.\r\n"
 		defb	"\0"
 
+		;GPIODEBUG
+		ld 		A,$83
+		out 	(gpio_out),A
 
 		call	CRLF
 
 next_line:
 
 		call 	initCommParseTable
+		;GPIODEBUG
+		ld 		A,$85
+		out 	(gpio_out),A
 
 		; ***	indicate memory banks   F[x]  Flash memory bank x
 		; ***	indicate memory banks   S[y]  SRAM memory bank y
@@ -136,6 +145,9 @@ useFlash:
 .cont:
 		ld  	(HL),']'
 		inc 	HL
+
+		ld 		A,$87
+		out 	(gpio_out),A
 
 		; 	*** Print prompt text to screen, value of PC and content in memory
 		ld 		DE,(PCvalue)
@@ -707,8 +719,11 @@ p_exe:
 		out (gpio_out),A
 
 		call 	purgeRXB					; XMODEM_CRC_SUB.s
-		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
+		; call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
 		call 	HC376S_ResetAll
+
+		call 	CTC1_INT_OFF
+
 		jr 		.abort
 		call 	HC376S_CheckConnection
 
@@ -779,7 +794,6 @@ p_FON:
 
 		call 	enableFLASH
 
-
 		call 	writeSTRBelow
 		DB 		0," Use 256k FLASH (7 banks),lower 32k and SRAM (bank16),upper 32k !",CR,LF,00
 		ret
@@ -835,7 +849,7 @@ p_xmod:
 
 		call 	doImportXMODEM
 
-		call 	SIO_0_A_TXRX_INTon
+		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
 	
 		ret
@@ -844,12 +858,19 @@ p_C_Read:
 
 		call 	checkArgsTAL				; check necessary args
 		jp		NZ,argumentsError			; show argument error and return
-
+	
 		ld 		DE,CTC_delay_INT_handler
 		ld 		(CTC_CH1_I_Vector),DE
 
-		call 	purgeRXB
-		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S)
+		ld  	DE,$0020
+		ld 		(TempVar4),DE
+
+		;GPIODEBUG
+		xor A
+		out (gpio_out),A
+
+		call 	purgeRXB					; XMODEM_CRC_SUB.s
+		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
 		call 	HC376S_ResetAll
 		call 	HC376S_CheckConnection
 		ld 		A,(commParseTable)
@@ -1277,41 +1298,41 @@ textloop:
 ; 		ldir
 
 
-; SIO_0_A_RESET:
+; SIO_A_RESET:
 ; 		ld	a,00110000b
-; 		out	(SIO_0_A_C),A		;write into WR0: error reset, select WR0
+; 		out	(SIO_A_C),A		;write into WR0: error reset, select WR0
 
 ; 		ld	a,018h				;write into WR0: channel reset
-; 		out (SIO_0_A_C),A 
+; 		out (SIO_A_C),A 
 
 ; 		ld	a,004h				;write into WR0: select WR4
-; 		out	(SIO_0_A_C),A
+; 		out	(SIO_A_C),A
 ; 		ld	a,44h				;44h write into WR4: clkx16,1 stop bit, no parity
-; 		out (SIO_0_A_C),A
+; 		out (SIO_A_C),A
 
 ; 		ld	a,005h				;write into WR0: select WR5
-; 		out (SIO_0_A_C),A
+; 		out (SIO_A_C),A
 ; 		ld	a,01101000b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS inactive (bit 2)
 ; 		ld	a,01101010b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS active (bit 2)
-; 		out (SIO_0_A_C),A
-; SIO_0_A_EI:
+; 		out (SIO_A_C),A
+; SIO_A_EI:
 ; 			;enable SIO channel A RX
 ; 		ld	a,003h				;write into WR0: select WR3
-; 		out (SIO_0_A_C),A
+; 		out (SIO_A_C),A
 ; 		ld	a,11000001b				;RX 8bit, auto enable off 8(bit 5), RX on (bit 0)
 ; 		ld	a,11100001b				;RX 8bit, auto enable on 8(bit 5), RX on (bit 0)
-; 		out (SIO_0_A_C),A
+; 		out (SIO_A_C),A
 ; 		;Channel A RX active
 
 
 ; 		ld 	HL,Str0
 ; tstout:
 ; 		ld 	A,(HL)
-; 		out (SIO_0_A_D),A
+; 		out (SIO_A_D),A
 ; 		inc HL
 ; 		ld D,A
 ; chkTX:
-; 		in	A,(SIO_0_A_C)		; read status
+; 		in	A,(SIO_A_C)		; read status
 ; 		bit	2,A					; all sent ?
 ; 		jr z,chkTX				; not all sent..
 
@@ -1324,15 +1345,15 @@ textloop:
 
 ; endmsg:
 ; chkRX:
-; 		in	A,(SIO_0_A_C)		; read status
+; 		in	A,(SIO_A_C)		; read status
 ; 		bit	0,A					; char present ??
 ; 		jr z,chkRX				; check again
 
-; 		in 	A,(SIO_0_A_D)		; read the char.
+; 		in 	A,(SIO_A_D)		; read the char.
 
-; 		out (SIO_0_A_D),A
+; 		out (SIO_A_D),A
 ; chkTX2:
-; 		in	A,(SIO_0_A_C)		; read status
+; 		in	A,(SIO_A_C)		; read status
 ; 		bit	2,A					; all sent ?
 ; 		jr z,chkTX2
 		

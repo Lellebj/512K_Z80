@@ -81,20 +81,20 @@ START:
 			DI                          ;Disable interrupts
 						
 ;Initialise interrupt vectors
-			LD      HL,SIO_0_IntVectors           ;Get Interupt high page number
+			LD      HL,SIO_IntVectors           ;Get Interupt high page number
 			LD      A,H                 ;Save H in A
 			LD      I,A                 ;Set interrupt vector high address (0B)
 			IM      2                   ;Interrupt Mode 2, Vector in table
 
 ;Link interrupt vector address to handler routines
 			LD      HL,Read_Handle      ;Store Read Vector
-			LD      (SIO_0_ReadVector),HL         ;
+			LD      (SIO_ReadVector),HL         ;
 			LD      HL,Write_Handle     ;Store Write Vector
-			LD      (SIO_0_WriteVector),HL         ;
+			LD      (SIO_WriteVector),HL         ;
 			LD      HL,External_Handle  ;Store External Status Vector
-			LD      (SIO_0_ExternalVector),HL         ;
+			LD      (SIO_ExternalVector),HL         ;
 			LD      HL,Error_Handle     ;Store Receive Error Vector
-			LD      (SIO_0_SpecialVector),HL         ;
+			LD      (SIO_SpecialVector),HL         ;
 
 ;Initialise the SIO_0
 			CALL    Init_SIO_0            ;Set up the SIO_0 
@@ -149,12 +149,12 @@ Read_Handle:
 ;Buffer is full
 			LD		A,0EEH				;Buffer is full
 			LD		(BufStat),A			;Put EE in BUFF overflow
-			IN		A,(SIO_0_A_D)		;Read overflow byte to clear interrupt
+			IN		A,(SIO_A_D)		;Read overflow byte to clear interrupt
 			LD		(CByteRec),A		;Save data in input buffer
 			JR		Read_EXIT			;Exit Safely
 ;Buffer in not full
 Read_OK:    
-			IN		A,(SIO_0_A_D)		;Read data from SIO_0
+			IN		A,(SIO_A_D)		;Read data from SIO_0
 			LD		(CByteRec),A		;Save data in input buffer
 			LD		HL,CBufLoc			;Load Buffer in HL
 			LD		L,B					;Load Head Pointer to L to index the Circular Buffer
@@ -187,7 +187,7 @@ Write_Handle:
 Reset_TX_INT:
 ;Buffer is Empty, reset transmit interrupt
 			LD		A,00101000B			;Reset SIO_0 Transmit Interrupt
-			OUT		(SIO_0_A_C),A		;Write into WR0
+			OUT		(SIO_A_C),A		;Write into WR0
 Exit_from_Write:
 			POP		AF					;Restore AF
 			EI							;Reenable Interrupts
@@ -197,7 +197,7 @@ Exit_from_Write:
 External_Handle:
 			PUSH	AF					;Save AF
 			LD		A,00010000B			;Reset Status Interrupt
-			OUT		(SIO_0_A_C),A		;Write into WR0
+			OUT		(SIO_A_C),A		;Write into WR0
 			POP		AF					;Restore AF
 			EI							;Reenable Interrupts
 			RETI                        ;Return from Interrupt
@@ -206,7 +206,7 @@ External_Handle:
 Error_Handle:
 			PUSH	AF					;Save AF
 			LD		A,00110000B			;Reset Receive Error Interrupt
-			OUT		(SIO_0_A_C),A		;Write into WR0
+			OUT		(SIO_A_C),A		;Write into WR0
 			POP		AF					;Restore AF
 			EI							;Reenable Interrupts
 			RETI						;Return from Interrupt
@@ -229,7 +229,7 @@ TX_data_Tail:
 			LD		HL,CBufLoc			;Load Buffer in HL
 			LD		L,B					;Load Tail Pointer to L to index the Circular Buffer
 			LD		A,(HL)				;Get byte at Tail.
-			OUT		(SIO_0_A_D),A		;Transmit byte to SIO_0
+			OUT		(SIO_A_D),A		;Transmit byte to SIO_0
 ;Output has occured
 			LD		A,L					;Load Tail Pointer to A
 			INC		A					;Increase Tail pointer by 1
@@ -270,7 +270,7 @@ Setup_SIO_0:
 CTLTBL:              
 ;Reset Channel A
 			DB 01H                      ;1 Line
-			DB SIO_0_A_C                   ;A Port Command
+			DB SIO_A_C                   ;A Port Command
 			DB 00011000B                ;write into WR0: channel reset
 			
 ;Set Interrupt Vector and allow status to affect it. The WR2 allows the user to set
@@ -278,7 +278,7 @@ CTLTBL:
 ;interrupt.  The other bits can be set here, Since my vector tables starts at 0B00,
 ;the register can just be set to 0;
 			DB 04H                      ;4 Lines
-			DB SIO_0_B_C                   ;B Port Command
+			DB SIO_B_C                   ;B Port Command
 			DB 00000010B                ;write into WR0: select WR2
 			DB 00000000B                ;write into WR2: set base interrupt vector for SIO_0 (0B00)
 			DB 00000001B                ;write into WR0: select WR1
@@ -286,7 +286,7 @@ CTLTBL:
 			
 ;Initialise Channel A
 			DB 08H                      ;8 Lines
-			DB SIO_0_A_C                   ;A Port Command
+			DB SIO_A_C                   ;A Port Command
 			DB 00010100B                ;write into WR0: select WR4 / Reset Int
 			DB 11000100B                ;write into WR4: presc. 64x, 1 stop bit, no parityx
 			DB 00000011B                ;write into WR0: select WR3

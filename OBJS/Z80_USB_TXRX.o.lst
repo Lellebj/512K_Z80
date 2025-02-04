@@ -1,0 +1,1945 @@
+Sections:
+00: "Functions" (0-72C)
+
+
+Source: "stdin"
+                        	     1: ;
+                        	     2: 
+                        	     3: 
+                        	     4: 		INCLUDE "Z80_Params_.inc"
+
+Source: "Z80_Params_.inc"
+                        	     1: ;Z80_PLD_PCB_.asm
+                        	     2: 
+                        	     3: 
+                        	     4: 
+                        	     5: ; ;Function addresses
+                        	     6: ; setcursor		= $3100
+                        	     7: ; writecommand	= $3180
+                        	     8: ; writedata		= $3140
+                        	     9: ; testBusyFlag    = $31B0
+                        	    10: ; HD44780_main_init = $3000
+                        	    11: stacktop: equ	0xFFF0	
+                        	    12: 
+                        	    13: 
+                        	    14: ; PIO addressess...
+                        	    15: ;******************************************
+                        	    16: 	  ; _Z80PIO_Base= $00
+                        	    17: portA_Contr:	equ _Z80PIO_Base + 1
+                        	    18: portB_Contr:	equ _Z80PIO_Base + 3
+                        	    19: portA_Data:		equ _Z80PIO_Base + 0
+                        	    20: portB_Data:		equ _Z80PIO_Base + 2
+                        	    21: 
+                        	    22: 
+                        	    23: gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
+                        	    24: gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
+                        	    25: gpioB:			equ		portB_Data
+                        	    26: 
+                        	    27: ; SIO_0 stuff
+                        	    28: ;******************************************
+                        	    29: SIO_A_D:		equ	_Z80SIO_Base	  ; = $20
+                        	    30: 				;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	    31: SIO_A_C:		equ	_Z80SIO_Base+2
+                        	    32: 				;SIO_0  CHANNEL B DATA
+                        	    33: SIO_B_D:		equ	_Z80SIO_Base+1
+                        	    34: 				;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	    35: SIO_B_C:		equ	_Z80SIO_Base+3
+                        	    36: 
+                        	    37: sio_ac: 		equ 	SIO_A_C
+                        	    38: sio_ad: 		equ 	SIO_A_D
+                        	    39: sio_bc: 		equ 	SIO_B_C
+                        	    40: sio_bd: 		equ 	SIO_B_D
+                        	    41: 
+                        	    42: Interupt_vector		= SIO_Int_Vec
+                        	    43: 
+                        	    44: SIO_Int_Vec		EQU     $F400				; interrupt vector 
+                        	    45: SIO_Int_WR_Vec	EQU     SIO_Int_Vec+8		;sio_0 channel A write interrupt vector
+                        	    46: SIO_Int_EXT_Vec	EQU     SIO_Int_Vec+10	;sio_0 channel A external/status ; interrupt vector
+                        	    47: SIO_Int_Read_Vec	EQU     SIO_Int_Vec+12	;sio_0 channel A read interrupt vector
+                        	    48: SIO_Int_Spec_Vec	EQU     SIO_Int_Vec+14	;sio_0 channel A special receive interrupt vector
+                        	    49: 
+                        	    50: 		
+                        	    51: SIO_USB_WR_Vec	EQU     SIO_Int_Vec+0		;sio_0 channel B write interrupt vector
+                        	    52: SIO_USB_EXT_Vec	EQU     SIO_Int_Vec+2		;sio_0 channel B external/status ; interrupt vector
+                        	    53: SIO_USB_Read_Vec	EQU     SIO_Int_Vec+4		;sio_0 channel B read interrupt vector
+                        	    54: SIO_USB_Spec_Vec	EQU     SIO_Int_Vec+6		;sio_0 channel B special receive interrupt vector
+                        	    55: 
+                        	    56: ;Write register 0
+                        	    57: WR0 equ 0
+                        	    58: _Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
+                        	    59: _Ch_Reset		equ 3<<3			; 18
+                        	    60: _EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
+                        	    61: _Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
+                        	    62: _Error_Reset 	equ $30				; (30)	
+                        	    63: _Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
+                        	    64: 
+                        	    65: ;Write register 1
+                        	    66: WR1 equ 1
+                        	    67: _Ext_INT_EN			equ 1
+                        	    68: _Tx_INT_EN 			equ 2
+                        	    69: _Status_Vector		equ 4
+                        	    70: _Rx_INT_Disable		equ 0
+                        	    71: _Rx_INT_First_Char  equ $08
+                        	    72: _INT_All_Rx_Char_P 	equ $10 
+                        	    73: _Int_All_Rx_Char_NP	equ $18
+                        	    74: _WAIT_READY_R_T 	equ $20
+                        	    75: _WAIT_READY_FUNC	equ $40
+                        	    76: _WAIT_READY_EN		equ $80
+                        	    77: 
+                        	    78: WR2 equ 2
+                        	    79: 
+                        	    80: ;Write register 3
+                        	    81: WR3 equ 3
+                        	    82: _Rx_Enable 			equ $01
+                        	    83: _Rx_Disable 		equ $00
+                        	    84: _Auto_Enable		equ $20
+                        	    85: _RX_5_bits			equ $00
+                        	    86: _RX_6_bits			equ $40
+                        	    87: _RX_7_bits			equ $80
+                        	    88: _RX_8_bits			equ $C0
+                        	    89: 
+                        	    90: ;Write register 4
+                        	    91: WR4 equ 4
+                        	    92: _Parity_EN			equ $01
+                        	    93: _Parity_Even		equ $02
+                        	    94: _Stop_1_bit			equ $04
+                        	    95: _Stop_1_2_bit		equ $08
+                        	    96: _Stop_2_bit			equ $0C
+                        	    97: _X1_Clock_mode		equ $00
+                        	    98: _X16_Clock_mode		equ $40
+                        	    99: _X32_Clock_mode		equ $80
+                        	   100: _X64_Clock_mode		equ $C0
+                        	   101: 
+                        	   102: ;Write register 5
+                        	   103: WR5 equ 5
+                        	   104: _RTS_Enable			equ $02
+                        	   105: _Tx_Enable 			equ $08
+                        	   106: _Send_Break			equ $10
+                        	   107: _Tx_5bits_char		equ $00
+                        	   108: _Tx_7bits_char		equ $20
+                        	   109: _Tx_6bits_char		equ $40
+                        	   110: _Tx_8bits_char		equ $60
+                        	   111: _DTR_Enable 		equ $80
+                        	   112: 
+                        	   113: EOT_FOUND			equ $02
+                        	   114: _err01_				equ	$08
+                        	   115: _err02_				equ	$09
+                        	   116: _err03_				equ	$0C
+                        	   117: _err04_				equ	$0D
+                        	   118: _err05_				equ	$0E
+                        	   119: CTCpulse			equ $0A
+                        	   120: CTCtimeout			equ $0B
+                        	   121: 
+                        	   122: 
+                        	   123: ; CTC stuff
+                        	   124: ;******************************************
+                        	   125: CH0		equ 	_Z80CTC_Base	  ; = $10
+                        	   126: CH1		equ 	_Z80CTC_Base+1	
+                        	   127: CH2		equ 	_Z80CTC_Base+2	
+                        	   128: CH3		equ 	_Z80CTC_Base+3	
+                        	   129: 
+                        	   130: _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
+                        	   131: _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
+                        	   132: _Timer 		equ 	$00
+                        	   133: _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
+                        	   134: _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
+                        	   135: _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
+                        	   136: _TC_Follow 	equ 	$04		; D2 - 1 time constant follows
+                        	   137: _Reset 		equ 	$02		; D1 - 1 Software reset
+                        	   138: _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
+                        	   139: 
+                        	   140: ; Interrupt vectors for CTC
+                        	   141: CTC_CH0_I_Vector	EQU     SIO_Int_Vec+$10		;CTC channel 0 interrupt vector 
+                        	   142: CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector 
+                        	   143: CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
+                        	   144: CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
+                        	   145: 
+                        	   146: ; Data tables  (upper EPROM/FLASH)
+                        	   147: ; stack  				= $FF00
+                        	   148: Heap				= $F000				; space for variable storage
+                        	   149: 
+                        	   150: ; variables  	(upper ram)
+                        	   151: PIO_B_value:		= $F1D0
+                        	   152: Result_NumToHex:	= $F1F0
+                        	   153: 
+                        	   154: 
+                        	   155: ; _RAMSTART		= $8010	
+                        	   156: ; _EETESTPROG		= $100	
+                        	   157: 	
+                        	   158: ; _Z80PIO_Base	= $0
+                        	   159: ; _Z80CTC_Base	= $10
+                        	   160: ; _Z80SIO_Base	= $20
+                        	   161: ; _Z80_BankCS  	= 0x30;		/*	 30 - 3F   */
+                        	   162: ; _8Bitsout 		= $40;		/*	 40 - 4F  */
+                        	   163: ; _CE_RST_BANK 	= 0x50;		/*	 50 - 5F  */
+                        	   164: 
+                        	   165: ;*****	ALIGN command  : 00 removes all align commands
+                        	   166: DOALIGN 	EQU 	00
+                        	   167: 
+                        	   168: EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
+                        	   169: TestChar:		EQU		'A'				;TEST CHARACTER = A
+                        	   170: CRChar:			EQU		0DH				; carrige return
+                        	   171: LFChar:			EQU		0AH				; line feed
+                        	   172: NUL			EQU		00
+                        	   173: SOH			EQU		01
+                        	   174: STX			EQU		02
+                        	   175: ETX			EQU		03
+                        	   176: EOT			EQU		04
+                        	   177: ENQ			EQU		05
+                        	   178: ACK			EQU		06
+                        	   179: BEL			EQU		07
+                        	   180: BS			EQU		08h
+                        	   181: HT			EQU		09h
+                        	   182: LF			EQU		0AH
+                        	   183: VT			EQU		0BH
+                        	   184: FF			EQU		0CH
+                        	   185: CR			EQU		0DH
+                        	   186: SO			EQU		0Eh
+                        	   187: SI			EQU		0Fh
+                        	   188: DLE			EQU		10h
+                        	   189: DC1			EQU		11h
+                        	   190: DC2			EQU		12h
+                        	   191: DC3			EQU		13h
+                        	   192: DC4			EQU		14h
+                        	   193: NAK			EQU		15h
+                        	   194: SYN			EQU		16h
+                        	   195: ETB			EQU		17h
+                        	   196: CAN			EQU		18h
+                        	   197: EM			EQU		19h
+                        	   198: SUB			EQU		1Ah
+                        	   199: ESC			EQU		1Bh
+                        	   200: FS			EQU		1Ch
+                        	   201: GS			EQU		1Dh
+                        	   202: RS			EQU		1Eh
+                        	   203: US			EQU		1Fh
+                        	   204: ITEM		EQU		1Ch
+                        	   205: STEND		EQU		1Dh
+                        	   206: LISTEND		EQU		1Eh
+                        	   207: SP			EQU		20h
+                        	   208: 
+                        	   209: 
+                        	   210: ; 	Variables in SRAM   HEAP TOP  - Moved to load script !
+                        	   211: ;DATA LOCATIONS
+                        	   212: ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
+                        	   213: ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
+                        	   214: ; BufStat:		EQU     0D07H ;The state of the buffer okay (00), error (EE), auto (AA)        (1-byte)
+                        	   215: ; CByteRec:		EQU     0D08H ;Current byte received from SIO_0                                  (1-byte)
+                        	   216: ; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to SIO_0, or by key press FF=auto  (1-byte)
+                        	   217: ; KeyPressed:		EQU     0D0AH ;Key Pressed Flag, 00-False, FF-True                             (1-byte)
+                        	   218: 
+                        	   219: ;BUFFER CONFIGURATION
+                        	   220: ; CBufLoc:		EQU     0B00H ;Location of circular buffer
+                        	   221: ; CBufHead:		EQU     0D0BH ;Pointer to the Head of the Circular buffer                      (1-byte)
+                        	   222: ; CBufTail:		EQU     0D0CH ;Pointer to the Tail of the Circular buffer                      (1-byte)
+                        	   223: 
+                        	   224: ;BUFFER SIZES, change to suit
+                        	   225: ; BUFF16:			EQU     0FH   ;16 bytes
+                        	   226: ; BUFF32:			EQU     1FH   ;32 bytes
+                        	   227: ; BUFF64:			EQU     3FH   ;64 bytes
+                        	   228: ; BUFF128:		EQU     7FH   ;128 bytes
+                        	   229: ; BUFF256:		EQU     0FFH  ;256 bytes
+                        	   230: ; CBufSize:		EQU     BUFF32  ;16 bytes (Change if required)
+                        	   231: 
+                        	   232: 
+                        	   233: ;INTERRUPT VECTOR TABLE SETUP
+                        	   234: ;The interrupt will call one of these service routines depending on the type of interrupt
+                        	   235: ;There are 4 reasons the interrupt will occur:
+                        	   236: ; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
+                        	   237: ; 2. External/Status Change - Indicating a change in the modem line or break condition
+                        	   238: ; 3. Receive Character Available - Indicating that data has been sent to CPU
+                        	   239: ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
+                        	   240: ;
+                        	   241: ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
+                        	   242: ;address is the value in the interrupt register 'I'.  The Low byte of the address is
+                        	   243: ;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
+                        	   244: ;shows what bits are set on the data bus.  This is used to index the vector table:
+                        	   245: ;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
+                        	   246: ;
+                        	   247: ; Channel   D3  D2  D1  Addr  Interrupt type
+                        	   248: ; -------   --  --  --  ----  --------------
+                        	   249: ;    B       0   0   0   00H  Transmit Buffer Empty
+                        	   250: ;    B       0   0   1   02H  External/Status Change
+                        	   251: ;    B       0   1   0   04H  Receive Character Available
+                        	   252: ;    B       0   1   1   06H  Special Receive Condition
+                        	   253: ;    A       1   0   0   08H  Transmit Buffer Empty
+                        	   254: ;    A       1   0   1   0AH  External/Status Change
+                        	   255: ;    A       1   1   0   0CH  Receive Character Available
+                        	   256: ;    A       1   1   1   0EH  Special Receive Condition
+                        	   257: ;
+                        	   258: ; SIO_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
+                        	   259: ; SIO_WriteVector:		EQU		SIO_IntVectors+08H ;Write Interrupt Vector
+                        	   260: ; SIO_ExternalVector:	EQU		SIO_IntVectors+0AH ;External Status Interrupt Vector
+                        	   261: ; SIO_ReadVector:		EQU		SIO_IntVectors+0CH ;Read Interrupt Vector
+                        	   262: ; SIO_SpecialVector:		EQU		SIO_IntVectors+0EH ;Special Receive Interrupt Vector
+                        	   263: 
+                        	   264: 
+                        	   265: 	; SIO_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+                        	   266: 	; SIO_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+                        	   267: 	; SIO_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	   268: 	; SIO_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	   269: 
+                        	   270: ;****************************************************************************
+                        	   271: 
+                        	   272: 
+                        	   273: 
+                        	   274: 
+                        	   275: ; Define the memory size to be used for the CP/M configuration
+                        	   276: ; MEM:    equ 60
+                        	   277: 
+                        	   278: ; The CPM origin will be at: (MEM-7)*1024
+                        	   279: ; This screwy convention is due to the way that that the CP/M origin is defined.
+                        	   280: ; CPM_BASE:	equ	(MEM-7)*1024
+                        	   281: 
+                        	   282: ; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
+                        	   283: 
+                        	   284: 
+                        	   285: 
+
+Source: "stdin"
+                        	     5: 
+                        	     6: 
+                        	     7: ;*************************************************
+                        	     8: 		section 	Functions
+                        	     9: 
+                        	    10: ;****************************************************************
+                        	    11: USB_TEXT_LABLES		equ 15		; No additional text when using USB.
+                        	    12: 								; 1-low level of info; 15-high level of info
+                        	    13: 
+                        	    14: USB_INT_SUCCESS		equ $14
+                        	    15: USB_INT_CONNECT 	equ $15
+                        	    16: USB_INT_DISCONNECT 	equ $16
+                        	    17: USB_INT_BUF_OVER 	equ $17
+                        	    18: USB_INT_USB_READY 	equ $18
+                        	    19: USB_INT_DISK_READ 	equ $1D	
+                        	    20: USB_INT_DISK_WRITE 	equ $1E
+                        	    21: USB_INT_DISK_ERR 	equ $1F	
+                        	    22: CMD_RET_SUCCESS 	equ $51
+                        	    23: CMD_RET_ABORT	 	equ $5F
+                        	    24: ERR_OPEN_DIR		equ $41
+                        	    25: ERR_MISS_FILE 		equ $42
+                        	    26: ERR_FOUND_NAME		equ $43
+                        	    27: ERR_DISK_DISCON		equ $82
+                        	    28: ERR_LARGE_SECTOR	equ $84
+                        	    29: ERR_TYPE_ERROR		equ $92
+                        	    30: ERR_BPB_EROR		equ $A1 
+                        	    31: ERR_DISK_FULL		equ $B1 
+                        	    32: ERR_FDT_OVER		equ $B2
+                        	    33: ERR_FILE_CLOSE		equ $B4
+                        	    34: CTC_TIMEOUT 		equ $EE
+                        	    35: 
+                        	    36: 	
+                        	    37: 		xref 	delay_D0_ms,PrintD0ToScreen,SetHC376Timer
+                        	    38: 		GLOBAL	getResponseFromUSB,HC376S_CheckConnection,HC376S_ResetAll,HC376S_setUSBMode,HC376S_diskConnectionStatus
+                        	    39: 		GLOBAL 	HC376S_USBdiskMount,HC376S_setFileName,HC376S_fileOpen,HC376S_fileClose,HC376S_fileCreate
+                        	    40: 		GLOBAL 	HC376S_getFileSize,HC376S_fileRead,HC376S_fileDelete,HC376S_fileWrite,HC376S_setSDMode
+                        	    41: 		GLOBAL  delay100ms,CTC_delay_INT_handler
+                        	    42: 
+                        	    43: HC376S_CheckConnection::
+                        	    44: 
+00:0000 110D07          	    45: 		ld 		DE,CTC_delay_INT_handler
+00:0003 ED5312F4        	    46: 		ld 		(CTC_CH1_I_Vector),DE
+                        	    47: 
+00:0007 CD7706          	    48: 		call 	beginUART
+                        	    49: 
+00:000A 1E06            	    50: 		ld 		E,$06
+00:000C CD8206          	    51: 		call 	outByte367S
+                        	    52: 
+00:000F 1E81            	    53: 		ld	 	E,$81					;(hspace+8)			; Testvalue $55 response $AA
+00:0011 CD8206          	    54: 		call 	outByte367S
+                        	    55: 
+00:0014 CDC106          	    56: 		call 	delay20ms   			; start timout counter 20 ms
+                        	    57: 
+00:0017 CD5706          	    58: 		call 	waitForResponse 		; Z is set if no response from 376S, response in E
+00:001A CAB904          	    59: 		jp 		Z,endtest				; branch on timeout
+                        	    60: 		; ; call 	getResponseFromUSB		; get the actual data, in D0
+                        	    61: 		; ; response in E
+                        	    62: 
+00:001D CD0000          	    63: 		call 	SIO_B_DI
+00:0020 7B              	    64: 		ld  	A,E
+00:0021 0681            	    65: 		ld 		B,$81
+00:0023 2F              	    66: 		cpl 
+00:0024 B8              	    67: 		cp 		B 						; compare complement response with B 
+00:0025 2827            	    68: 		jr 		Z,connection_pass
+                        	    69: 
+                        	    70: connection_fail:
+                        	    71: 
+00:0027 CD0000          	    72: 		call 	writeSTRBelow_CRLF
+00:002A 00              	    73: 		DB 		0,">Connection to CH376S - FAILED.", 00
+00:002B 3E436F6E6E656374
+00:0033 696F6E20746F2043
+00:003B 4833373653202D20
+00:0043 4641494C45442E
+00:004A 00
+                        	    74: 
+                        	    75: 
+00:004B AF              	    76: 		xor 	A
+00:004C 3C              	    77: 		inc 	A
+00:004D C9              	    78: 		ret		; NZ
+                        	    79: 
+                        	    80: connection_pass:
+                        	    81: 	if (USB_TEXT_LABLES>1)
+00:004E CD0000          	    82: 		call 	writeSTRBelow_CRLF
+00:0051 00              	    83: 		DB 		0,">Connection to CH376S was successful.", 00
+00:0052 3E436F6E6E656374
+00:005A 696F6E20746F2043
+00:0062 4833373653207761
+00:006A 7320737563636573
+00:0072 7366756C2E
+00:0077 00
+                        	    84: 	endif
+00:0078 AF              	    85: 		xor 	A
+00:0079 C9              	    86: 		ret		; Z 
+                        	    87:   
+                        	    88: ;****************************************************************
+                        	    89: 	if DOALIGN
+                        	    90: 		align 4
+                        	    91: 	endif
+                        	    92: 
+                        	    93: 
+                        	    94: HC376S_ResetAll::
+00:007A 110D07          	    95: 		ld 		DE,CTC_delay_INT_handler
+00:007D ED5312F4        	    96: 		ld 		(CTC_CH1_I_Vector),DE
+                        	    97: 
+00:0081 CD7706          	    98: 		call	beginUART		
+                        	    99: 
+00:0084 1E05            	   100: 		ld 		E,$05
+00:0086 CD8206          	   101: 		call 	outByte367S
+                        	   102: 		
+00:0089 CD9E06          	   103: 		call	delay350ms    			; 350 msec
+00:008C 76              	   104: 		halt	
+                        	   105: 
+00:008D C9              	   106: 		ret
+                        	   107: 
+                        	   108: ; **###############################################################
+                        	   109: 
+                        	   110: ; ****************************************************************
+                        	   111: 	if DOALIGN
+                        	   112: 		align 4
+                        	   113: 	endif
+                        	   114: 
+                        	   115: HC376S_setUSBMode::
+                        	   116: 
+00:008E CD7706          	   117: 		call 	beginUART
+                        	   118: 
+00:0091 1E15            	   119: 		ld 		E,$15
+00:0093 CD8206          	   120: 		call 	outByte367S
+                        	   121: 		
+00:0096 1E06            	   122: 		ld 		E,$06				; Code used to enable read/write communication and monitoring of the USB stick
+00:0098 CD8206          	   123: 		call 	outByte367S
+                        	   124: 		
+00:009B CDC106          	   125: 		call 	delay20ms			;delay 20 ms
+                        	   126: 
+00:009E CD5706          	   127: 		call	waitForResponse	 	;test rxrdy-B
+                        	   128: 	
+                        	   129: 		;GPIODEBUG
+00:00A1 3E02            	   130: 		ld a,2
+00:00A3 D302            	   131: 		out (gpio_out),A
+00:00A5 3E00            	   132: 		ld a,0
+00:00A7 D302            	   133: 		out (gpio_out),A
+00:00A9 7B              	   134: 		ld a,e
+                        	   135: 
+00:00AA 284E            	   136: 		jr 		Z,NoUSBpres			; no response from 'waitForResponse'
+                        	   137: 		
+                        	   138: 
+00:00AC FE51            	   139: 		cp	 	CMD_RET_SUCCESS		; 51?
+00:00AE C23401          	   140: 		jp 		NZ,someUSBerror
+                        	   141: 
+00:00B1 CDC806          	   142: 		call 	delay10ms
+00:00B4 CD5706          	   143: 		call 	waitForResponse				; read data in inport -> A&E
+                        	   144: 
+                        	   145: 	if (USB_TEXT_LABLES>2)
+00:00B7 CD0000          	   146: 		call 	writeSTRBelow_CRLF
+00:00BA 00              	   147: 		db		0,">USB Mode command acknowledged !",0,0
+00:00BB 3E555342204D6F64
+00:00C3 6520636F6D6D616E
+00:00CB 642061636B6E6F77
+00:00D3 6C65646765642021
+00:00DB 00
+00:00DC 00
+                        	   148: 	endif
+00:00DD 7B              	   149: 		ld 		A,E	
+00:00DE FE15            	   150: 		cp	 	USB_INT_CONNECT				; compare A & USB_INT_CONNECT
+00:00E0 2018            	   151: 		jr		NZ,NoUSBpres
+                        	   152: 
+                        	   153: 	if (USB_TEXT_LABLES>3)
+00:00E2 CD0000          	   154: 		call 	writeSTRBelow_CRLF
+00:00E5 00              	   155: 		db		0,">USB is present.",0,0
+00:00E6 3E55534220697320
+00:00EE 70726573656E742E
+00:00F6 00
+00:00F7 00
+                        	   156: 	endif	
+00:00F8 AF              	   157: 		xor 	A
+00:00F9 C9              	   158: 		ret									; return with Z
+                        	   159: 
+                        	   160: 
+                        	   161: NoUSBpres:
+00:00FA CD0000          	   162: 		call 	writeSTRBelow_CRLF
+00:00FD 00              	   163: 		db	0,">No USB is present.",0,0
+00:00FE 3E4E6F2055534220
+00:0106 6973207072657365
+00:010E 6E742E
+00:0111 00
+00:0112 00
+00:0113 1835            	   164: 		jr 		retNZ
+                        	   165: NoSDpres:
+00:0115 CD0000          	   166: 		call 	writeSTRBelow_CRLF
+00:0118 00              	   167: 		db	0,">No SD card is present.",0,0
+00:0119 3E4E6F2053442063
+00:0121 6172642069732070
+00:0129 726573656E742E
+00:0130 00
+00:0131 00
+00:0132 1816            	   168: 		jr 		retNZ
+                        	   169: 		
+                        	   170: someUSBerror:		
+00:0134 CD0000          	   171: 		call 	writeSTRBelow_CRLF
+00:0137 00              	   172: 		db		0,">CH376S error! .",0,0
+00:0138 3E43483337365320
+00:0140 6572726F7221202E
+00:0148 00
+00:0149 00
+                        	   173: retNZ:
+00:014A AF              	   174: 		xor 	A
+00:014B 3C              	   175: 		inc 	A
+00:014C C9              	   176: 		ret		; NZ
+                        	   177: 
+                        	   178: ;**###############################################################
+                        	   179: ;**################################################################
+                        	   180: 		
+                        	   181: ;****************************************************************
+                        	   182: 	if DOALIGN
+                        	   183: 		align 4
+                        	   184: 	endif
+                        	   185: 
+                        	   186: HC376S_setSDMode::
+                        	   187: 
+00:014D CD7706          	   188: 		call 	beginUART
+                        	   189: 
+00:0150 1E15            	   190: 		ld 		E,$15
+00:0152 CD8206          	   191: 		call 	outByte367S
+                        	   192: 		
+00:0155 1E03            	   193: 		ld 		E,$03				; Code used to enable read/write communication and monitoring of the SD card
+00:0157 CD8206          	   194: 		call 	outByte367S
+                        	   195: 		
+00:015A CDB306          	   196: 		call 	delay100ms			;delay 20 ms
+                        	   197: 
+00:015D CD5706          	   198: 		call	waitForResponse	 		;test rxrdy-B
+00:0160 282C            	   199: 		jr 		Z,norespSD			; no response from 'waitForResponse'
+                        	   200: 
+                        	   201: 		; cp	 	CMD_RET_SUCCESS
+                        	   202: 		; jr 		NZ,someUSBerror
+                        	   203: 
+                        	   204: 		; call 	delay100ms
+                        	   205: 		; call 	waitForResponse				; read data in inport -> A&E
+                        	   206: 	
+                        	   207: 	; if (USB_TEXT_LABLES>4)
+                        	   208: 	; 	call 	writeSTRBelow_CRLF
+                        	   209: 	; 	db		0,"SD Mode command acknowledged !",0,0
+                        	   210: 	; endif
+00:0162 7B              	   211: 		ld 		A,E	
+00:0163 1600            	   212: 		ld 		D,00
+                        	   213: 		; cp	 	USB_INT_CONNECT				; compare A & USB_INT_CONNECT
+                        	   214: 		; jp		NZ,NoSDpres
+                        	   215: 
+                        	   216: 	if (USB_TEXT_LABLES>5)
+00:0165 CD0000          	   217: 		call 	writeSTRBelow
+00:0168 00              	   218: 		db		0,"SD card response OK.  Code:",0,0
+00:0169 5344206361726420
+00:0171 726573706F6E7365
+00:0179 204F4B2E2020436F
+00:0181 64653A
+00:0184 00
+00:0185 00
+00:0186 CD0000          	   219: 		call 	putDEtoScreen
+00:0189 CD0000          	   220: 		call	CRLF
+                        	   221: 	endif
+00:018C AF              	   222: 		xor 	A
+00:018D C9              	   223: 		ret									; return with Z
+                        	   224: 
+                        	   225: norespSD:
+00:018E CD0000          	   226: 		call 	writeSTRBelow_CRLF
+00:0191 2053442063617264	   227: 		db		" SD card no response",0,0
+00:0199 206E6F2072657370
+00:01A1 6F6E7365
+00:01A5 00
+00:01A6 00
+00:01A7 C9              	   228: 		ret
+                        	   229: 
+                        	   230: 
+                        	   231: 
+                        	   232: ;**###############################################################
+                        	   233: ;**################################################################
+                        	   234: 	
+                        	   235: 	if DOALIGN
+                        	   236: 		align 4
+                        	   237: 	endif
+                        	   238: 
+                        	   239: HC376S_diskConnectionStatus::
+                        	   240: 		; ***	Does not apply to SD card's
+00:01A8 CD7706          	   241: 		call 	beginUART
+                        	   242: 
+00:01AB 1E30            	   243: 		ld 		E,$30
+00:01AD CD8206          	   244: 		call 	outByte367S
+                        	   245: 
+00:01B0 CDB306          	   246: 		call 	delay100ms
+00:01B3 CD5706          	   247: 		call 	waitForResponse 			; Z is set if no response from 376S 
+00:01B6 CAB904          	   248: 		jp 		Z,endtest					; branch on timeout
+                        	   249: 											; if not : get the actual data, in A&E
+00:01B9 FE14            	   250: 		cp 		A,USB_INT_SUCCESS
+00:01BB 201D            	   251: 		jr 		NZ,.connFailed
+                        	   252: 
+                        	   253: 	if (USB_TEXT_LABLES>6)
+00:01BD CD0000          	   254: 		call 	writeSTRBelow_CRLF
+00:01C0 00              	   255: 		db		0,">Connection to USB OK.",0,0
+00:01C1 3E436F6E6E656374
+00:01C9 696F6E20746F2055
+00:01D1 5342204F4B2E
+00:01D7 00
+00:01D8 00
+                        	   256: 	endif
+                        	   257: 
+00:01D9 C9              	   258: 		ret
+                        	   259: 	
+                        	   260: .connFailed:
+00:01DA CD0000          	   261: 		call 	writeSTRBelow_CRLF
+00:01DD 00              	   262: 		db		0,">Connection to USB - FAILED.",0,0
+00:01DE 3E436F6E6E656374
+00:01E6 696F6E20746F2055
+00:01EE 5342202D20464149
+00:01F6 4C45442E
+00:01FA 00
+00:01FB 00
+00:01FC C9              	   263: 		ret
+                        	   264: 
+                        	   265: ;************************************************************************
+                        	   266: ;************************************************************************
+                        	   267: 
+                        	   268: ;**######################################################################
+                        	   269: ;**######################################################################
+                        	   270: 
+                        	   271: 	if DOALIGN
+                        	   272: 		align 4
+                        	   273: 	endif
+                        	   274: 
+                        	   275: 
+                        	   276: HC376S_USBdiskMount::
+                        	   277: 
+00:01FD CD7706          	   278: 		call 	beginUART
+                        	   279: 		
+00:0200 1E31            	   280: 		ld 		E,$31
+00:0202 CD8206          	   281: 		call 	outByte367S
+                        	   282: 		
+00:0205 CD9006          	   283: 		call 	delay1s				; 250 msec
+00:0208 CD5706          	   284: 		call 	waitForResponse 		; Z is set if no response from 376S 
+00:020B CAB904          	   285: 		jp 		Z,endtest				; branch on timeout
+                        	   286: 										; get the actual data, in A&E
+00:020E 320000          	   287: 		ld 		(TempVar5),A
+00:0211 FE14            	   288: 		cp 		USB_INT_SUCCESS
+00:0213 2017            	   289: 		jr 		NZ,.connFailed
+                        	   290: 	if (USB_TEXT_LABLES>7)
+00:0215 CD0000          	   291: 		call 	writeSTRBelow_CRLF
+00:0218 00              	   292: 		db		0,"> Mounted - OK.",0,0
+00:0219 3E204D6F756E7465
+00:0221 64202D204F4B2E
+00:0228 00
+00:0229 00
+                        	   293: 	endif
+00:022A AF              	   294: 		xor 	A					; A = 0  Z set
+00:022B C9              	   295: 		ret
+                        	   296: 	
+                        	   297: .connFailed:
+00:022C 5F              	   298: 		ld 		E,A
+00:022D 1600            	   299: 		ld 		D,00
+00:022F CD0000          	   300: 		call 	writeSTRBelow
+00:0232 00              	   301: 		db		0,">Failed to Mount disk.  Code:",0,0
+00:0233 3E4661696C656420
+00:023B 746F204D6F756E74
+00:0243 206469736B2E2020
+00:024B 436F64653A
+00:0250 00
+00:0251 00
+00:0252 CD0000          	   302: 		call 	putDEtoScreen
+00:0255 CD0000          	   303: 		call	CRLF
+00:0258 3E54            	   304: 		ld 		A,$54					; indicate mount failure A-non zero
+00:025A 3C              	   305: 		inc 	A
+00:025B C9              	   306: 		ret
+                        	   307: 
+                        	   308: ;************************************************************************
+                        	   309: ;************************************************************************
+                        	   310: 
+                        	   311: ;**######################################################################
+                        	   312: ;**######################################################################
+                        	   313: 	if DOALIGN
+                        	   314: 		align 4
+                        	   315: 	endif
+                        	   316: 
+                        	   317: ; rfile_name:
+                        	   318: 	; db "TESTAS.TXT",0,0
+                        	   319: 	; db "PROVIDE.txt",0,0
+                        	   320: 	; db "TOTBIN1.TXT",0,0
+                        	   321: 	even
+                        	   322: HC376S_setFileName::
+                        	   323: 
+00:025C CD7706          	   324: 		call 	beginUART
+                        	   325: 	
+00:025F 1E2F            	   326: 		ld 		E,$2F			; char '/'
+00:0261 CD8206          	   327: 		call 	outByte367S
+00:0264 CD8206          	   328: 		call 	outByte367S        ;// Every filename must have this byte '/'to indicate the start of the file name.
+                        	   329: 
+00:0267 E5              	   330: 		push 	HL	
+00:0268 210000          	   331: 		ld 		HL,commStr1
+                        	   332: 
+                        	   333: .nxtchar:	
+00:026B 5E              	   334: 		ld 		E,(HL)
+00:026C 23              	   335: 		inc 	HL
+00:026D CD8206          	   336: 		call 	outByte367S
+00:0270 B7              	   337: 		or 		A  					; test if A=0  'end of string'
+00:0271 20F8            	   338: 		jr 		NZ,.nxtchar
+                        	   339: 
+00:0273 E1              	   340: 		pop 	HL
+                        	   341: 
+00:0274 CDBA06          	   342: 		call 	delay50ms    			; 50 msec
+00:0277 76              	   343: 		halt
+                        	   344: 
+00:0278 C9              	   345: 		ret 	
+                        	   346: 
+                        	   347: ;************************************************************************
+                        	   348: ;************************************************************************
+                        	   349: 
+                        	   350: ;**######################################################################
+                        	   351: ;**######################################################################
+                        	   352: 	if DOALIGN
+                        	   353: 		align 4
+                        	   354: 	endif
+                        	   355: 
+                        	   356: 
+                        	   357: HC376S_fileOpen::
+                        	   358: 
+                        	   359: 	
+00:0279 CD0000          	   360: 		call 	writeSTRBelow
+00:027C 3E46696C65206F70	   361: 		db		">File open : ",0,0
+00:0284 656E203A20
+00:0289 00
+00:028A 00
+                        	   362: 
+00:028B FD210000        	   363: 		ld 		IY,commStr1				;move.l 	USB_filename_ptr,A0 
+00:028F FD2B            	   364: 		dec 	IY
+00:0291 CD0000          	   365: 		call 	WriteLineCRNL
+                        	   366: 
+00:0294 CD7706          	   367: 		call 	beginUART
+                        	   368: 	
+00:0297 1E32            	   369: 		ld 		E,$32	
+00:0299 CD8206          	   370: 		call 	outByte367S
+00:029C CD9006          	   371: 		call 	delay1s				; 250 msec
+00:029F CD5706          	   372: 		call 	waitForResponse 		; Z is set if no response from 376S , data in A&E
+00:02A2 CAB904          	   373: 		jp		Z,endtest				; branch on timeout
+                        	   374: 
+                        	   375: nxtFileOpen:
+                        	   376: 
+00:02A5 FE14            	   377: 		cp		USB_INT_SUCCESS			; compare A with USB_INT_SUCCESS ($14)
+00:02A7 2827            	   378: 		jr 		Z,.openOK
+                        	   379: 
+00:02A9 FE1D            	   380: 		cp 		USB_INT_DISK_READ		; compare A with USB_INT_DISK_READ ($1D) - enumeration
+00:02AB 285C            	   381: 		jr 		Z,doEnumeration
+                        	   382: 
+00:02AD FE42            	   383: 		cp		ERR_MISS_FILE			; compare A with ERR_MISS_FILE		
+00:02AF 283D            	   384: 		jr 		Z,openNoFileName
+                        	   385: 
+00:02B1 CD0000          	   386: 		call 	writeSTRBelow_CRLF
+00:02B4 00              	   387: 		db		0,">Failed to open file.",0,0
+00:02B5 3E4661696C656420
+00:02BD 746F206F70656E20
+00:02C5 66696C652E
+00:02CA 00
+00:02CB 00
+00:02CC 3E65            	   388: 		ld 		A,$65					; indicate mount failure A-non zero
+00:02CE 3C              	   389: 		inc 	A
+00:02CF C9              	   390: 		ret
+                        	   391: 
+                        	   392: 	
+                        	   393: .openOK:
+00:02D0 CD0000          	   394: 		call 	writeSTRBelow
+00:02D3 00              	   395: 		db		0," opened successfully, ",0,0
+00:02D4 206F70656E656420
+00:02DC 7375636365737366
+00:02E4 756C6C792C20
+00:02EA 00
+00:02EB 00
+00:02EC AF              	   396: 		xor 	A						; A= 0 , Z set
+00:02ED C9              	   397: 		ret
+                        	   398: 
+                        	   399: openNoFileName:
+00:02EE CD0000          	   400: 		call 	writeSTRBelow_CRLF
+00:02F1 00              	   401: 		db		0,">File not found.!",0,0
+00:02F2 3E46696C65206E6F
+00:02FA 7420666F756E642E
+00:0302 21
+00:0303 00
+00:0304 00
+00:0305 3E76            	   402: 		ld 		A,$76					; indicate mount failure A-non zero 
+00:0307 3C              	   403: 		inc 	A						; ret with NZ
+00:0308 C9              	   404: 		ret
+                        	   405: 
+                        	   406: doEnumeration:
+00:0309 FD210000        	   407: 		ld 		IY,S1x
+                        	   408: 		; *** 	CMD_RD_USB_DATA0
+00:030D CD7706          	   409: 		call 	beginUART
+                        	   410: 	
+00:0310 1E27            	   411: 		ld 		E,$27					; CMD_RD_USB_DATA0			
+00:0312 CD8206          	   412: 		call 	outByte367S				; CMD_RD_USB_DATA0
+                        	   413: 
+00:0315 CDD606          	   414: 		call 	delay2ms
+00:0318 CD5706          	   415: 		call 	waitForResponse 		; Z is set if no response from 376S 
+00:031B FD7300          	   416: 		ld 		(IY),E					;read char		 store in adressblock (HL)
+00:031E FD23            	   417: 		inc 	IY
+                        	   418: 	
+00:0320 7B              	   419: 		ld 		A,E				; get the actual (first byte) data -> length, in D0
+00:0321 43              	   420: 		ld 		B,E 			; loop counter
+                        	   421: .loop:
+00:0322 CDC806          	   422: 		call 	delay10ms
+00:0325 CD5706          	   423: 		call 	waitForResponse 		; Z is set if no response from 376S 
+                        	   424: 
+00:0328 FD7300          	   425: 		ld 		(IY),E					;read char		 store in adressblock (HL)
+00:032B FD23            	   426: 		inc 	IY
+00:032D 10F3            	   427: 		djnz 	.loop
+                        	   428: 
+00:032F CD7706          	   429: 		call 	beginUART
+                        	   430: 	
+00:0332 1E33            	   431: 		ld 		E,$33					; CMD_FILE_ENUM_GO	
+00:0334 CD8206          	   432: 		call 	outByte367S				; CMD_RD_USB_DATA0
+                        	   433: 			
+00:0337 CDA506          	   434: 		call 	delay250ms
+00:033A CD5706          	   435: 		call 	waitForResponse 		; Z is set if no response from 376S 
+00:033D F5              	   436: 		push 	AF
+                        	   437: 
+00:033E FD210000        	   438: 		ld 		IY,S1x 				; start of file name text
+00:0342 FD460C          	   439: 		ld 		B,(IY+$0C)					; UINT8	DIR_Attr;	dir(10) or file(20)
+00:0345 3E00            	   440: 		ld 		A,00
+00:0347 FD770C          	   441: 		ld 		(IY+$0C),A					; string eof
+                        	   442: 
+00:034A CD0000          	   443: 		call 	WriteLine
+00:034D CD0000          	   444: 		call    writeSTRBelow
+00:0350 00              	   445: 		db 		0,"\t",0,0
+00:0351 09
+00:0352 00
+00:0353 00
+00:0354 78              	   446: 		ld 		A,B
+00:0355 FE10            	   447: 		cp 		$10 					; directory ?
+00:0357 280A            	   448: 		jr  	Z,.dDir
+00:0359 CD0000          	   449: 		call 	writeSTRBelow
+00:035C 00              	   450: 		db 		0,"\t\t",0,0
+00:035D 0909
+00:035F 00
+00:0360 00
+00:0361 180A            	   451: 		jr 		.common
+                        	   452: 
+00:0363 CD0000          	   453: .dDir:	call 	writeSTRBelow
+00:0366 00              	   454: 		db 		0,"Dir\t",0,0
+00:0367 44697209
+00:036B 00
+00:036C 00
+                        	   455: 
+                        	   456: .common:
+00:036D FD5612          	   457: 		ld 		D,(IY+$12) 				; get size in DE
+00:0370 FD5E11          	   458: 		ld 		E,(IY+$11) 				; get size in DE
+00:0373 CD0000          	   459: 		call 	putDEtoScreen
+00:0376 CD0000          	   460: 		call 	CRLF
+                        	   461: 
+00:0379 F1              	   462: 		pop 	AF						; retrieve last msg from HC376
+00:037A FE42            	   463: 		cp 		ERR_MISS_FILE
+00:037C C2A502          	   464: 		JP 		NZ,nxtFileOpen
+00:037F CD0000          	   465: 		call 	CRLF
+00:0382 3C              	   466: 		inc		A						; reset Z -> NZ 		
+00:0383 C9              	   467: 		ret 							; return with NZ
+                        	   468: 
+                        	   469: 
+                        	   470: ;**###############################################################
+                        	   471: ;**################################################################
+                        	   472: 
+                        	   473: 
+                        	   474: ; /* FAT数据区中文件目录信息 */
+                        	   475: ; typedef struct _FAT_DIR_INFO
+                        	   476: ; {
+                        	   477: ;    UINT8	DIR_Name[11];					/* 00H,文件名,共11字节,不足处填空格 */
+                        	   478: ;    UINT8	DIR_Attr;						/* 0BH,文件属性,参考后面的说明 */
+                        	   479: ;    UINT8	DIR_NTRes;						/* 0CH */
+                        	   480: ;    UINT8	DIR_CrtTimeTenth;				/* 0DH,文件创建的时间,以0.1秒单位计数 */
+                        	   481: ;    UINT16	DIR_CrtTime;					/* 0EH,文件创建的时间 */
+                        	   482: ;    UINT16	DIR_CrtDate;					/* 10H,文件创建的日期 */
+                        	   483: ;    UINT16	DIR_LstAccDate;					/* 12H,最近一次存取操作的日期 */
+                        	   484: ;    UINT16	DIR_FstClusHI;					/* 14H */
+                        	   485: ;    UINT16	DIR_WrtTime;					/* 16H,文件修改时间,参考前面的宏MAKE_FILE_TIME */
+                        	   486: ;    UINT16	DIR_WrtDate;					/* 18H,文件修改日期,参考前面的宏MAKE_FILE_DATE */
+                        	   487: ;    UINT16	DIR_FstClusLO;					/* 1AH */
+                        	   488: ;    UINT32	DIR_FileSize;					/* 1CH,文件长度 */
+                        	   489: ; } FAT_DIR_INFO, *P_FAT_DIR_INFO;			/* 20H */
+                        	   490: 
+                        	   491: ;************************************************************************
+                        	   492: ;************************************************************************
+                        	   493: 
+                        	   494: ;**######################################################################
+                        	   495: ;**######################################################################
+                        	   496: 	if DOALIGN
+                        	   497: 		align 4
+                        	   498: 	endif
+                        	   499: 
+                        	   500: 
+                        	   501: HC376S_fileClose::
+                        	   502: 
+                        	   503: 	if (USB_TEXT_LABLES>8)
+00:0384 CD0000          	   504: 		call 	writeSTRBelow
+00:0387 00              	   505: 		db		0,">File close : ",0,0
+00:0388 3E46696C6520636C
+00:0390 6F7365203A20
+00:0396 00
+00:0397 00
+                        	   506: 	endif 
+                        	   507: 
+00:0398 CD7706          	   508: 		call 	beginUART
+                        	   509: 	
+00:039B 1E36            	   510: 		ld 		E,$36
+00:039D CD8206          	   511: 		call 	outByte367S
+                        	   512: 
+00:03A0 1E01            	   513: 		ld 		E,01      		;closeCmd = 0x00 = close without updating file Size, 0x01 = close and update file Size
+00:03A2 CD8206          	   514: 		call 	outByte367S
+                        	   515: 
+00:03A5 CDB306          	   516: 		call 	delay100ms				; delay max 100 msec
+00:03A8 CD5706          	   517: 		call 	waitForResponse 		; Z is set if no response from 376S 
+00:03AB CAB904          	   518: 		jp 		Z,endtest				; branch on timeout
+                        	   519: 
+00:03AE 7B              	   520: 		ld 		A,E						; get the actual data, in A
+00:03AF FE14            	   521: 		cp		USB_INT_SUCCESS
+00:03B1 201C            	   522: 		jr 		NZ,.closeFailed
+                        	   523: 	
+                        	   524: 	if (USB_TEXT_LABLES>9)
+00:03B3 CD0000          	   525: 		call 	writeSTRBelow_CRLF
+00:03B6 20636C6F73656420	   526: 		db		" closed successfully..",0,0
+00:03BE 7375636365737366
+00:03C6 756C6C792E2E
+00:03CC 00
+00:03CD 00
+                        	   527: 	endif	
+00:03CE C9              	   528: 		ret
+                        	   529: 	
+                        	   530: .closeFailed:
+                        	   531: 
+                        	   532: 		; call 	PrintD0ToScreenHEX
+00:03CF CD0000          	   533: 		call 	writeSTRBelow_CRLF
+00:03D2 206661696C656420	   534: 		db		" failed to close file.",0,0
+00:03DA 746F20636C6F7365
+00:03E2 2066696C652E
+00:03E8 00
+00:03E9 00
+00:03EA C9              	   535: 		ret
+                        	   536: 
+                        	   537: ;************************************************************************
+                        	   538: ;************************************************************************
+                        	   539: 
+                        	   540: 
+                        	   541: 
+                        	   542: ;**######################################################################
+                        	   543: ;**######################################################################
+                        	   544: 	if DOALIGN
+                        	   545: 		align 4
+                        	   546: 	endif
+                        	   547: 
+                        	   548: 		; ***	Create file; return Z if true.
+                        	   549: HC376S_fileCreate::
+                        	   550: 
+00:03EB CD0000          	   551: 		call 	writeSTRBelow
+00:03EE 203E437265617465	   552: 		db		" >Create File : ",0,0
+00:03F6 2046696C65203A20
+00:03FE 00
+00:03FF 00
+00:0400 FD210000        	   553: 		ld 		IY,commStr1
+00:0404 FD2B            	   554: 		dec 	IY
+00:0406 CD0000          	   555: 		call 	WriteLineCRNL
+                        	   556: 
+00:0409 CD7706          	   557: 		call 	beginUART
+                        	   558: 	
+00:040C 1E34            	   559: 		ld 		E,$34					; Create File
+00:040E CD8206          	   560: 		call 	outByte367S
+                        	   561: 
+00:0411 CD9706          	   562: 		call 	delay500ms				; delay max 100 msec
+00:0414 CD5706          	   563: 		call 	waitForResponse 		; Z is set if no response from 376S 
+00:0417 CAB904          	   564: 		jp 		Z,endtest				; branch on timeout
+                        	   565: 
+                        	   566: 				;  the actual data is in A&E
+00:041A FE14            	   567: 		cp		USB_INT_SUCCESS
+00:041C 2024            	   568: 		jr 		NZ,.createFailed
+                        	   569: 	
+                        	   570: 	if (USB_TEXT_LABLES>10)
+00:041E CD0000          	   571: 		call 	writeSTRBelow_CRLF
+00:0421 203E46696C652063	   572: 		db		" >File created successfully..",0,0
+00:0429 7265617465642073
+00:0431 7563636573736675
+00:0439 6C6C792E2E
+00:043E 00
+00:043F 00
+                        	   573: 	endif	
+00:0440 AF              	   574: 		xor 	A				; Z set
+00:0441 C9              	   575: 		ret						; Z set, setBytesRead return true
+                        	   576: 
+                        	   577: 	
+                        	   578: .createFailed:
+                        	   579: 
+00:0442 5F              	   580: 		ld 		E,A
+00:0443 1600            	   581: 		ld 		D,00
+00:0445 CD0000          	   582: 		call 	writeSTRBelow
+00:0448 203E4661696C6564	   583: 		db		" >Failed to create file..  Code:",0,0
+00:0450 20746F2063726561
+00:0458 74652066696C652E
+00:0460 2E2020436F64653A
+00:0468 00
+00:0469 00
+00:046A CD0000          	   584: 		call 	putDEtoScreen
+00:046D CD0000          	   585: 		call	CRLF
+00:0470 3E87            	   586: 		ld 		A,$87					; indicate mount failure A-non zero
+00:0472 3C              	   587: 		inc 	A 						; indicate NZ
+00:0473 C9              	   588: 		ret
+                        	   589: 
+                        	   590: ;************************************************************************
+                        	   591: ;************************************************************************
+                        	   592: 
+                        	   593: 
+                        	   594: ;**######################################################################
+                        	   595: ;**######################################################################
+                        	   596: 	if DOALIGN
+                        	   597: 		align 4
+                        	   598: 	endif
+                        	   599: 
+                        	   600: 
+                        	   601: HC376S_getFileSize::
+                        	   602: 
+00:0474 CD7706          	   603: 		call 	beginUART
+                        	   604: 	
+00:0477 1E0C            	   605: 		ld 		E,$0C	
+00:0479 CD8206          	   606: 		call 	outByte367S
+00:047C 1E68            	   607: 		ld 		E,$68
+00:047E CD8206          	   608: 		call 	outByte367S
+                        	   609: 
+00:0481 CD9006          	   610: 		call 	delay1s				; delay max 200 ms
+                        	   611: 
+00:0484 CD5706          	   612: 		call 	waitForResponse 		; Z is set if response from 376S 
+00:0487 2830            	   613: 		jr 		Z,endtest				; branch on timeout
+                        	   614: 
+                        	   615: 
+00:0489 0603            	   616: 		ld 		B,3
+00:048B 210000          	   617: 		ld 		HL,T_BUFFER  			; $D8
+00:048E 77              	   618: 		ld 		(HL),A
+00:048F 23              	   619: 		inc 	HL
+                        	   620: 
+                        	   621: .siz4:
+00:0490 CDC806          	   622: 		call 	delay10ms 				; delay max 10 ms
+00:0493 CD5706          	   623: 		call 	waitForResponse			; get the actual data, in D0
+00:0496 2821            	   624: 		jr 		Z,endtest				; branch on timeout
+                        	   625: 
+00:0498 77              	   626: 		ld 		(HL),A
+00:0499 23              	   627: 		inc 	HL
+00:049A 10F4            	   628: 		djnz 	.siz4
+                        	   629: 
+                        	   630: .finalsize:
+00:049C CD0000          	   631: 		call 	writeSTRBelow
+00:049F 2066696C65207369	   632: 		db		" file size : ",0,0
+00:04A7 7A65203A20
+00:04AC 00
+00:04AD 00
+00:04AE ED5B0000        	   633: 		ld 		DE,(T_BUFFER)			; filesize restrict to max 65535 bytes; only two least bytes
+00:04B2 CD0000          	   634: 		call 	putDEtoScreen
+00:04B5 CD0000          	   635: 		call	CRLF
+                        	   636: 		
+00:04B8 C9              	   637: 		ret
+                        	   638: 
+                        	   639: ;************************************************************************
+                        	   640: ;************************************************************************
+                        	   641: 
+                        	   642: endtest:
+00:04B9 CD0000          	   643: 		call 	writeSTRBelow_CRLF
+00:04BC 00              	   644: 		DB 		0,">Connection to CH376S - TIMEOUT.", 00
+00:04BD 3E436F6E6E656374
+00:04C5 696F6E20746F2043
+00:04CD 4833373653202D20
+00:04D5 54494D454F55542E
+00:04DD 00
+                        	   645: 
+00:04DE C9              	   646: 		ret
+                        	   647: 
+                        	   648: ;**######################################################################
+                        	   649: ;**######################################################################
+                        	   650: 
+                        	   651: 		; *** IN D;Z set, setBytesRead return true; return false (NZ)
+                        	   652: setBytesRead::
+                        	   653: 		;***		Value in D
+00:04DF CD7706          	   654: 		call 	beginUART
+                        	   655: 	
+00:04E2 1E3A            	   656: 		ld 		E,$3A					; Byte Read	
+00:04E4 CD8206          	   657: 		call 	outByte367S
+                        	   658: 	
+00:04E7 5A              	   659: 		ld 		E,D						; will be $80 bytes /block
+00:04E8 CD8206          	   660: 		call 	outByte367S
+                        	   661: 
+00:04EB 1E00            	   662: 		ld 		E,0						; 2'nd value = 0
+00:04ED CD8206          	   663: 		call 	outByte367S
+                        	   664: 
+00:04F0 CDB306          	   665: 		call 	delay100ms
+00:04F3 CD5706          	   666: 		call 	waitForResponse 		; Z is set if no response from 376S 
+                        	   667: 
+00:04F6 7B              	   668: 		ld 		A,E						; get the actual data, E->A
+00:04F7 FE1D            	   669: 		cp		USB_INT_DISK_READ		; read the CH376S message. 
+                        	   670: 
+                        	   671: 										; If equal to 0x1D, data is present, so return true. Will return 0x14 if no data is present.
+00:04F9 C9              	   672: 		ret 							; ret true ($1D) or false ($14)								
+                        	   673: 
+                        	   674: ;************************************************************************
+                        	   675: ;************************************************************************
+                        	   676: 
+                        	   677: 
+                        	   678: ;**######################################################################
+                        	   679: ;**######################################################################
+                        	   680: 
+                        	   681: 		; Z set, continueRead return true, ; Z cleared -> continueRead return false(NZ)
+                        	   682: continueRead:
+00:04FA CD7706          	   683: 		call 	beginUART
+                        	   684: 	
+00:04FD 1E3B            	   685: 		ld 		E,$3B					; Byte Read	
+00:04FF CD8206          	   686: 		call 	outByte367S
+                        	   687: 
+00:0502 CDB306          	   688: 		call 	delay100ms
+00:0505 CD5706          	   689: 		call 	waitForResponse 		; Z is set if no response from 376S 
+                        	   690: 
+00:0508 7B              	   691: 		ld 		A,E						; get the actual data, in A&E
+00:0509 FE14            	   692: 		cp		USB_INT_SUCCESS			; read the CH376S message. 
+                        	   693: 										; If equal to 0x1D, data is present, so return true. Will return 0x14 if no data is present.
+00:050B C9              	   694: 		ret 							; ret true Z ($14), other false NZ							
+                        	   695: 
+                        	   696: ;************************************************************************
+                        	   697: ;************************************************************************
+                        	   698: 
+                        	   699: 
+                        	   700: ;**######################################################################
+                        	   701: ;**######################################################################
+                        	   702: 	if DOALIGN
+                        	   703: 		align 4
+                        	   704: 	endif
+                        	   705: 
+                        	   706: 		;***		usbrd  "TOTBIN1.TXT"  $140000
+                        	   707: HC376S_fileRead::
+                        	   708: 
+00:050C E5              	   709: 		push  	HL
+00:050D 2A0000          	   710: 		ld 		HL,(commAdr1)			; set the target address
+                        	   711: 		
+00:0510 CD0000          	   712: 		call 	writeSTRBelow_CRLF
+00:0513 2052656164696E67	   713: 		db		" Reading File !. ",0,0
+00:051B 2046696C6520212E
+00:0523 20
+00:0524 00
+00:0525 00
+                        	   714: 
+                        	   715: .nextblock:		
+00:0526 1680            	   716: 		ld 		D,$80 	 		; The maximum value is 0x80  =  128 bytes
+00:0528 CDDF04          	   717: 		call 	setBytesRead	; This tells the CH376S module how many bytes to read on the next reading step.
+                        	   718: 								; In this example, we will read 0x80 bytes at a time. 
+                        	   719: 								; Returns true (Z)if there are bytes to read, false (NZ)if there are no more bytes to read.
+00:052B 201F            	   720: 		jr 		NZ,endBlockRead
+                        	   721: 
+00:052D CD7706          	   722: 		call 	beginUART
+                        	   723: 	
+00:0530 1E27            	   724: 		ld 		E,$27					; CMD_RD_USB_DATA0			
+00:0532 CD8206          	   725: 		call 	outByte367S				; CMD_RD_USB_DATA0
+                        	   726: 
+00:0535 CDD606          	   727: 		call 	delay2ms
+00:0538 CD5706          	   728: 		call 	waitForResponse 		; Z is set if no response from 376S 
+                        	   729: 	
+00:053B 7B              	   730: 		ld 		A,E				; get the actual (first byte) data -> length, in D0
+00:053C 43              	   731: 		ld 		B,E 			; loop counter
+                        	   732: .loop:
+00:053D CDD606          	   733: 		call 	delay2ms
+00:0540 CD5706          	   734: 		call 	waitForResponse 		; Z is set if no response from 376S 
+                        	   735: 
+00:0543 73              	   736: 		ld 		(HL),E					;read char		 store in adressblock (HL)
+00:0544 23              	   737: 		inc 	HL
+00:0545 10F6            	   738: 		djnz 	.loop
+                        	   739: 
+                        	   740: .noaction:
+00:0547 CDFA04          	   741: 		call 	continueRead		; prepares the module for further reading. If false, stop reading.
+                        	   742: 									; You need the continueRead() method if the data to be read from the USB device is greater than numBytes.
+00:054A 28DA            	   743: 		jr 		Z,.nextblock 
+                        	   744: 
+                        	   745: endBlockRead: 	 				; setBytesRead returned false or continueRead returned false
+                        	   746: 
+                        	   747: 	if (USB_TEXT_LABLES>11)
+00:054C CD0000          	   748: 		call 	writeSTRBelow_CRLF
+00:054F 204E6F206D6F7265	   749: 		db		" No more DATA !.",0,0
+00:0557 204441544120212E
+00:055F 00
+00:0560 00
+                        	   750: 	endif
+00:0561 E1              	   751: 		pop 	HL
+00:0562 C9              	   752: 		ret
+                        	   753: 
+                        	   754: ;************************************************************************
+                        	   755: ;************************************************************************
+                        	   756: 
+                        	   757: 
+                        	   758: ;**######################################################################
+                        	   759: ;**######################################################################
+                        	   760: 
+                        	   761: 		; Z set, continueRead return true; NZ-return false(no more data)
+                        	   762: setByteWrite:
+                        	   763: 		;***		Value numBytes in D
+00:0563 CD7706          	   764: 		call 	beginUART
+                        	   765: 	
+00:0566 1E3C            	   766: 		ld 		E,$3C					; Byte Read	
+00:0568 CD8206          	   767: 		call 	outByte367S
+                        	   768: 
+00:056B 5A              	   769: 		ld 		E,D
+00:056C CD8206          	   770: 		call 	outByte367S
+                        	   771: 
+00:056F 1E00            	   772: 		ld 		E,00
+00:0571 CD8206          	   773: 		call 	outByte367S
+                        	   774: 
+00:0574 CD9006          	   775: 		call 	delay1s
+00:0577 CD5706          	   776: 		call 	waitForResponse 		; Z is set if no response from 376S 
+                        	   777: 		; jr		Z,.retfalse				; branch on timeout
+                        	   778: 
+                        	   779: 				;  the actual data is in A&E
+00:057A FE1E            	   780: 		cp 		USB_INT_DISK_WRITE		; check the disk write status CH376S message. 
+                        	   781: 										; If equal to 0x1D, data is present, so return true. Will return 0x14 if no data is present.
+00:057C C8              	   782: 		ret 	Z 						;			; Z set, continueRead return true; NZ-return false(no more data)
+                        	   783: 
+                        	   784: 
+                        	   785: ; .retfalse:
+                        	   786: ; 		ld 		A,$98
+                        	   787: ; 		inc 	A						; Z cleared -> continueRead return  NZ  return false ($14)	
+                        	   788: ; 		ret
+                        	   789: 
+                        	   790: ;************************************************************************
+                        	   791: ;************************************************************************
+                        	   792: 
+                        	   793: 
+                        	   794: 
+                        	   795: ;**######################################################################
+                        	   796: ;**######################################################################
+                        	   797: 	if DOALIGN
+                        	   798: 		align 4
+                        	   799: 	endif
+                        	   800: 
+                        	   801: 
+                        	   802: HC376S_fileWrite::
+                        	   803: 
+00:057D ED5B0000        	   804: 		ld 		DE,(commLvl1) 				; actual file lenght
+00:0581 ED530000        	   805: 		ld 		(charLen),DE 				; save in heap
+                        	   806: 
+00:0585 2A0000          	   807: 		ld 		HL,(commAdr1) 				; set the target start address in HL
+00:0588 EB              	   808: 		ex 		DE,HL						; DE = target start address in HL
+00:0589 19              	   809: 		add		HL,DE
+00:058A 220000          	   810: 		ld 		(commAdr2),HL 				; set the target end address
+00:058D EB              	   811: 		ex 		DE,HL					; set the target start address in HL
+                        	   812: 
+00:058E CD0000          	   813: 		call 	writeSTRBelow_CRLF
+00:0591 2057726974696E67	   814: 		db		" Writing to File !. ",0,0
+00:0599 20746F2046696C65
+00:05A1 20212E20
+00:05A5 00
+00:05A6 00
+00:05A7 118000          	   815: 		ld 		DE,$0080
+00:05AA ED530000        	   816: 		ld 		(packLen),DE
+00:05AE D5              	   817: 		push 	DE
+00:05AF CD9706          	   818: 		call 	delay500ms
+00:05B2 76              	   819: 		halt
+00:05B3 D1              	   820: 		pop 	DE
+                        	   821: nextblockW:	
+                        	   822: 		 
+00:05B4 53              	   823: 		ld 		D,E					; only low byte used (E)
+00:05B5 CD6305          	   824: 		call 	setByteWrite		; This tells the CH376S module how many bytes to write on the next step.
+                        	   825: 									; In this example, 0x80 (D1) bytes will be written at a time. 
+                        	   826: 									; Returns true (Z)if there are bytes to read, false (NZ)if there are no more bytes to read.
+00:05B8 205B            	   827: 		jr 		NZ,endBlockWrite
+                        	   828: 
+00:05BA CD7706          	   829: 		call 	beginUART
+                        	   830: 
+00:05BD 1E2D            	   831: 		ld 		E,$2D			;     //WR_REQ_DATA
+00:05BF CD8206          	   832: 		call 	outByte367S				; CMD_WR_USB_DATA0
+                        	   833: 		
+00:05C2 CD9006          	   834: 		call 	delay1s
+00:05C5 CD5706          	   835: 		call 	waitForResponse		; // wait for an acknowledgement from the CH376S module
+                        	   836: 				;	//WR_REQ_DATA results in byte# -> B
+00:05C8 47              	   837: 		ld 		B,A
+                        	   838: .loopD:
+                        	   839: 		;***		B contains amount of loops   (packLen), HL points to data
+                        	   840: .loop:
+                        	   841: 
+00:05C9 7E              	   842: 		ld 		A,(HL)
+00:05CA 5F              	   843: 		ld 		E,A
+00:05CB 23              	   844: 		inc 	HL
+00:05CC CD8206          	   845: 		call 	outByte367S				;write char to buffer
+00:05CF 10F8            	   846: 		djnz 	.loopD
+                        	   847: 
+00:05D1 220000          	   848: 		ld 		(sdWRpointer),HL		; restore file pointer for later
+                        	   849: 
+                        	   850: 		; call 	delay500ms
+                        	   851: 		; call 	waitForResponse		; // wait for an acknowledgement from the CH376S module
+                        	   852: 
+                        	   853: 	; if (USB_TEXT_LABLES>13)
+                        	   854: 	; 	call 	writeSTRBelow
+                        	   855: 	; 	db		" Write code (normally FF and 14): ",0,0
+                        	   856: 	; endif
+                        	   857: ; 				; response in A&E
+                        	   858: 
+                        	   859: 					; code from block write(pack length)
+                        	   860: 		; ld 		D,00
+                        	   861: 		; call 	putDEtoScreen
+                        	   862: 		; ld 		A,','
+                        	   863: 		; call 	WriteChar
+                        	   864: 
+00:05D4 CD7706          	   865: 		call 	beginUART
+                        	   866: 	
+00:05D7 1E3D            	   867: 		ld 		E,$3D				; CMD_BYTE_WR_GO        
+00:05D9 CD8206          	   868: 		call 	outByte367S		
+                        	   869: 
+00:05DC CD9706          	   870: 		call 	delay500ms
+00:05DF CD5706          	   871: 		call 	waitForResponse		
+                        	   872: 
+                        	   873: 		; ld 		E,A 				; code from block write(pack length)
+                        	   874: 		; ld 		D,00
+                        	   875: 		; call 	putDEtoScreen
+                        	   876: 		; call	CRLF
+                        	   877: 
+                        	   878: 		; ld 		DE,(sdWRpointer)				; code from block write(pack length)
+                        	   879: 		; call 	putDEtoScreen
+                        	   880: 		; call	CRLF
+                        	   881: 
+                        	   882: 
+                        	   883: 		;****	Calculate length of next data chunk
+00:05E2 A7              	   884: 		and 	A						; reset carry
+00:05E3 2A0000          	   885: 		ld 		HL,(sdWRpointer)		; restore file pointer for later
+                        	   886: 		; 		commAdr2 - HL - packlen < 0  ? 
+                        	   887: 	
+00:05E6 ED5B0000        	   888: 		ld 		DE,(commAdr2)
+00:05EA EB              	   889: 		ex 		DE,HL
+00:05EB ED52            	   890: 		sbc 	HL,DE					; HL = commAdr2 - HL
+00:05ED ED5B0000        	   891: 		ld 		DE,(packLen)				; DE = actl block size (packLen)
+00:05F1 ED52            	   892: 		sbc 	HL,DE					; HL = commAdr2 - HL - packlen
+00:05F3 FAFE05          	   893: 		jp 		M,lastBlock				; lastblock < pack size ...
+00:05F6 2A0000          	   894: 		ld 		HL,(sdWRpointer)		; restore file pointer for later
+                        	   895: 
+00:05F9 3EAA            	   896: 		ld  	a,$AA
+                        	   897: 		
+                        	   898: 		; call DumpRegisters
+00:05FB C3B405          	   899: 		jp 		nextblockW
+                        	   900: 
+                        	   901: lastBlock:
+                        	   902: 		; ***	
+00:05FE 19              	   903: 		add 	HL,DE 					; the last (reduced) block size -> DE [HL = commAdr2 - HL - packlen +packLen ]
+00:05FF E5              	   904: 		push 	HL
+00:0600 D1              	   905: 		pop 	DE						; the last (reduced) block size -> DE
+00:0601 ED530000        	   906: 		ld 		(packLen),DE
+00:0605 2A0000          	   907: 		ld 		HL,(sdWRpointer)		; restore file pointer for later
+                        	   908: 
+00:0608 3E00            	   909: 		ld 		A,00
+                        	   910: 	; call DumpRegisters
+                        	   911: 
+00:060A BA              	   912: 		cp 		D
+                        	   913: 		; 		commAdr2 = HL  ?
+00:060B FA1506          	   914: 		jp 		M,endBlockWrite
+00:060E C2B405          	   915: 		jp	 	NZ,nextblockW			; jump to nextblock if DE not zero
+00:0611 BB              	   916: 		cp 		E
+00:0612 C2B405          	   917: 		jp	 	NZ,nextblockW			; jump to nextblock if DE not zero
+                        	   918: 
+                        	   919: 
+                        	   920: ; .W_timeout:
+                        	   921: ; 	if (USB_TEXT_LABLES>14)
+                        	   922: ; 		call 	immputstring
+                        	   923: ; 		dc.b	">Timeout on Write File !.",CHAR_LF,CHAR_CR,0,0
+                        	   924: ; 		even
+                        	   925: ; 	endif
+                        	   926: 
+                        	   927: 
+                        	   928: endBlockWrite: 	 				; setByteWrite returned false or continueRead returned false
+                        	   929: 
+                        	   930: 
+                        	   931: 	if (USB_TEXT_LABLES>15)
+                        	   932: 		call 	writeSTRBelow_CRLF
+                        	   933: 		db		" No more DATA !.",0,0
+                        	   934: 	endif
+                        	   935: 
+00:0615 C9              	   936: 		ret
+                        	   937: 
+                        	   938: ;************************************************************************
+                        	   939: ;************************************************************************
+                        	   940: 
+                        	   941: 
+                        	   942: 
+                        	   943: 
+                        	   944: ;**######################################################################
+                        	   945: ;**######################################################################
+                        	   946: 
+                        	   947: 			; return true ->Z set;   return false with  NZ
+                        	   948: HC376S_fileDelete:
+                        	   949: 
+00:0616 CD0000          	   950: 		call 	writeSTRBelow
+00:0619 203E44656C657465	   951: 		db		" >Delete File : ",0,0
+00:0621 2046696C65203A20
+00:0629 00
+00:062A 00
+                        	   952: 
+00:062B FD210000        	   953: 		ld 		IY,commStr1				;move.l 	USB_filename_ptr,A0 
+00:062F FD2B            	   954: 		dec 	IY
+00:0631 CD0000          	   955: 		call 	WriteLineCRNL
+                        	   956: 
+                        	   957: 
+00:0634 CD5C02          	   958: 		call 	HC376S_setFileName
+                        	   959: 
+                        	   960: 
+00:0637 CD7706          	   961: 		call 	beginUART
+                        	   962: 	
+00:063A 1E35            	   963: 		ld 		E,$35					; Delete File	
+00:063C CD8206          	   964: 		call 	outByte367S
+                        	   965: 
+00:063F CDB306          	   966: 		call	delay100ms
+00:0642 CD5706          	   967: 		call 	waitForResponse 		; Z is set if noresponse from 376S 
+00:0645 CAB904          	   968: 		jp 		Z,endtest				; branch on timeout
+                        	   969: 
+                        	   970: 				; get the actual data, in A&E
+00:0648 FE14            	   971: 		cp		USB_INT_SUCCESS 		; read the CH376S message. 
+                        	   972:  										; If equal to 0x1D, data is present, so return true. Will return 0x14 if no data is present.
+                        	   973: 
+00:064A C8              	   974: 		ret 	Z					; return true ($14); Z set, continueRead return true
+                        	   975: 
+                        	   976: ; 		clr.w 	D0				; Z set
+                        	   977: ; 		rts						; return true; Z cleared -> continueRead return  NZ
+                        	   978: 
+00:064B C3EE02          	   979: 		jp 		openNoFileName		; show no file found
+                        	   980: 
+                        	   981: ;************************************************************************
+                        	   982: ;************************************************************************
+                        	   983: 
+                        	   984: 		; return with no response  (Z); return with response -> NZ, result in A&E
+                        	   985: getResponseFromUSB:
+00:064E DB03            	   986: 		in 		A,(sio_bc)
+00:0650 CB47            	   987: 		bit 	0,A 		 			;test rxrdy-B, bit 0
+00:0652 C8              	   988: 		ret 	Z						; return (no chars available)  (Z)
+                        	   989: 						; 
+                        	   990: 		; ***	No timeout - read data.
+                        	   991: 
+00:0653 DB01            	   992: 		in  	A,(sio_bd)		  		;read char from SIO B
+00:0655 5F              	   993: 		ld 		E,A
+                        	   994: noresp:
+00:0656 C9              	   995: 		ret						; return with response -> NZ
+                        	   996: ; 
+                        	   997: delay_D0_ms:	
+                        	   998: ; 		***		time in msecs in D0
+                        	   999: 
+                        	  1000: ; 		call 	SetHC376Timer
+                        	  1001: 
+                        	  1002: 
+                        	  1003: ; 		call 	resetTimer68230
+                        	  1004: ; 		call 	startTimer68230
+                        	  1005: ; .timetest:
+                        	  1006: ; 		call 	testTimeout				; test timer 
+                        	  1007: ; 		beq 	.timetest
+                        	  1008: 
+                        	  1009: ; 		rts
+                        	  1010: 
+                        	  1011:    		;wait for a response from the CH376S. If CH376S responds, it will be true. If it times out, it will be false. 
+                        	  1012: 		;Response in A&E, use CTC timeout, Z -> no response, NZ -> 376S has responded
+                        	  1013: waitForResponse:  
+                        	  1014: 
+                        	  1015: 		;GPIODEBUG
+00:0657 3E04            	  1016: 		ld a,4
+00:0659 D302            	  1017: 		out (gpio_out),A
+00:065B 3E00            	  1018: 		ld a,0
+00:065D D302            	  1019: 		out (gpio_out),A
+00:065F 7B              	  1020: 		ld a,e
+                        	  1021: 
+00:0660 FB              	  1022: 		ei
+00:0661 76              	  1023: 		halt    
+                        	  1024: 
+00:0662 3A0000          	  1025: 		ld 		A,(CTCdelayFlag)
+00:0665 FEEE            	  1026: 		cp 		CTC_TIMEOUT 						; if A=EE, Z is set, timeout (set by CTC interrupt)
+00:0667 C8              	  1027: 		ret 	Z							; return with Z -> timeout set
+                        	  1028: 				; call 	getResponseFromUSB
+                        	  1029: 				; jr 		Z,.loop
+                        	  1030: 		; *** 	SIO B interrupt place data in E				; 
+                        	  1031: 		; ***	No timeout - read data.
+                        	  1032: 		;GPIODEBUG
+00:0668 3E04            	  1033: 		ld a,4
+00:066A D302            	  1034: 		out (gpio_out),A
+00:066C 3E00            	  1035: 		ld a,0
+00:066E D302            	  1036: 		out (gpio_out),A
+00:0670 7B              	  1037: 		ld a,e
+                        	  1038: 
+                        	  1039: 
+00:0671 CD0000          	  1040: 		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
+00:0674 3C              	  1041: 		inc 	A						; => NZ
+00:0675 7B              	  1042: 		ld 		A,E						; no flags set.
+00:0676 C9              	  1043: 		ret								; NZ set, 376S has responded
+                        	  1044: 
+                        	  1045: 
+                        	  1046: 		; ***	send UART init code $57,$AB
+                        	  1047: beginUART:
+00:0677 1E57            	  1048: 		ld 	    E,$57
+00:0679 CD8206          	  1049: 		call 	outByte367S
+                        	  1050: 
+00:067C 1EAB            	  1051: 		ld 		E,$AB
+00:067E CD8206          	  1052: 		call 	outByte367S
+00:0681 C9              	  1053: 		ret
+                        	  1054: 		;***		Data in E, send byte to HC376S
+                        	  1055: outByte367S:
+                        	  1056: .loop: 
+00:0682 97              	  1057:    		sub		a				;clear a, write into WR0: select RR0
+00:0683 3C              	  1058: 		inc		a				;select RR1
+00:0684 D303            	  1059: 		out		(sio_bc),A
+00:0686 DB03            	  1060:         in		A,(sio_bc)	    ;read TRx , set when all char are sent 'all sent' 
+00:0688 CB47            	  1061:         bit		0,A
+00:068A 28F6            	  1062:         jr      z,.loop
+                        	  1063:     	
+00:068C 7B              	  1064:         ld      A,E
+00:068D D301            	  1065:         out     (sio_bd),A      ; send actl. byte
+                        	  1066: 
+00:068F C9              	  1067: 		ret
+                        	  1068: 
+                        	  1069: 		GLOBAL		delay2s,delay1s,delay500ms,delay200ms,delay100ms,delay50ms,delay20ms,delay10ms
+                        	  1070: 
+                        	  1071: delay1s:	
+00:0690 11FC9B          	  1072: 		ld 		DE,$9BFC		; 8MHz: $----  10MHz:  9BFC, Prescaler
+00:0693 3E20            	  1073: 		ld 		A,_Prescaler
+00:0695 185B            	  1074: 		jr 		CTC_Delay
+                        	  1075: delay500ms:	
+00:0697 11D95A          	  1076: 		ld 		DE,$5AD9		; 8MHz: $----  10MHz:  5AD9, Prescaler
+00:069A 3E20            	  1077: 		ld 		A,_Prescaler
+00:069C 1854            	  1078: 		jr 		CTC_Delay
+                        	  1079: delay350ms:	
+00:069E 11D93F          	  1080: 		ld 		DE,$3FD9		; 8MHz: $----  10MHz:  3FD9, Prescaler
+00:06A1 3E20            	  1081: 		ld 		A,_Prescaler
+00:06A3 184D            	  1082: 		jr 		CTC_Delay
+                        	  1083: delay250ms:	
+00:06A5 11D92D          	  1084: 		ld 		DE,$2DD9		; 8MHz: $----  10MHz:  2DD9, Prescaler
+00:06A8 3E20            	  1085: 		ld 		A,_Prescaler
+00:06AA 1846            	  1086: 		jr 		CTC_Delay
+                        	  1087: delay200ms:
+00:06AC 11BA2A          	  1088: 		ld 		DE,$2ABA		; 8MHz: $----  10MHz:  2ABA, Prescaler
+00:06AF 3E20            	  1089: 		ld 		A,_Prescaler
+00:06B1 183F            	  1090: 		jr 		CTC_Delay
+                        	  1091: delay100ms:
+00:06B3 11FAFA          	  1092: 		ld 		DE,$FAFA		; 8MHz: $----  10MHz:  FAFA, Prescaler
+00:06B6 3E00            	  1093: 		ld 		A,0
+00:06B8 1838            	  1094: 		jr 		CTC_Delay
+                        	  1095: delay50ms:
+00:06BA 11FA7D          	  1096: 		ld 		DE,$7DFA		; 8MHz: $----  10MHz:  7DFA, Prescaler
+00:06BD 3E00            	  1097: 		ld 		A,0
+00:06BF 1831            	  1098: 		jr 		CTC_Delay
+                        	  1099: delay20ms:
+00:06C1 11FA32          	  1100: 		ld 		DE,$32FA		; 8MHz: $----  10MHz:  32FA, Prescaler
+00:06C4 3E00            	  1101: 		ld 		A,0
+00:06C6 182A            	  1102: 		jr 		CTC_Delay
+                        	  1103: delay10ms:
+00:06C8 11FA19          	  1104: 		ld 		DE,$19FA		; 8MHz: $----  10MHz:  19FA, Prescaler
+00:06CB 3E00            	  1105: 		ld 		A,00
+00:06CD 1823            	  1106: 		jr 		CTC_Delay
+                        	  1107: delay5ms:
+00:06CF 117D19          	  1108: 		ld 		DE,$197D		; 8MHz: $----  10MHz:  197D, Prescaler
+00:06D2 3E00            	  1109: 		ld 		A,00
+00:06D4 181C            	  1110: 		jr 		CTC_Delay
+                        	  1111: delay2ms:
+00:06D6 117D0A          	  1112: 		ld 		DE,$0A7D		; 8MHz: $----  10MHz:  0A7D, Prescaler
+00:06D9 3E00            	  1113: 		ld 		A,00
+00:06DB 1815            	  1114: 		jr 		CTC_Delay
+                        	  1115: delay1ms:
+00:06DD 111919          	  1116: 		ld 		DE,$1919		; 8MHz: $----  10MHz:  1919, Prescaler
+00:06E0 3E00            	  1117: 		ld 		A,00
+00:06E2 180E            	  1118: 		jr 		CTC_Delay
+                        	  1119: delay500us:
+00:06E4 112708          	  1120: 		ld 		DE,$0827		; 8MHz: $----  10MHz:  0827, Prescaler
+00:06E7 3E00            	  1121: 		ld 		A,00
+00:06E9 1807            	  1122: 		jr 		CTC_Delay
+                        	  1123: delay200us:
+00:06EB 111905          	  1124: 		ld 		DE,$0519		; 8MHz: $----  10MHz:  0519, Prescaler
+00:06EE 3E00            	  1125: 		ld 		A,00
+00:06F0 1800            	  1126: 		jr 		CTC_Delay
+                        	  1127: CTC_Delay:
+                        	  1128: 		;init CH 0 and 1 as interrupt on timeout
+                        	  1129: 		; A is set or cleared with _Prescaler
+                        	  1130: 		; value in DE
+00:06F2 F3              	  1131: 		di
+00:06F3 F617            	  1132: 		or 	 	_Rising|_Timer|_TC_Follow|_Reset|_CW		; timer 14390 Hz
+00:06F5 D300            	  1133: 		out		(CH0),A 		; CH0 is on hold now
+00:06F7 7A              	  1134: 		ld		A,D				; time constant (prescaler; 126; 93; 6MHz -> 1 sec peroid) 232/101; 
+                        	  1135: 								; time constant (prescaler; 181; 79; 14390,625 khz -> 2, sec peroid;  
+00:06F8 D300            	  1136: 		out		(CH0),A			; and loaded into channel 0
+                        	  1137: 		
+00:06FA 3ED7            	  1138: 		ld		A,_INT_EN|_Counter|_Rising|_TC_Follow|_Reset|_CW	
+00:06FC D301            	  1139: 		out		(CH1),A			; CH1 counter
+00:06FE 7B              	  1140: 		ld		A,E			; time constant 66 defined
+00:06FF D301            	  1141: 		out		(CH1),A			; and loaded into channel 2
+00:0701 AF              	  1142: 		xor 	A 				; clear A
+00:0702 320000          	  1143: 		ld 		(CTCdelayFlag),A ; reset timeout flag
+00:0705 FB              	  1144: 		ei
+                        	  1145: 
+00:0706 C9              	  1146: 		ret
+                        	  1147: 
+                        	  1148: ; reset timeout flag
+                        	  1149: resDelayFlag:
+00:0707 3E00            	  1150: 		ld 		A,00
+00:0709 320000          	  1151: 		ld 		(CTCdelayFlag),A ; reset timeout flag
+00:070C C9              	  1152: 		ret
+                        	  1153: 
+                        	  1154: 
+                        	  1155: CTC_delay_INT_handler:
+                        	  1156: 
+00:070D 3E53            	  1157: 		ld		A,_Counter|_Rising|_Reset|_CW	
+00:070F D301            	  1158: 		out		(CH1),A					; reset and turn off interrupt CH1
+00:0711 3EEE            	  1159: 		ld		A,CTC_TIMEOUT 			; set timeout flag
+00:0713 320000          	  1160: 		ld 		(CTCdelayFlag),A 		; reset timeout flag
+                        	  1161: 		;GPIODEBUG
+00:0716 E5              	  1162: 		push HL
+00:0717 2A0000          	  1163: 		ld  HL,(TempVar4)
+00:071A 77              	  1164: 		ld  (HL),a
+00:071B 23              	  1165: 		inc HL
+00:071C 220000          	  1166: 		ld (TempVar4),HL
+00:071F E1              	  1167: 		pop HL
+                        	  1168: 		;GPIODEBUG
+00:0720 3E08            	  1169: 		ld a,8
+00:0722 D302            	  1170: 		out (gpio_out),A
+00:0724 3E00            	  1171: 		ld a,0
+00:0726 D302            	  1172: 		out (gpio_out),A
+00:0728 7B              	  1173: 		ld a,e
+                        	  1174: 
+00:0729 FB              	  1175: 		ei
+00:072A ED4D            	  1176: 		reti
+                        	  1177: 
+                        	  1178: 
+                        	  1179: ; PrintD0ToScreenHEX:
+                        	  1180: ; 		***		print D0 to sceen on one row
+                        	  1181: ; 		move.w	#8,-(sp)
+                        	  1182: ; 		pea		Cstr2
+                        	  1183: ; 		call 	bintohexstr		; result in Cstr2
+                        	  1184: ; 		lea 	Cstr2,A0 
+                        	  1185: ; 		call 	putstring_cr
+                        	  1186: ; 		rts
+                        	  1187: 
+                        	  1188: ; PrintD0ToScreenDEC:
+                        	  1189: ; 		***		print D0 to sceen on one row
+                        	  1190: ; 		pea		Cstr2
+                        	  1191: ; 		call 	bintodecstr		; result in Cstr2
+                        	  1192: ; 		lea 	Cstr2,A0 
+                        	  1193: ; 		call 	putstring_cr
+                        	  1194: ; 		rts
+                        	  1195: 
+                        	  1196: 
+                        	  1197: 
+                        	  1198: ;**###############################################################
+                        	  1199: ;**################################################################
+                        	  1200: 
+                        	  1201: 		xdef 	blockstart_USB,blockend_USB
+                        	  1202: 
+                        	  1203: blockstart_USB:
+                        	  1204: 	;***		len = BC4 ??
+                        	  1205: 	; dw	$0000,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1206: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1207: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1208: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1209: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1210: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1211: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1212: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1213: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1214: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1215: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1216: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1217: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1218: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1219: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1220: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1221: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1222: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1223: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1224: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1225: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1226: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1227: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1228: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1229: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1230: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1231: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1232: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1233: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1234: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1235: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1236: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1237: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1238: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1239: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1240: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1241: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1242: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1243: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1244: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1245: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1246: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1247: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1248: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1249: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1250: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1251: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1252: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1253: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1254: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1255: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1256: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1257: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1258: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1259: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1260: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1261: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1262: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1263: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1264: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1265: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1266: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1267: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1268: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1269: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1270: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1271: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1272: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1273: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1274: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1275: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1276: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1277: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1278: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1279: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1280: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1281: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1282: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1283: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1284: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1285: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1286: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1287: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1288: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1289: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1290: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1291: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1292: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1293: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1294: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1295: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1296: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF
+                        	  1297: 	; dw	$12345678,$1111,$2222,$3333,$4444,$5555,$6666,$7777
+                        	  1298: 	; dw	$8888,$9999,$AAAA,$BBBB,$CCCC,$DDDD,$EEEE,$FFFF   ; 256 bytes
+                        	  1299: 	; dw	$0018,$11E0,$11E1,$11E2,$11E3,$11E4,$11E5,$11E6
+                        	  1300: 	; dw	$11E7,$11E8,$11E9,$11EA,$11EB,$11EC,$11ED,$11EE
+                        	  1301: 	; dw	$11E0,$11E1,$11E2,$11E3,$11E4,$11E5,$11E6,$11E7
+                        	  1302: blockend_USB:
+                        	  1303: 
+                        	  1304: 
+                        	  1305: 
+                        	  1306: 	end
+                        	  1307: 
+                        	  1308: 
+                        	  1309: 
+
+
+Symbols by name:
+CH0                             external
+CH1                             external
+CH2                             external
+CH3                             external
+CMD_RET_SUCCESS                  E:0051
+CRLF                            external
+CTC1_INT_OFF                    external
+CTC_CH1_I_Vector                 E:F412
+CTC_Delay                       00:06F2
+CTC_TIMEOUT                      E:00EE
+CTC_delay_INT_handler           00:070D EXP
+CTCdelayFlag                    external
+DOALIGN                          E:0000
+ERR_MISS_FILE                    E:0042
+HC376S_CheckConnection          00:0000 EXP
+HC376S_ResetAll                 00:007A EXP
+HC376S_USBdiskMount             00:01FD EXP
+HC376S_diskConnectionStatus     00:01A8 EXP
+HC376S_fileClose                00:0384 EXP
+HC376S_fileCreate               00:03EB EXP
+HC376S_fileDelete               00:0616 EXP
+HC376S_fileOpen                 00:0279 EXP
+HC376S_fileRead                 00:050C EXP
+HC376S_fileWrite                00:057D EXP
+HC376S_getFileSize              00:0474 EXP
+HC376S_setFileName              00:025C EXP
+HC376S_setSDMode                00:014D EXP
+HC376S_setUSBMode               00:008E EXP
+NoSDpres                        00:0115
+NoUSBpres                       00:00FA
+PrintD0ToScreen                 external EXP
+S1x                             external
+SIO_A_C                         external
+SIO_A_D                         external
+SIO_B_C                         external
+SIO_B_D                         external
+SIO_B_DI                        external
+SIO_Int_Vec                      E:F400
+SetHC376Timer                   external EXP
+T_BUFFER                        external
+TempVar4                        external
+TempVar5                        external
+USB_INT_CONNECT                  E:0015
+USB_INT_DISK_READ                E:001D
+USB_INT_DISK_WRITE               E:001E
+USB_INT_SUCCESS                  E:0014
+USB_TEXT_LABLES                  E:000F
+WriteLine                       external
+WriteLineCRNL                   external
+_CW                              E:0001
+_Counter                         E:0040
+_INT_EN                          E:0080
+_Prescaler                       E:0020
+_Reset                           E:0002
+_Rising                          E:0010
+_TC_Follow                       E:0004
+_Timer                           E:0000
+_Z80CTC_Base                    external
+_Z80PIO_Base                    external
+_Z80SIO_Base                    external
+beginUART                       00:0677
+blockend_USB                    00:072C EXP
+blockstart_USB                  00:072C EXP
+charLen                         external
+commAdr1                        external
+commAdr2                        external
+commLvl1                        external
+commStr1                        external
+connection_fail                 00:0027
+connection_pass                 00:004E
+continueRead                    00:04FA
+delay100ms                      00:06B3 EXP
+delay10ms                       00:06C8 EXP
+delay1ms                        00:06DD
+delay1s                         00:0690 EXP
+delay200ms                      00:06AC EXP
+delay200us                      00:06EB
+delay20ms                       00:06C1 EXP
+delay250ms                      00:06A5
+delay2ms                        00:06D6
+delay2s                         external EXP
+delay350ms                      00:069E
+delay500ms                      00:0697 EXP
+delay500us                      00:06E4
+delay50ms                       00:06BA EXP
+delay5ms                        00:06CF
+delay_D0_ms                     00:0657 EXP
+doEnumeration                   00:0309
+endBlockRead                    00:054C
+endBlockWrite                   00:0615
+endtest                         00:04B9
+getResponseFromUSB              00:064E EXP
+gpioB                           external
+gpio_in                         external
+gpio_out                        external
+lastBlock                       00:05FE
+nextblockW                      00:05B4
+noresp                          00:0656
+norespSD                        00:018E
+nxtFileOpen                     00:02A5
+openNoFileName                  00:02EE
+outByte367S                     00:0682
+packLen                         external
+portA_Contr                     external
+portA_Data                      external
+portB_Contr                     external
+portB_Data                      external
+putDEtoScreen                   external
+resDelayFlag                    00:0707
+retNZ                           00:014A
+sdWRpointer                     external
+setByteWrite                    00:0563
+setBytesRead                    00:04DF
+sio_ac                          external
+sio_ad                          external
+sio_bc                          external
+sio_bd                          external
+someUSBerror                    00:0134
+waitForResponse                 00:0657
+writeSTRBelow                   external
+writeSTRBelow_CRLF              external
+
+Symbols by value:
+0000 DOALIGN
+0000 HC376S_CheckConnection
+0000 _Timer
+0001 _CW
+0002 _Reset
+0004 _TC_Follow
+000F USB_TEXT_LABLES
+0010 _Rising
+0014 USB_INT_SUCCESS
+0015 USB_INT_CONNECT
+001D USB_INT_DISK_READ
+001E USB_INT_DISK_WRITE
+0020 _Prescaler
+0027 connection_fail
+0040 _Counter
+0042 ERR_MISS_FILE
+004E connection_pass
+0051 CMD_RET_SUCCESS
+007A HC376S_ResetAll
+0080 _INT_EN
+008E HC376S_setUSBMode
+00EE CTC_TIMEOUT
+00FA NoUSBpres
+0115 NoSDpres
+0134 someUSBerror
+014A retNZ
+014D HC376S_setSDMode
+018E norespSD
+01A8 HC376S_diskConnectionStatus
+01FD HC376S_USBdiskMount
+025C HC376S_setFileName
+0279 HC376S_fileOpen
+02A5 nxtFileOpen
+02EE openNoFileName
+0309 doEnumeration
+0384 HC376S_fileClose
+03EB HC376S_fileCreate
+0474 HC376S_getFileSize
+04B9 endtest
+04DF setBytesRead
+04FA continueRead
+050C HC376S_fileRead
+054C endBlockRead
+0563 setByteWrite
+057D HC376S_fileWrite
+05B4 nextblockW
+05FE lastBlock
+0615 endBlockWrite
+0616 HC376S_fileDelete
+064E getResponseFromUSB
+0656 noresp
+0657 delay_D0_ms
+0657 waitForResponse
+0677 beginUART
+0682 outByte367S
+0690 delay1s
+0697 delay500ms
+069E delay350ms
+06A5 delay250ms
+06AC delay200ms
+06B3 delay100ms
+06BA delay50ms
+06C1 delay20ms
+06C8 delay10ms
+06CF delay5ms
+06D6 delay2ms
+06DD delay1ms
+06E4 delay500us
+06EB delay200us
+06F2 CTC_Delay
+0707 resDelayFlag
+070D CTC_delay_INT_handler
+072C blockend_USB
+072C blockstart_USB
+F400 SIO_Int_Vec
+F412 CTC_CH1_I_Vector

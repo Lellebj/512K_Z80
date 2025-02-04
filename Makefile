@@ -5,6 +5,7 @@ SYSINCDIR?=include
 SYSLIBDIR?=libs/Build/lib
 BUILDLIBDIR?=Build
 BUILD_DIR = Build
+OB_CODE = OBJS
 LIBS=
 # DEFINES=-Z80-512K
 
@@ -13,7 +14,7 @@ MAIN=Z80_BOARD
 
 #****************************************************
 SOURCES    := $(wildcard *.s)
-OBJECTS = $(SOURCES:%$(S_EX)=$(BUILD_DIR)/%.o)
+OBJECTS = $(SOURCES:%$(S_EX)=$(OB_CODE)/%.o)
 
 # SOURCES = $(shell find  -maxdepth 1 -name "*$(S_EX)")
 # OBJECTS    := $(patsubst %.asm,%.o,$(SOURCES))
@@ -22,7 +23,7 @@ APPNAME = $(notdir $(CURDIR))
 #****************************************************
 # $(info    SRC is $(SOURCES))
 # $(info    OBJ is $(OBJECTS))
-# $(info    APPNAME is $(APPNAME))
+$(info    APPNAME is $(APPNAME))
 
 
 TARGET  = $(BUILD_DIR)/$(APPNAME).$(_EXT)
@@ -65,12 +66,10 @@ $(info    GIT is $(GIT_VERSION))
 # 		$(AS)  $(ASFLAGS)  $^
 
 
-$(OBJECTS) : $$(patsubst $(BUILD_DIR)/%.o, %$(S_EX),$$@)
-		mkdir -p $(@D)
-		sed -e "s|@@DATE@@|$(DATE)|g" -e "s|@@EEDATE@@|$(DATE)|g" -e "s+@@GIT_VERSION@@+$(GIT_VERSION)+g" $^  >  temp.tmp
-		$(AS)  $(ASFLAGS)  temp.tmp
-#		mv 	*.lis *.map *.o -t $(BUILD_DIR)
-		rm  -f  temp.tmp
+
+$(OBJECTS) : $$(patsubst $(OB_CODE)/%.o, %$(S_EX),$$@)
+		$(info  INFO: $<)
+		cat $< | sed -e "s|@@DATE@@|$(DATE)|g" -e "s|@@EEDATE@@|$(DATE)|g" -e "s|@@GIT_VERSION@@|$(GIT_VERSION)|g"  | $(AS)  $(ASFLAGS) 
 		echo
 
 $(TARGET): $(OBJECTS)

@@ -1,0 +1,988 @@
+Sections:
+00: "EEPROM_Startup" (0-6)
+01: "INT_IM1" (0-C)
+02: "EEtestprog" (0-135)
+
+
+Source: "stdin"
+                        	     1: ;Z80_PLD_PCB_.asm
+                        	     2: 
+                        	     3: 
+                        	     4: 		section  EEPROM_Startup    ;EEPROM mem at 0000h
+                        	     5: EPS1:
+                        	     6: 
+                        	     7: 		include 	"Z80_Params_.inc"
+
+Source: "Z80_Params_.inc"
+                        	     1: ;Z80_PLD_PCB_.asm
+                        	     2: 
+                        	     3: 
+                        	     4: 
+                        	     5: ; ;Function addresses
+                        	     6: ; setcursor		= $3100
+                        	     7: ; writecommand	= $3180
+                        	     8: ; writedata		= $3140
+                        	     9: ; testBusyFlag    = $31B0
+                        	    10: ; HD44780_main_init = $3000
+                        	    11: stacktop: equ	0xFFF0	
+                        	    12: 
+                        	    13: 
+                        	    14: ; PIO addressess...
+                        	    15: ;******************************************
+                        	    16: 	  ; _Z80PIO_Base= $00
+                        	    17: portA_Contr:	equ _Z80PIO_Base + 1
+                        	    18: portB_Contr:	equ _Z80PIO_Base + 3
+                        	    19: portA_Data:		equ _Z80PIO_Base + 0
+                        	    20: portB_Data:		equ _Z80PIO_Base + 2
+                        	    21: 
+                        	    22: 
+                        	    23: gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
+                        	    24: gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
+                        	    25: gpioB:			equ		portB_Data
+                        	    26: 
+                        	    27: ; SIO_0 stuff
+                        	    28: ;******************************************
+                        	    29: SIO_A_D:		equ	_Z80SIO_Base	  ; = $20
+                        	    30: 				;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	    31: SIO_A_C:		equ	_Z80SIO_Base+2
+                        	    32: 				;SIO_0  CHANNEL B DATA
+                        	    33: SIO_B_D:		equ	_Z80SIO_Base+1
+                        	    34: 				;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	    35: SIO_B_C:		equ	_Z80SIO_Base+3
+                        	    36: 
+                        	    37: sio_ac: 		equ 	SIO_A_C
+                        	    38: sio_ad: 		equ 	SIO_A_D
+                        	    39: sio_bc: 		equ 	SIO_B_C
+                        	    40: sio_bd: 		equ 	SIO_B_D
+                        	    41: 
+                        	    42: Interupt_vector		= SIO_Int_Vec
+                        	    43: 
+                        	    44: SIO_Int_Vec		EQU     $F400				; interrupt vector 
+                        	    45: SIO_Int_WR_Vec	EQU     SIO_Int_Vec+8		;sio_0 channel A write interrupt vector
+                        	    46: SIO_Int_EXT_Vec	EQU     SIO_Int_Vec+10	;sio_0 channel A external/status ; interrupt vector
+                        	    47: SIO_Int_Read_Vec	EQU     SIO_Int_Vec+12	;sio_0 channel A read interrupt vector
+                        	    48: SIO_Int_Spec_Vec	EQU     SIO_Int_Vec+14	;sio_0 channel A special receive interrupt vector
+                        	    49: 
+                        	    50: 		
+                        	    51: SIO_USB_WR_Vec	EQU     SIO_Int_Vec+0		;sio_0 channel B write interrupt vector
+                        	    52: SIO_USB_EXT_Vec	EQU     SIO_Int_Vec+2		;sio_0 channel B external/status ; interrupt vector
+                        	    53: SIO_USB_Read_Vec	EQU     SIO_Int_Vec+4		;sio_0 channel B read interrupt vector
+                        	    54: SIO_USB_Spec_Vec	EQU     SIO_Int_Vec+6		;sio_0 channel B special receive interrupt vector
+                        	    55: 
+                        	    56: ;Write register 0
+                        	    57: WR0 equ 0
+                        	    58: _Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
+                        	    59: _Ch_Reset		equ 3<<3			; 18
+                        	    60: _EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
+                        	    61: _Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
+                        	    62: _Error_Reset 	equ $30				; (30)	
+                        	    63: _Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
+                        	    64: 
+                        	    65: ;Write register 1
+                        	    66: WR1 equ 1
+                        	    67: _Ext_INT_EN			equ 1
+                        	    68: _Tx_INT_EN 			equ 2
+                        	    69: _Status_Vector		equ 4
+                        	    70: _Rx_INT_Disable		equ 0
+                        	    71: _Rx_INT_First_Char  equ $08
+                        	    72: _INT_All_Rx_Char_P 	equ $10 
+                        	    73: _Int_All_Rx_Char_NP	equ $18
+                        	    74: _WAIT_READY_R_T 	equ $20
+                        	    75: _WAIT_READY_FUNC	equ $40
+                        	    76: _WAIT_READY_EN		equ $80
+                        	    77: 
+                        	    78: WR2 equ 2
+                        	    79: 
+                        	    80: ;Write register 3
+                        	    81: WR3 equ 3
+                        	    82: _Rx_Enable 			equ $01
+                        	    83: _Rx_Disable 		equ $00
+                        	    84: _Auto_Enable		equ $20
+                        	    85: _RX_5_bits			equ $00
+                        	    86: _RX_6_bits			equ $40
+                        	    87: _RX_7_bits			equ $80
+                        	    88: _RX_8_bits			equ $C0
+                        	    89: 
+                        	    90: ;Write register 4
+                        	    91: WR4 equ 4
+                        	    92: _Parity_EN			equ $01
+                        	    93: _Parity_Even		equ $02
+                        	    94: _Stop_1_bit			equ $04
+                        	    95: _Stop_1_2_bit		equ $08
+                        	    96: _Stop_2_bit			equ $0C
+                        	    97: _X1_Clock_mode		equ $00
+                        	    98: _X16_Clock_mode		equ $40
+                        	    99: _X32_Clock_mode		equ $80
+                        	   100: _X64_Clock_mode		equ $C0
+                        	   101: 
+                        	   102: ;Write register 5
+                        	   103: WR5 equ 5
+                        	   104: _RTS_Enable			equ $02
+                        	   105: _Tx_Enable 			equ $08
+                        	   106: _Send_Break			equ $10
+                        	   107: _Tx_5bits_char		equ $00
+                        	   108: _Tx_7bits_char		equ $20
+                        	   109: _Tx_6bits_char		equ $40
+                        	   110: _Tx_8bits_char		equ $60
+                        	   111: _DTR_Enable 		equ $80
+                        	   112: 
+                        	   113: EOT_FOUND			equ $02
+                        	   114: _err01_				equ	$08
+                        	   115: _err02_				equ	$09
+                        	   116: _err03_				equ	$0C
+                        	   117: _err04_				equ	$0D
+                        	   118: _err05_				equ	$0E
+                        	   119: CTCpulse			equ $0A
+                        	   120: CTCtimeout			equ $0B
+                        	   121: 
+                        	   122: 
+                        	   123: ; CTC stuff
+                        	   124: ;******************************************
+                        	   125: CH0		equ 	_Z80CTC_Base	  ; = $10
+                        	   126: CH1		equ 	_Z80CTC_Base+1	
+                        	   127: CH2		equ 	_Z80CTC_Base+2	
+                        	   128: CH3		equ 	_Z80CTC_Base+3	
+                        	   129: 
+                        	   130: _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
+                        	   131: _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
+                        	   132: _Timer 		equ 	$00
+                        	   133: _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
+                        	   134: _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
+                        	   135: _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
+                        	   136: _TC_Follow 	equ 	$04		; D2 - 1 time constant follows
+                        	   137: _Reset 		equ 	$02		; D1 - 1 Software reset
+                        	   138: _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
+                        	   139: 
+                        	   140: ; Interrupt vectors for CTC
+                        	   141: CTC_CH0_I_Vector	EQU     SIO_Int_Vec+$10		;CTC channel 0 interrupt vector 
+                        	   142: CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector 
+                        	   143: CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
+                        	   144: CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
+                        	   145: 
+                        	   146: ; Data tables  (upper EPROM/FLASH)
+                        	   147: ; stack  				= $FF00
+                        	   148: Heap				= $F000				; space for variable storage
+                        	   149: 
+                        	   150: ; variables  	(upper ram)
+                        	   151: PIO_B_value:		= $F1D0
+                        	   152: Result_NumToHex:	= $F1F0
+                        	   153: 
+                        	   154: 
+                        	   155: ; _RAMSTART		= $8010	
+                        	   156: ; _EETESTPROG		= $100	
+                        	   157: 	
+                        	   158: ; _Z80PIO_Base	= $0
+                        	   159: ; _Z80CTC_Base	= $10
+                        	   160: ; _Z80SIO_Base	= $20
+                        	   161: ; _Z80_BankCS  	= 0x30;		/*	 30 - 3F   */
+                        	   162: ; _8Bitsout 		= $40;		/*	 40 - 4F  */
+                        	   163: ; _CE_RST_BANK 	= 0x50;		/*	 50 - 5F  */
+                        	   164: 
+                        	   165: ;*****	ALIGN command  : 00 removes all align commands
+                        	   166: DOALIGN 	EQU 	00
+                        	   167: 
+                        	   168: EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
+                        	   169: TestChar:		EQU		'A'				;TEST CHARACTER = A
+                        	   170: CRChar:			EQU		0DH				; carrige return
+                        	   171: LFChar:			EQU		0AH				; line feed
+                        	   172: NUL			EQU		00
+                        	   173: SOH			EQU		01
+                        	   174: STX			EQU		02
+                        	   175: ETX			EQU		03
+                        	   176: EOT			EQU		04
+                        	   177: ENQ			EQU		05
+                        	   178: ACK			EQU		06
+                        	   179: BEL			EQU		07
+                        	   180: BS			EQU		08h
+                        	   181: HT			EQU		09h
+                        	   182: LF			EQU		0AH
+                        	   183: VT			EQU		0BH
+                        	   184: FF			EQU		0CH
+                        	   185: CR			EQU		0DH
+                        	   186: SO			EQU		0Eh
+                        	   187: SI			EQU		0Fh
+                        	   188: DLE			EQU		10h
+                        	   189: DC1			EQU		11h
+                        	   190: DC2			EQU		12h
+                        	   191: DC3			EQU		13h
+                        	   192: DC4			EQU		14h
+                        	   193: NAK			EQU		15h
+                        	   194: SYN			EQU		16h
+                        	   195: ETB			EQU		17h
+                        	   196: CAN			EQU		18h
+                        	   197: EM			EQU		19h
+                        	   198: SUB			EQU		1Ah
+                        	   199: ESC			EQU		1Bh
+                        	   200: FS			EQU		1Ch
+                        	   201: GS			EQU		1Dh
+                        	   202: RS			EQU		1Eh
+                        	   203: US			EQU		1Fh
+                        	   204: ITEM		EQU		1Ch
+                        	   205: STEND		EQU		1Dh
+                        	   206: LISTEND		EQU		1Eh
+                        	   207: SP			EQU		20h
+                        	   208: 
+                        	   209: 
+                        	   210: ; 	Variables in SRAM   HEAP TOP  - Moved to load script !
+                        	   211: ;DATA LOCATIONS
+                        	   212: ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
+                        	   213: ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
+                        	   214: ; BufStat:		EQU     0D07H ;The state of the buffer okay (00), error (EE), auto (AA)        (1-byte)
+                        	   215: ; CByteRec:		EQU     0D08H ;Current byte received from SIO_0                                  (1-byte)
+                        	   216: ; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to SIO_0, or by key press FF=auto  (1-byte)
+                        	   217: ; KeyPressed:		EQU     0D0AH ;Key Pressed Flag, 00-False, FF-True                             (1-byte)
+                        	   218: 
+                        	   219: ;BUFFER CONFIGURATION
+                        	   220: ; CBufLoc:		EQU     0B00H ;Location of circular buffer
+                        	   221: ; CBufHead:		EQU     0D0BH ;Pointer to the Head of the Circular buffer                      (1-byte)
+                        	   222: ; CBufTail:		EQU     0D0CH ;Pointer to the Tail of the Circular buffer                      (1-byte)
+                        	   223: 
+                        	   224: ;BUFFER SIZES, change to suit
+                        	   225: ; BUFF16:			EQU     0FH   ;16 bytes
+                        	   226: ; BUFF32:			EQU     1FH   ;32 bytes
+                        	   227: ; BUFF64:			EQU     3FH   ;64 bytes
+                        	   228: ; BUFF128:		EQU     7FH   ;128 bytes
+                        	   229: ; BUFF256:		EQU     0FFH  ;256 bytes
+                        	   230: ; CBufSize:		EQU     BUFF32  ;16 bytes (Change if required)
+                        	   231: 
+                        	   232: 
+                        	   233: ;INTERRUPT VECTOR TABLE SETUP
+                        	   234: ;The interrupt will call one of these service routines depending on the type of interrupt
+                        	   235: ;There are 4 reasons the interrupt will occur:
+                        	   236: ; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
+                        	   237: ; 2. External/Status Change - Indicating a change in the modem line or break condition
+                        	   238: ; 3. Receive Character Available - Indicating that data has been sent to CPU
+                        	   239: ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
+                        	   240: ;
+                        	   241: ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
+                        	   242: ;address is the value in the interrupt register 'I'.  The Low byte of the address is
+                        	   243: ;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
+                        	   244: ;shows what bits are set on the data bus.  This is used to index the vector table:
+                        	   245: ;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
+                        	   246: ;
+                        	   247: ; Channel   D3  D2  D1  Addr  Interrupt type
+                        	   248: ; -------   --  --  --  ----  --------------
+                        	   249: ;    B       0   0   0   00H  Transmit Buffer Empty
+                        	   250: ;    B       0   0   1   02H  External/Status Change
+                        	   251: ;    B       0   1   0   04H  Receive Character Available
+                        	   252: ;    B       0   1   1   06H  Special Receive Condition
+                        	   253: ;    A       1   0   0   08H  Transmit Buffer Empty
+                        	   254: ;    A       1   0   1   0AH  External/Status Change
+                        	   255: ;    A       1   1   0   0CH  Receive Character Available
+                        	   256: ;    A       1   1   1   0EH  Special Receive Condition
+                        	   257: ;
+                        	   258: ; SIO_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
+                        	   259: ; SIO_WriteVector:		EQU		SIO_IntVectors+08H ;Write Interrupt Vector
+                        	   260: ; SIO_ExternalVector:	EQU		SIO_IntVectors+0AH ;External Status Interrupt Vector
+                        	   261: ; SIO_ReadVector:		EQU		SIO_IntVectors+0CH ;Read Interrupt Vector
+                        	   262: ; SIO_SpecialVector:		EQU		SIO_IntVectors+0EH ;Special Receive Interrupt Vector
+                        	   263: 
+                        	   264: 
+                        	   265: 	; SIO_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+                        	   266: 	; SIO_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+                        	   267: 	; SIO_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	   268: 	; SIO_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	   269: 
+                        	   270: ;****************************************************************************
+                        	   271: 
+                        	   272: 
+                        	   273: 
+                        	   274: 
+                        	   275: ; Define the memory size to be used for the CP/M configuration
+                        	   276: ; MEM:    equ 60
+                        	   277: 
+                        	   278: ; The CPM origin will be at: (MEM-7)*1024
+                        	   279: ; This screwy convention is due to the way that that the CP/M origin is defined.
+                        	   280: ; CPM_BASE:	equ	(MEM-7)*1024
+                        	   281: 
+                        	   282: ; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
+                        	   283: 
+                        	   284: 
+                        	   285: 
+
+Source: "stdin"
+                        	     8: 		xref	RAM_Start,PLD_PCB_Start, SC5B,SC4C,SC8B, WriteLineCRNL, WriteLine, ReadLine, CRLF,DumpRegisters
+                        	     9: 
+                        	    10: 		xref	stacktop
+                        	    11: 		global 	setFLASHBank, setSRAMBank, enableFLASH, disableFLASH, setFLASHBank
+                        	    12: 
+                        	    13: 		; ld		sp,stacktop
+                        	    14: 
+                        	    15: 
+00:0000 31F0FF          	    16: 		ld		sp,stacktop
+                        	    17: 		
+                        	    18: 		; jp 		hit
+00:0003 C39400          	    19: 		jp		setBanks
+                        	    20: 		
+                        	    21: 		; section RST08
+                        	    22: 		; jp	WriteLineCRNL	
+                        	    23: 		; section RST10	
+                        	    24: 		; jp 	WriteLine
+                        	    25: 		; section RST18	
+                        	    26: 		; jp	ReadLine
+                        	    27: 		; section RST20	
+                        	    28: 		; jp	CRLF
+                        	    29: 		; section RST28	
+                        	    30: 		; db 0,0,0
+                        	    31: 		; section RST30	
+                        	    32: 		; db 0,0,0
+                        	    33: 		; section RST38	
+                        	    34: 		; jp	DumpRegisters
+                        	    35: 
+                        	    36: 
+                        	    37: ;********************************************************
+                        	    38: 		section  INT_IM1     ;EEPROM mem at 0066h
+                        	    39: ;********************************************************
+                        	    40: 
+01:0000 0E04            	    41: 		LD C,04		; jp PIO_A_INT
+01:0002 0E04            	    42: 		LD C,04		; jp PIO_A_INT
+01:0004 0E04            	    43: 		LD C,04		; jp PIO_A_INT
+01:0006 1604            	    44: 		LD D,04		; jp PIO_A_INT
+01:0008 ED45            	    45: 		retn		; jp PIO_A_INT
+01:000A 0004            	    46: 		defw $0400          ; NMI adress table    
+                        	    47: 
+                        	    48: 
+                        	    49: ;********************************************************		
+                        	    50: 		section EEtestprog			; main program in sram
+                        	    51: ;********************************************************	
+                        	    52: 
+                        	    53: 		; xdef	RDATA_END,RDATA,TB_length
+                        	    54: hit:
+02:0000 3E0D            	    55: 		LD 		A,$0D
+02:0002 D300            	    56: 		out 	(_CE_RST_BANK),A
+                        	    57: 
+02:0004 3E77            	    58: 		LD 		A,$77
+02:0006 D300            	    59: 		out 	(_Z80_BankCS),A
+                        	    60: 
+02:0008 76              	    61: 		halt 
+                        	    62: 
+02:0009 CD0000          	    63: 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+                        	    64: 			; initialize buffer counters and pointers.
+                        	    65: 
+02:000C CD0000          	    66: 		call	PIO_Init
+02:000F 3E1B            	    67: 	 	ld 		A,$1B
+02:0011 D302            	    68: 		out 	(gpio_out),A
+02:0013 D302            	    69: 		out 	(gpio_out),A
+02:0015 D302            	    70: 		out 	(gpio_out),A
+02:0017 3E0C            	    71: 		ld 		A,$0C
+02:0019 D302            	    72: 		out 	(gpio_out),A
+                        	    73: 
+02:001B CD0000          	    74: 		call 	CTC_Init
+02:001E 3E1D            	    75: 		ld 		A,$1D
+02:0020 D302            	    76: 		out 	(gpio_out),A
+                        	    77: 
+                        	    78: 		; call 	SIO_Init
+02:0022 210000          	    79: 		ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
+02:0025 CD0000          	    80: 		call    InitSIO_0Ports			; INITIALIZE SIO_0
+                        	    81: 
+02:0028 3E1E            	    82: 		ld 		A,$1E
+02:002A D302            	    83: 		out 	(gpio_out),A
+                        	    84: 
+02:002C 3E23            	    85: 		ld 		A,'#'
+02:002E D300            	    86: 		out		(SIO_A_D),A			;output data
+02:0030 CD8900          	    87: 		call 	TX_EMP
+                        	    88: 
+02:0033 3E18            	    89: 		ld 		A,$18
+02:0035 D302            	    90: 		out 	(gpio_out),A
+                        	    91: 
+02:0037 3E23            	    92: 		ld 		A,'#'
+02:0039 D300            	    93: 		out		(SIO_A_D),A			;output data
+02:003B CD8900          	    94: 		call 	TX_EMP
+02:003E 3E23            	    95: 		ld 		A,'#'
+02:0040 D300            	    96: 		out		(SIO_A_D),A			;output data
+02:0042 CD8900          	    97: 		call 	TX_EMP
+                        	    98: 
+02:0045 3E19            	    99: 		ld 		A,$19
+02:0047 D302            	   100: 		out 	(gpio_out),A
+                        	   101: 
+02:0049 3E23            	   102: 		ld 		A,'#'
+02:004B D300            	   103: 		out		(SIO_A_D),A			;output data
+02:004D CD8900          	   104: 		call 	TX_EMP
+02:0050 3E23            	   105: 		ld 		A,'#'
+02:0052 D300            	   106: 		out		(SIO_A_D),A			;output data
+02:0054 CD8900          	   107: 		call 	TX_EMP
+02:0057 3E23            	   108: 		ld 		A,'#'
+02:0059 D300            	   109: 		out		(SIO_A_D),A			;output data
+02:005B CD8900          	   110: 		call 	TX_EMP
+                        	   111: 
+02:005E 3E1A            	   112: 		ld 		A,$1A
+02:0060 D302            	   113: 		out 	(gpio_out),A
+                        	   114: 
+02:0062 76              	   115: 		halt
+                        	   116: 
+02:0063 210204          	   117: 		ld  	HL,$0402
+                        	   118: 
+02:0066 CD1D01          	   119: 		call 	EEPIO_Init
+02:0069 3E30            	   120: 		LD 		A,$30
+                        	   121: 
+02:006B 0640            	   122: 		ld 		B,$40
+                        	   123: hit2:		
+02:006D 77              	   124: 		ld 		(HL),a
+02:006E 3C              	   125: 		inc 	a
+02:006F 23              	   126: 		INC 	HL
+02:0070 D300            	   127: 		out 	(gpio_in),A
+                        	   128: 
+                        	   129: 	
+02:0072 10F9            	   130: 		djnz 	hit2
+                        	   131: 	
+02:0074 77              	   132: 		LD 		(hl),a
+02:0075 3C              	   133: 		inc 	a
+02:0076 23              	   134: 		INC 	HL
+02:0077 D300            	   135: 		out 	(gpio_in),A
+02:0079 77              	   136: 		LD 		(hl),a
+02:007A 3C              	   137: 		inc 	a
+02:007B 23              	   138: 		INC 	HL
+02:007C D300            	   139: 		out 	(gpio_in),A
+02:007E 77              	   140: 		LD 		(hl),a
+02:007F 3C              	   141: 		inc 	a
+02:0080 23              	   142: 		INC 	HL
+02:0081 D300            	   143: 		out 	(gpio_in),A
+02:0083 77              	   144: 		LD 		(hl),a
+                        	   145: 
+02:0084 3E0C            	   146: 		LD 		A,$0C
+02:0086 D300            	   147: 		out 	(_CE_RST_BANK),A
+02:0088 76              	   148: 		halt
+                        	   149: 
+                        	   150: 		
+                        	   151: 
+02:0089 97              	   152: TX_EMP:	sub a
+02:008A 3C              	   153: 		inc a
+02:008B D302            	   154: 		out (SIO_A_C),A
+02:008D DB02            	   155: 		in 	a,(SIO_A_C)
+02:008F CB47            	   156: 		bit 0,A
+02:0091 28F6            	   157: 		jr  z,TX_EMP
+02:0093 C9              	   158: 		ret
+                        	   159: 
+                        	   160: ; RTestprog:
+                        	   161: ; 		;--------------------------------------------------
+                        	   162: ; 		; ld A,5
+                        	   163: ; 		; out (_CE_RST_BANK),A
+                        	   164: ; 		; ld 	A,$00	
+                        	   165: ; 		; out (_Z80_BankCS),A		// set bank register number 	
+                        	   166: ; 		; ld 	A,$01
+                        	   167: ; 		; out (_CE_RST_BANK),A 		// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+                        	   168: 
+                        	   169: ; 		out (_8Bitsout),A
+                        	   170: 
+                        	   171: ; 		ld A, $0F                 ;mode 1 out
+                        	   172: ; 		out (portA_Contr), A         ; set port A as output
+                        	   173: ; 		ld A,$81
+                        	   174: 
+                        	   175: ; tll:	
+                        	   176: ; 		ld (40000),A
+                        	   177: ; 		ld A,0
+                        	   178: ; 		ld A,(40000)
+                        	   179: 
+                        	   180: ; 		out (portA_Data),A		; Data to PIO port A
+                        	   181: ; 		out (_8Bitsout),A
+                        	   182: ; 		;--------------------------------------------------
+                        	   183: ; 		ld	DE,$8100
+                        	   184: ; 		ld	HL,RDATA
+                        	   185: ; 		ld 	BC,RDATA_END-RDATA
+                        	   186: ; 		ldir
+                        	   187: ; 	if DOALIGN
+                        	   188: ; 		align 4
+                        	   189: ; 	endif
+                        	   190: 
+                        	   191: ; RDATA:
+                        	   192: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   193: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   194: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   195: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   196: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   197: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   198: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   199: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   200: ; RDATA_END:
+                        	   201: ; TB_length	equ 	RDATA_END-RDATA
+                        	   202: 
+                        	   203: 
+                        	   204: setBanks:
+                        	   205: 		; ld 		A,$80					; set bit 7 - SRAM64 set
+                        	   206: 		; ld 		(memBankID),A			; clear memory banks
+                        	   207: 		
+02:0094 CD1D01          	   208: 		call 	EEPIO_Init
+02:0097 3E55            	   209: 		ld 		A,$55
+02:0099 D302            	   210: 		out 	(gpio_out),A
+                        	   211: 
+02:009B AF              	   212: 		xor 	A						; A=0
+02:009C 320000          	   213: 		ld 		(memBankID),A			; set memory banks #0
+02:009F CD0201          	   214: 		call 	disableFLASH			; NO FLASH 
+02:00A2 AF              	   215: 		xor 	A
+02:00A3 CDD000          	   216: 		call 	setSRAMBank			; ram bank #0
+02:00A6 3E77            	   217: 		ld 		A,$77
+02:00A8 D302            	   218: 		out 	(gpio_out),A
+                        	   219: 
+                        	   220: 		; call 	enableFLASH			; start from FLASH
+                        	   221: 
+02:00AA CD1401          	   222: 		call 	enableIC620_OE 		; enable the outputs.
+                        	   223: 
+02:00AD C30000          	   224: 		jp		PLD_PCB_Start
+                        	   225: 
+                        	   226: ;********************************************************************************************
+                        	   227: ;********************************************************************************************	
+                        	   228: 		; ******   Copy data from flash $1000 to $2FF0 to SRAM $D000
+                        	   229: 		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
+                        	   230: 		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
+                        	   231: 
+02:00B0 2102D0          	   232: 		ld 		HL,$D002
+02:00B3 3E43            	   233: 		ld  	A,'C'
+02:00B5 010400          	   234: 		ld 		BC,04
+                        	   235: 
+02:00B8 EDA1            	   236: .nxt:	cpi 	
+02:00BA 2006            	   237: 		jr 		NZ,doCopy
+02:00BC EAB800          	   238: 		jp 		PE,.nxt
+                        	   239: 		;JP PE means "branch if BC has not been decremented to 0."
+                        	   240: 
+                        	   241: 		; the code 'CCCC' is found in $D002-D005, do not copy from flashmem.
+02:00BF C30000          	   242: 		jp		PLD_PCB_Start
+                        	   243: 
+                        	   244: doCopy:
+02:00C2 210010          	   245: 		ld 		HL,$1000				; source
+02:00C5 1100D0          	   246: 		ld 		DE,$D000	 			; destination
+02:00C8 01F01F          	   247: 		ld 		BC,$1FF0				; 
+                        	   248: 
+02:00CB EDB0            	   249: 		ldir
+                        	   250: 
+02:00CD C30000          	   251: 		jp		PLD_PCB_Start
+                        	   252: 
+                        	   253: 
+                        	   254: ;********************************************************************************************
+                        	   255: ;********************************************************************************************	
+                        	   256: setSRAMBank:
+                        	   257: 		; ***	set the SRAM bank ID; Bank ID in A
+                        	   258: 
+02:00D0 E5              	   259: 		push 	HL
+02:00D1 C5              	   260: 		push 	BC
+02:00D2 210000          	   261: 		ld 		HL,memBankID
+02:00D5 E60F            	   262: 		and 	$0F 				; clear all bits but 0-3 in A
+                        	   263: 
+02:00D7 47              	   264: 		ld 		B,A
+02:00D8 7E              	   265: 		ld 		A,(HL)				; get the actl. mem Bank ID
+02:00D9 E6F0            	   266: 		and 	$F0  				; zero bits 0-3
+02:00DB 180F            	   267: 		jr 		putBank
+                        	   268: 
+                        	   269: ;********************************************************************************************
+                        	   270: ;********************************************************************************************	
+                        	   271: 
+                        	   272: setFLASHBank:
+                        	   273: 		; ***	set the EEPROM bank ID; Bank ID in A
+                        	   274: 
+02:00DD E5              	   275: 		push 	HL
+02:00DE C5              	   276: 		push 	BC
+02:00DF 210000          	   277: 		ld 		HL,memBankID
+02:00E2 E607            	   278: 		and 	$07 				; clear all bits but 0-2
+02:00E4 07              	   279: 		rlca
+02:00E5 07              	   280: 		rlca
+02:00E6 07              	   281: 		rlca
+02:00E7 07              	   282: 		rlca						; bank ID = bits 4-6
+                        	   283: 
+02:00E8 47              	   284: 		ld 		B,A
+02:00E9 7E              	   285: 		ld 		A,(HL)				; get the actl. mem Bank ID
+02:00EA E68F            	   286: 		and 	$8F  				; zero bits 4-6
+                        	   287: putBank:
+02:00EC B0              	   288: 		or 		B					; put new EEP bank ID in A...
+02:00ED 77              	   289: 		ld 		(HL),A				; store new value
+02:00EE D300            	   290: 		out 	(_Z80_BankCS),A		; set bank register number 0 and 64K_SRAM=1	
+02:00F0 C1              	   291: 		pop 	BC
+02:00F1 E1              	   292: 		pop 	HL
+02:00F2 C9              	   293: 		ret 
+                        	   294: 
+                        	   295: ;********************************************************************************************
+                        	   296: ;********************************************************************************************	
+                        	   297: enableFLASH:
+                        	   298: 		; ***	activate FLASH MEM, leave bank ID unchanged; 
+                        	   299: 				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
+                        	   300: 				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+02:00F3 E5              	   301: 		push 	HL
+02:00F4 C5              	   302: 		push 	BC
+02:00F5 210000          	   303: 		ld 		HL,rstBankID
+02:00F8 CB9E            	   304: 		res 	3,(HL)				; 
+                        	   305: putBankF:
+02:00FA CBD6            	   306: 		set 	2,(HL)				; temp inhibit reset
+02:00FC 7E              	   307: 		ld 		A,(HL)
+02:00FD D300            	   308: 		out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
+02:00FF C1              	   309: 		pop 	BC
+02:0100 E1              	   310: 		pop 	HL
+02:0101 C9              	   311: 		ret 
+                        	   312: 		
+                        	   313: ;********************************************************************************************
+                        	   314: ;********************************************************************************************	
+                        	   315: disableFLASH:
+                        	   316: 		; ***	disconnect FLASH MEM, leave bank ID unchanged; 
+                        	   317: 				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
+                        	   318: 				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+02:0102 E5              	   319: 		push 	HL
+02:0103 C5              	   320: 		push 	BC
+02:0104 210000          	   321: 		ld 		HL,rstBankID
+02:0107 CBDE            	   322: 		set 	3,(HL)
+02:0109 18EF            	   323: 		jr 		putBankF
+                        	   324: 
+                        	   325: ;********************************************************************************************
+                        	   326: ;********************************************************************************************	
+                        	   327: 
+                        	   328: 
+                        	   329: disableIC620_OE:
+                        	   330: 		; ***	Set IC620 pin 1 high
+02:010B E5              	   331: 		push 	HL
+02:010C C5              	   332: 		push 	BC
+02:010D 210000          	   333: 		ld 		HL,rstBankID
+02:0110 CB86            	   334: 		res 	0,(HL)
+02:0112 18E6            	   335: 		jr 		putBankF
+                        	   336: 
+                        	   337: 
+                        	   338: ;********************************************************************************************
+                        	   339: ;********************************************************************************************	
+                        	   340: 
+                        	   341: enableIC620_OE: 
+                        	   342: 		; ***	Set IC620 pin 1 low
+02:0114 E5              	   343: 		push 	HL
+02:0115 C5              	   344: 		push 	BC
+02:0116 210000          	   345: 		ld 		HL,rstBankID
+02:0119 CBC6            	   346: 		set 	0,(HL)
+02:011B 18DD            	   347: 		jr 		putBankF
+                        	   348: 
+                        	   349: 
+                        	   350: ;********************************************************************************************
+                        	   351: ;********************************************************************************************	
+                        	   352: 
+                        	   353: 		; out (_8Bitsout),A
+                        	   354: 		
+                        	   355: 
+                        	   356: ; 
+                        	   357: EEPIO_Init:
+                        	   358: ; ;----------******************* PIO PORT A
+02:011D 3E0F            	   359: 		ld A, $0F                 ;mode 1 out
+02:011F D301            	   360: 		out (portA_Contr), A         ; set port A as output
+                        	   361: ; 		ld A, Interupt_vector&0xFF                   ; low byte of INT table
+                        	   362: ; 		out (portA_Contr), A         ; PIO A interrupt vector
+02:0121 3E03            	   363: 		ld A, $03
+02:0123 D301            	   364: 		out (portA_Contr), A         ; PIO A interrupt disable
+                        	   365: ; 		ld a,Interupt_vector>>8                   ; high byte of INT table
+                        	   366: ; 		ld I,A
+                        	   367: ; 		ei
+                        	   368: ; ;----------******************* PIO PORT B
+02:0125 3E0F            	   369:  		ld A, $0F                    ;mode 0 output 
+02:0127 D303            	   370:  		out (portB_Contr), A         ; set port B as output
+02:0129 3E03            	   371:  		ld A, $03
+02:012B D303            	   372:  		out (portB_Contr), A         ; PIO B interrupt disable
+02:012D 3E00            	   373:  		ld a,0
+02:012F 32D0F1          	   374:  		ld (PIO_B_value),a
+02:0132 D302            	   375:  		out (portB_Data), a
+02:0134 C9              	   376: 	ret
+                        	   377: ; 
+                        	   378: 
+                        	   379: ;************************************************************************
+                        	   380: ; ShowPC_HALT:
+                        	   381: ; Dump prog counter prior to HALT instr. value present in stack (pointed by SP).
+                        	   382: ; uses  IX (pointer to HEX chars)
+                        	   383: ;       IY (pointer at stack)
+                        	   384: ;       BC ( count)
+                        	   385: ; ;       HL (value for conversion to HEX)
+                        	   386: ; ;       DE (positon of display 2004A)
+                        	   387: 	if DOALIGN
+                        	   388: 		align 8
+                        	   389: 	endif
+                        	   390:             
+                        	   391: ; ShowPC_HALT:
+                        	   392: ; 		ld (SP_value), SP	; save contents of SP
+                        	   393: ; 		push AF
+                        	   394: ; 		push BC
+                        	   395: ; 		push DE
+                        	   396: ; 		push HL
+                        	   397: ; 		ld HL,(SP_value)
+                        	   398: ; 		push HL				; push the SP value on the stack...
+                        	   399: ; 		push IX
+                        	   400: ; 		Push IY
+                        	   401: 
+                        	   402: 		
+                        	   403: ; 		; first print the labels: adr: t_str4 - 7
+                        	   404: ; 		;*****************************************
+                        	   405: ; 		ld de, $0000		; row 0, col 1
+                        	   406: ; 		ld IX, t_str4
+                        	   407: ; nxt2:
+                        	   408: ; 		call setcursor		; set cur
+                        	   409: ; 		ld B, t_str5-t_str4	; all 4 rows has the same length
+                        	   410: ; nxt3:
+                        	   411: ; 		ld a, (ix+0)
+                        	   412: ; 		inc ix
+                        	   413: ; 		call writedata
+                        	   414: ; 		djnz nxt3
+                        	   415: 
+                        	   416: ; 		inc D				;Next row
+                        	   417: ; 		ld A,D
+                        	   418: ; 		cp $04				; all rows printed ?
+                        	   419: ; 		jr NZ, nxt2
+                        	   420: 
+                        	   421: 
+                        	   422: ; 		; set all values, first value (SP)
+                        	   423: ; 		;***************************************
+                        	   424: ; 		ld iy,(SP_value)		; top of stored stack
+                        	   425: ; 		ld IX,cur_pos			; table of cursor positions
+                        	   426: 		
+                        	   427: 		
+                        	   428: ; nxt4:	ld L,(iy+0)
+                        	   429: ; 		ld H,(iy+1)
+                        	   430: ; 		dec IY
+                        	   431: ; 		dec IY					; next value in stack
+                        	   432: 
+                        	   433: ; 		call Num4Hex			; convert value in HL
+                        	   434: ; 		;
+                        	   435: ; 		ld E,(IX+0)
+                        	   436: ; 		ld D,(IX+1)			; DE - cursor pos d-row e-col
+                        	   437: ; 		inc IX
+                        	   438: ; 		inc IX				; IX - next cursor position adr.
+                        	   439: ; 		call setcursor		; runs also 'command'
+                        	   440: ; 	;
+                        	   441: ; 		ld b, $04
+                        	   442: ; 		push IX
+                        	   443: ; 		ld IX, Result_NumToHex	; pointer to hex characters
+                        	   444: ; nxt5:
+                        	   445: ; 		ld a, (IX+0)
+                        	   446: ; 		inc IX
+                        	   447: ; 		call writedata
+                        	   448: ; 		djnz nxt5
+                        	   449: ; 		pop IX
+                        	   450: ; 		ld a,(IX+0)				
+                        	   451: ; 		cp $FF					; check if end of cursor positions
+                        	   452: ; 		jr NZ, nxt4
+                        	   453: 
+                        	   454: ; 		; print flags Z/NZ, C/NC, PO/PE, P/M
+                        	   455: ; 		;***************************************
+                        	   456: ; 		ld DE, $0011
+                        	   457: ; 		call setcursor
+                        	   458: ; 		ld IY,(SP_value)		; IY - top of stack
+                        	   459: ; 		ld A, (IY-2)
+                        	   460: ; 		ld (AF_value), A
+                        	   461: ; 		bit 6, (IY-2)					; test for Z flag
+                        	   462: ; 		jr NZ, nx_noNZ			
+                        	   463: ; 		ld A,'N'
+                        	   464: ; 		call writedata
+                        	   465: ; nx_noNZ:
+                        	   466: ; 		ld A,'Z'
+                        	   467: ; 		call writedata
+                        	   468: ; 		inc D					; next row (E=$11), next flag (C)
+                        	   469: ; 		call setcursor
+                        	   470: ; 		;-----------------------------
+                        	   471: 		
+                        	   472: ; 		bit 0, (IY-2)					; test for C flag
+                        	   473: ; 		jr NZ, nx_noNC			
+                        	   474: ; 		ld A,'N'
+                        	   475: ; 		call writedata
+                        	   476: ; nx_noNC:
+                        	   477: ; 		ld A,'C'
+                        	   478: ; 		call writedata
+                        	   479: ; 		inc D					; next row (E=$11), next flag (PE/PO)
+                        	   480: ; 		call setcursor
+                        	   481: ; 		;-----------------------------
+                        	   482: ; 		ld A,'P'
+                        	   483: ; 		call writedata
+                        	   484: ; 		bit 2,(IY-2)					; test for P/V flag
+                        	   485: ; 		jr Z, nx_PO			
+                        	   486: ; 		ld A,'E'				;parity even (PE)
+                        	   487: ; 		call writedata
+                        	   488: ; 		jr nx_sign
+                        	   489: ; nx_PO:
+                        	   490: ; 		ld A,'O'					;parity even (PE)
+                        	   491: ; 		call writedata
+                        	   492: ; nx_sign:		
+                        	   493: ; 		inc D					; next row (E=$11), next flag (sign)
+                        	   494: ; 		call setcursor
+                        	   495: ; 		;-----------------------------
+                        	   496: ; 		bit 7,(IY-2)					; test for S flag S=0 positive
+                        	   497: ; 		jr Z, nx_S			
+                        	   498: ; 		ld A,'M'				;sign negative (Minus)
+                        	   499: ; 		call writedata
+                        	   500: ; 		jr nx_hlt
+                        	   501: ; nx_S:
+                        	   502: ; 		ld A,'P'					;sign positive (P)
+                        	   503: ; 		call writedata
+                        	   504: ; nx_hlt:		
+                        	   505: ; 		;-----------------------------
+                        	   506: 
+                        	   507: ; 		halt
+                        	   508: 
+                        	   509: ; 		pop IY
+                        	   510: ; 		pop IX
+                        	   511: ; 		pop HL
+                        	   512: ; 		pop HL
+                        	   513: ; 		pop DE
+                        	   514: ; 		pop BC
+                        	   515: ; 		pop AF
+                        	   516: 
+                        	   517: ; 		ret
+                        	   518: 
+                        	   519: ; 	align 8        
+                        	   520: ; */
+                        	   521: 
+                        	   522: ;
+                        	   523: ;t_intAstr:   .ascii "PIO A INT"
+                        	   524: ;************************************************************************
+                        	   525: ; Hexadecimal conversion operates directly on nibbles and takes advantage of nifty DAA trick.
+                        	   526: ;Input: HL = number to convert, IX = location of ASCII string
+                        	   527: ;Output: ASCII string at (IX) 
+                        	   528: ; Num4Hex:  	; convert 2 bytes in HL
+                        	   529: ; 	push IX
+                        	   530: ; 	ld ix, Result_NumToHex
+                        	   531: ; 	ld	a,h
+                        	   532: ; 	call	Num1
+                        	   533: ; 	ld	a,h
+                        	   534: ; 	call	Num2
+                        	   535: ; Num2Hex:	; converts 1 byte in L
+                        	   536: ; 	ld	a,l
+                        	   537: ; 	call	Num1
+                        	   538: ; 	ld	a,l
+                        	   539: ; 	call	Num2
+                        	   540: ; 	pop IX
+                        	   541: ; 	ret
+                        	   542: 
+                        	   543: ; Num1:
+                        	   544: ; 	rra
+                        	   545: ; 	rra
+                        	   546: ; 	rra
+                        	   547: ; 	rra
+                        	   548: ; Num2:
+                        	   549: ; 	or	$F0
+                        	   550: ; 	daa
+                        	   551: ; 	add	a,$A0
+                        	   552: ; 	adc	a,$40
+                        	   553: 
+                        	   554: ; 	ld	(ix+0),a
+                        	   555: ; 	inc	ix
+                        	   556: ; 	ret
+                        	   557: 
+                        	   558: ; inc_portB_value:
+                        	   559: ; 		ld a, (PIO_B_value)
+                        	   560: ; 		inc a
+                        	   561: ; 		ld (PIO_B_value), a
+                        	   562: ; 		out (portB_Data), a
+                        	   563: ; 		ret
+                        	   564: 
+                        	   565: 
+                        	   566: ; #code DAT_TABLE, DataTables,  $200
+                        	   567: 
+                        	   568: 
+                        	   569: 	if DOALIGN
+                        	   570: 		align 8
+                        	   571: 	endif
+                        	   572:             
+                        	   573: ; initbytes:   .byte $01, $38, $0E, $06, $B0
+                        	   574: ; t_str1:		.ascii "Z80 micro and"
+                        	   575: ; t_str2:		.ascii "HD44780 display"
+                        	   576: ; t_str3:		.ascii "Z8536 assist->"
+                        	   577: ; t_str4:		.ascii " PC:____ AF:____    "
+                        	   578: ; t_str5:		.ascii " BC:____ DE:____    "
+                        	   579: ; t_str6:		.ascii " HL:____ SP:____    "
+                        	   580: ; t_str7:		.ascii " IX:____ IY:____    "
+                        	   581: ; t_str8:		.ascii " "
+                        	   582: ; t_str9:		.ascii " "
+                        	   583: ; t_string_E: equ $
+                        	   584: 	if DOALIGN
+                        	   585: 		align 4
+                        	   586: 	endif
+                        	   587: 
+                        	   588: ; cur_pos: equ $
+                        	   589: ; 		defw	$0004, $000C, $0104, $010C,$0204, $020C,$0304, $030C, $FFFF
+                        	   590: 	if DOALIGN
+                        	   591: 		align 4
+                        	   592: 	endif
+                        	   593: 
+                        	   594: ; t_str_table: equ $
+                        	   595: ; 		defw	t_str1, t_str2, t_str3, t_str4, t_str5, t_str6, t_str7, t_str8
+                        	   596: 
+                        	   597: 
+                        	   598: ; #code INT_TABLE, Interupt_vector, $10
+                        	   599: ; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
+                        	   600: ; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
+                        	   601: ; 		.word PIO_A_INT,PIO_A_INT,PIO_A_INT,PIO_A_INT
+                        	   602: 		
+                        	   603: ; 		;defw $0400          ; NMI adress table    
+                        	   604: 
+                        	   605: 
+                        	   606: 
+                        	   607: .end
+                        	   608: 
+
+
+Symbols by name:
+CH0                             external
+CH1                             external
+CH2                             external
+CH3                             external
+CRLF                            external EXP
+CTC_Init                        external
+DOALIGN                          E:0000
+DumpRegisters                   external EXP
+EEPIO_Init                      02:011D
+EPS1                            00:0000
+InitBuffers                     external
+InitSIO_0Ports                  external
+PIO_B_value                      E:F1D0
+PIO_Init                        external
+PLD_PCB_Start                   external EXP
+RAM_Start                       external EXP
+ReadLine                        external EXP
+SC4C                            external EXP
+SC5B                            external EXP
+SC8B                            external EXP
+SIO_0INT                        external
+SIO_A_C                         external
+SIO_A_D                         external
+SIO_B_C                         external
+SIO_B_D                         external
+SIO_Int_Vec                      E:F400
+TX_EMP                          02:0089
+WriteLine                       external EXP
+WriteLineCRNL                   external EXP
+_CE_RST_BANK                    external
+_Z80CTC_Base                    external
+_Z80PIO_Base                    external
+_Z80SIO_Base                    external
+_Z80_BankCS                     external
+disableFLASH                    02:0102 EXP
+disableIC620_OE                 02:010B
+doCopy                          02:00C2
+enableFLASH                     02:00F3 EXP
+enableIC620_OE                  02:0114
+gpioB                           external
+gpio_in                         external
+gpio_out                        external
+hit                             02:0000
+hit2                            02:006D
+memBankID                       external
+portA_Contr                     external
+portA_Data                      external
+portB_Contr                     external
+portB_Data                      external
+putBank                         02:00EC
+putBankF                        02:00FA
+rstBankID                       external
+setBanks                        02:0094
+setFLASHBank                    02:00DD EXP
+setSRAMBank                     02:00D0 EXP
+sio_ac                          external
+sio_ad                          external
+sio_bc                          external
+sio_bd                          external
+stacktop                         E:FFF0 EXP
+
+Symbols by value:
+0000 DOALIGN
+0000 EPS1
+0000 hit
+006D hit2
+0089 TX_EMP
+0094 setBanks
+00C2 doCopy
+00D0 setSRAMBank
+00DD setFLASHBank
+00EC putBank
+00F3 enableFLASH
+00FA putBankF
+0102 disableFLASH
+010B disableIC620_OE
+0114 enableIC620_OE
+011D EEPIO_Init
+F1D0 PIO_B_value
+F400 SIO_Int_Vec
+FFF0 stacktop
