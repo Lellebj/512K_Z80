@@ -2,93 +2,21 @@
 
 		include 	"Z80_Params_.inc"
  
-		xref 	PLD_PCB_Start
 		xdef 	RAM_Start,SetupXMODEM_TXandRX,purgeRXA,purgeRXB,TX_EMP,TX_NAK,TX_ACK,SIO_A_DI,SIO_A_EI,SIO_A_RESET
-		xdef 	A_RTS_OFF,A_RTS_ON,SIO_A_TXRX_INToff,SIO_A_TXon,SIO_A_RXon,SIO_A_TXRX_INTon,TX_C,TX_X
+		xdef 	SIO_A_RTS_OFF,SIO_A_RTS_ON,SIO_A_TXRX_INToff,SIO_A_TXon,SIO_A_RXon,SIO_A_TXRX_INTon,TX_C,TX_X
 		xdef 	doImportXMODEM,CRC16
 ;********************************************************		
 ;		Routines in order to read data via XMODEM on SIO_0 chA
 ;********************************************************		
 
-		section Functions
+		section Xmodems
 RAM_Start:
-		jp 		PLD_PCB_Start
+		; jp 		MONITOR_Start
 
 ;********************************************************************************************
 ;********************************************************************************************
 ;********************************************************************************************
 
-SIO_A_EI:
-		;enable SIO_0 channel A RX
-		ld		a,003h			;write into WR0: select WR3
-		out		(SIO_A_C),A
-		ld		a,0C1h			;RX 8bit, auto enable off, RX on
-		out		(SIO_A_C),A	Channel A RX active
-		RET
-
-SIO_A_TXRX_INTon:
-		;enable SIO_0 channel A RX
-		ld		A,WR1							;write into WR0: select WR1
-		out		(SIO_A_C),A
-		ld		A,_Tx_INT_EN|_Int_All_Rx_Char_NP		 			;RX and TX interrupt on
-		out		(SIO_A_C),A	Channel A RX active
-		RET
-
-
-
-SIO_A_TXRX_INToff:
-		;enable SIO_0 channel A RX
-		ld		A,WR1			;write into WR0: select WR1
-		out		(SIO_A_C),A
-		ld		A,00h			;RX and TX interrupt off
-		out		(SIO_A_C),A	Channel A RX 
-		RET
-
-SIO_A_TX_INTon:
-		;enable SIO_0 channel A RX
-		ld		A,WR1							;write into WR0: select WR1
-		out		(SIO_A_C),A
-		ld		A,_Tx_INT_EN		 			;TX interrupt on
-		out		(SIO_A_C),A	Channel A RX active
-		RET
-
-SIO_A_RX_INTon:
-		;enable SIO_0 channel A RX
-		ld		A,WR1							;write into WR0: select WR1
-		out		(SIO_A_C),A
-		ld		A,_Int_All_Rx_Char_NP		 			;TX interrupt on
-		out		(SIO_A_C),A	Channel A RX active
-		RET
-
-A_RTS_OFF:
-		;signaling the host go or nogo for reception
-		ld		a,005h			;write into WR0: select WR5
-		out		(SIO_A_C),A
-		ld		a,_Tx_8bits_char|_Tx_Enable 				;TX 8bit, BREAK off, TX on, RTS inactive
-		ld		a,0E8h			
-		out		(SIO_A_C),A 
-		ret 
-		
-		
-A_RTS_ON:
-		; signaling the host go or nogo for reception
-		ld		a,005h			;write into WR0: select WR5
-		out		(SIO_A_C),A
-		; ld		a,_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
-		ld		a,0EAh	
-		out		(SIO_A_C),A 
-		ret 
-		
-	
-	
-SIO_A_DI:
-		;disable SIO_0 channel A RX
-		ld		a,WR3			;write into WR0: select WR3
-		out		(SIO_A_C),A
-		ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
-		out		(SIO_A_C),A
-		;Channel A RX inactive
-		ret
 
 RX_CR:
 		;do something on carriage return reception here
@@ -99,51 +27,13 @@ RX_BS:
 		jp		EO_CH_AV
 EO_CH_AV:
 		ei						;see comments below
-		call	A_RTS_ON		;see comments below
+		call	SIO_A_RTS_ON		;see comments below
 		pop		AF				;restore AF
 		Reti
 	
 
 SPEC_RX_CONDITON:
 		jp		0000h
-
-purgeRXA:
-		; flushing the receive buffer
-		;check for RX buffer empty
-		;modifies A
-		sub		a				;clear a, write into WR0: select RR0
-		out		(SIO_A_C),A
-		in		A,(SIO_A_C)		;read RRx
-		bit		0,A
-		ret		z				;if any rx char left in rx buffer
-
-		in		A,(SIO_A_D)		;read that char
-		jp		purgeRXA		
-
-
-purgeRXB:
-		; flushing the receive buffer, check for RX(B) buffer empty
-		;modifies A
-		sub		a				;clear a, write into WR0: select RR0
-		out		(sio_bc),A
-		in		A,(sio_bc)		;read RRx
-		bit		0,A
-		ret		z				;if any rx char left in rx buffer
-
-		in		A,(sio_bd)		;read that char
-		jp		purgeRXA		
-
-TX_EMP:
-		; ransmitting a character to host
-		; check for TX buffer empty
-		sub		a				;clear a, write into WR0: select RR0
-		inc		a				;select RR1
-		out		(SIO_A_C),A
-		in		A,(SIO_A_C)	;read TRx, all sent
-		bit		0,A
-		jp		z,TX_EMP
-		ret
-
 
 ;**************************************************************************
 ;**				SetupXMODEM_TX and RX:									**
@@ -202,11 +92,11 @@ nextBlock:
 		ei
 
 
-		call 	A_RTS_ON
+		call 	SIO_A_RTS_ON
 
 		halt						;await first rx char
 
-		call 	A_RTS_OFF
+		call 	SIO_A_RTS_OFF
 
 		; ***	wait function inactive
 		ld		a,WR1			;write into WR0: select WR1
@@ -377,7 +267,7 @@ restoreSIO_0IO:
 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
 
 		call 	SIO_A_TXRX_INTon
-		call 	A_RTS_ON
+		call 	SIO_A_RTS_ON
 		ei
 		ret
 
@@ -430,34 +320,6 @@ checkSumErr:
 		jp		z,retry9Err		;abort download after 9 attempts to transfer a block
 		jp 		nextBlock		;repeat block reception
 
-
-			
-TX_NAK:
-		ld 		a,NAK				;send NAK 15h to host
-		out		(SIO_A_D),A
-		call	TX_EMP
-		RET
-
-
-
-TX_ACK:
-		ld		 A,ACK				;send AK to host
-		out		(SIO_A_D),A
-		call	TX_EMP
-		ret
-
-
-TX_C:
-		ld		 A,'C'				;send 'C' to host
-		out		(SIO_A_D),A
-		call	TX_EMP
-		RET
-
-TX_X:
-		ld		 a,'X'				;send 'C' to host
-		out		(SIO_A_D),A
-		call	TX_EMP
-		RET
 
 ; Calculating XMODEM CRC-16 in Z80
 ; ================================

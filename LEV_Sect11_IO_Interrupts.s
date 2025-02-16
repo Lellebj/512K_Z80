@@ -3,7 +3,7 @@
 
 			
 	ifndef ONESECTION
-		Section Functions
+		Section InOutInterrupt
 
 	else
 		section singleAssembly
@@ -786,8 +786,9 @@
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
 		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey,RetInpStatus
 		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterrupt,CTC1_INT_OFF,initSIOBInterrupt
-		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB
+		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeRXB,TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
 		GLOBAL 	SIO_B_EI,SIO_B_RX_INTon,SIO_B_TXRX_INToff,SIO_B_EI,SIO_B_DI
+		GLOBAL 	SIO_A_EI,SIO_A_TXRX_INTon,SIO_A_TXRX_INToff,SIO_A_TX_INTon,SIO_A_RX_INTon,SIO_A_RTS_OFF,SIO_A_RTS_ON,SIO_A_DI
 
 
 			;ARBITRARY SIO_0 PORT ADDRESSES
@@ -997,6 +998,14 @@ cleanOutBuffer:
 		ld		(outTailAdr),HL
 		ret
 
+waitForFinishedPrintout:
+		;  wait for print to finish
+.waitmore:
+		ld		A, (OutBufCount)	;get output buffer counter
+		or 		A 					;=0 ?
+		jr 		nz,.waitmore
+		ret
+
 ;******************************************************************************
 InitInterrupt:
 			;INITIALIZE INTERRUPT VECTORS (SIO_0)
@@ -1065,6 +1074,9 @@ ReadINTHandler:
 		call	incInPointer		; increment tail pointer
 		ld		(inTailAdr), HL
 exitRHandler:
+		ld 		A,00
+		ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
+
 		pop		HL				;restore registers
 		pop		DE
 		pop		BC
@@ -1097,6 +1109,8 @@ nodata:
 		ld		a,00101000b			;reset transmitter interrupt
 		out		(SIO_A_C),a
 wrdone:
+		ld 		A,00
+		ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
 		pop		HL					;restore registers
 		pop		DE
 		pop		BC
@@ -1111,22 +1125,14 @@ wrdone:
 ReadUSBHandler:
 		in  	A,(sio_bd)		  		;read char from SIO B
 		ld 		E,A
-
-		;GPIODEBUG
-		push HL
-		ld  HL,(TempVar4)
-		ld  (HL),a
-		inc HL
-		ld (TempVar4),HL
-		pop HL
-
-		;GPIODEBUG
+	ifd 	GPIODEBUG	
 		ld a,1
 		out (gpio_out),A
 		ld a,0
 		out (gpio_out),A
+	endif
+	
 		ld a,e
-
 		call 	purgeRXB
 
 		; in  	A,(CH1)
@@ -1148,38 +1154,140 @@ ReadUSBHandler:
 
 		ei
 		reti
+
 ;********************************************************************************************     
+
 Write_USB_Handler:
-		;GPIODEBUG
+
+	ifd 	GPIODEBUG	
 		ld a,20
 		out (gpio_out),A
 		ld a,0
 		out (gpio_out),A
-		ld a,e
+	endif
 
+		ld a,e
 		ei
 		reti
 			;external/status changed interrupt handler
 Extern_B_USB_Handler:
-		;GPIODEBUG
+	ifd 	GPIODEBUG
 		ld a,21
 		out (gpio_out),A
 		ld a,0
 		out (gpio_out),A
+	endif
 		ld a,e
 		ei							; dcd or cts line changed state. or a
 		reti						; break was detected
 									; service here if necessary
 			;special receive error interrupt
 SpecINT_B_USB_Handler:
-		;GPIODEBUG
+	ifd 	GPIODEBUG
 		ld a,22
 		out (gpio_out),A
 		ld a,0
 		out (gpio_out),A
+	endif
+	
 		ld a,e
 		ei							;framing error or overrun error occurred
 		reti						; service here if necessary
+
+;********************************************************************************************     
+
+SIO_A_EI:
+		;enable SIO_0 channel A RX
+
+		; ld		a,003h			;write into WR0: select WR3
+		; out		(SIO_A_C),A
+		; ld		a,_Rx_Enable|_RX_8_bits|_Auto_Enable 			;RX 8bit, auto enable on, RX on
+		; out		(SIO_A_C),A	Channel A RX active
+
+		ld		a,005h			;write into WR0: select WR5
+		out		(SIO_A_C),A
+		ld		a,_RTS_Enable|_Tx_Enable|_Tx_8bits_char			
+		out		(SIO_A_C),A	Channel A RX active
+
+		; ld		a,001h			;write into WR0: select WR3
+		; out		(SIO_A_C),A
+		; ld		a,_Tx_INT_EN|_Int_All_Rx_Char_NP		
+		; out		(SIO_A_C),A	Channel A RX active
+
+
+
+		RET
+	
+SIO_A_DI:
+		;disable SIO_0 channel A RX
+		; ld		a,WR3			;write into WR0: select WR3
+		; out		(SIO_A_C),A
+		; ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
+		; out		(SIO_A_C),A
+		ld		a,005h			;write into WR0: select WR3
+		out		(SIO_A_C),A
+		ld		a,_Tx_8bits_char			
+		out		(SIO_A_C),A	Channel A RX active
+
+
+		;Channel A RX inactive
+		ret
+
+
+SIO_A_TXRX_INTon:
+		;enable SIO_0 channel A RX
+		ld		A,WR1							;write into WR0: select WR1
+		out		(SIO_A_C),A
+		ld		A,_Tx_INT_EN|_Int_All_Rx_Char_NP		 			;RX and TX interrupt on
+		out		(SIO_A_C),A						; Channel A RX active
+		RET
+
+
+
+SIO_A_TXRX_INToff:
+		;enable SIO_0 channel A RX
+		ld		A,WR1			;write into WR0: select WR1
+		out		(SIO_A_C),A
+		ld		A,00h			;RX and TX interrupt off
+		out		(SIO_A_C),A		;	Channel A RX 
+		RET
+
+SIO_A_TX_INTon:
+		;enable SIO_0 channel A RX
+		ld		A,WR1							;write into WR0: select WR1
+		out		(SIO_A_C),A
+		ld		A,_Tx_INT_EN		 			;TX interrupt on
+		out		(SIO_A_C),A						; Channel A TX active
+		RET
+
+SIO_A_RX_INTon:
+		;enable SIO_0 channel A RX
+		ld		A,WR1							;write into WR0: select WR1
+		out		(SIO_A_C),A
+		ld		A,_Int_All_Rx_Char_NP		 	;RX interrupt on
+		out		(SIO_A_C),A						;Channel A RX active
+		RET
+
+SIO_A_RTS_OFF:
+		;signaling the host go or nogo for reception
+		ld		a,005h			;write into WR0: select WR5
+		out		(SIO_A_C),A
+		ld		a,_Tx_8bits_char|_Tx_Enable 				;TX 8bit, BREAK off, TX on, RTS inactive
+		ld		a,0E8h			
+		out		(SIO_A_C),A 
+		ret 
+		
+		
+SIO_A_RTS_ON:
+		; signaling the host go or nogo for reception
+		ld		a,005h			;write into WR0: select WR5
+		out		(SIO_A_C),A
+		; ld		a,_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
+		ld		a,0EAh	
+		out		(SIO_A_C),A 
+		ret 
+		
+	
 
 
 SIO_B_RX_INTon:
@@ -1187,7 +1295,7 @@ SIO_B_RX_INTon:
 		ld		A,WR1							;write into WR0: select WR1
 		out		(sio_bc),A
 		ld 		A,_Int_All_Rx_Char_NP|_Status_Vector  		;RX interrupt on
-		out		(sio_bc),A	Channel A RX active
+		out		(sio_bc),A						;Channel A RX active
 		RET
 
 
@@ -1204,7 +1312,7 @@ SIO_B_EI:
 		ld		a,003h			;write into WR0: select WR3
 		out		(sio_bc),A
 		ld		a,0C1h			;RX 8bit, auto enable off, RX on
-		out		(sio_bc),A	Channel A RX active
+		out		(sio_bc),A		; Channel A RX active
 		RET
 	
 	
@@ -1218,7 +1326,72 @@ SIO_B_DI:
 		ret
 
 
+purgeRXA:
+		; flushing the receive buffer
+		;check for RX buffer empty
+		;modifies A
+		sub		a				;clear a, write into WR0: select RR0
+		out		(SIO_A_C),A
+		in		A,(SIO_A_C)		;read RRx
+		bit		0,A
+		ret		z				;if any rx char left in rx buffer
 
+		in		A,(SIO_A_D)		;read that char
+		jp		purgeRXA		
+
+
+purgeRXB:
+		; flushing the receive buffer, check for RX(B) buffer empty
+		;modifies A
+		sub		a				;clear a, write into WR0: select RR0
+		out		(sio_bc),A
+		in		A,(sio_bc)		;read RRx
+		bit		0,A
+		ret		z				;if any rx char left in rx buffer
+
+		in		A,(sio_bd)		;read that char
+		jp		purgeRXA		
+
+TX_NAK:
+		ld 		a,NAK				;send NAK 15h to host
+		out		(SIO_A_D),A
+		call	TX_EMP
+		RET
+
+
+
+TX_ACK:
+		ld		 A,ACK				;send AK to host
+		out		(SIO_A_D),A
+		call	TX_EMP
+		ret
+
+
+TX_C:
+		ld		 A,'C'				;send 'C' to host
+		out		(SIO_A_D),A
+		call	TX_EMP
+		RET
+
+TX_X:
+		ld		 a,'X'				;send 'C' to host
+		out		(SIO_A_D),A
+		call	TX_EMP
+		RET
+
+
+TX_EMP:
+		; ransmitting a character to host
+		; check for TX buffer empty
+		sub		a				;clear a, write into WR0: select RR0
+		inc		a				;select RR1
+		out		(SIO_A_C),A
+		in		A,(SIO_A_C)	;read TRx, all sent
+		bit		0,A
+		jp		z,TX_EMP
+		ret
+		
+					
 
 ;********************************************************************************************     
 
@@ -1389,14 +1562,14 @@ SIO_0INT:
 	
 		; INITIALIZE RECEIVE CONTROL
 		db	WR3		;SELECT WRITE REGISTER 3
-		db	_Rx_Enable|_RX_8_bits
+		db	_Rx_Enable|_RX_8_bits|_Auto_Enable  (0xC1)
 								;BIT 0 = 1 (RECEIVE ENABLE)
 								; BITS 4,3,2,1 = 0 (DON-'T CARE)
 								;BIT 5 = 0 (NO AUTO ENABLE)
 								;BIT 7.6 = 11 (RECEIVE 8 BITS/CHAR)
 		;iNITIALIZE TRANSMIT CONTROL
 		db	WR5					;SELECT WRITE REGISTER 5
-		db	_RTS_Enable|_Tx_Enable|_Tx_8bits_char
+		db	_RTS_Enable|_Tx_Enable|_Tx_8bits_char   (0x6A)
 								;BIT 0 = 0 (NO CRC ON TRANSMIT)
 								;BIT 1 = 1 (REQUEST TO SEND)
 								;BIT 2 = 0 (DON'T CARE)
@@ -1405,7 +1578,7 @@ SIO_0INT:
 								;BITS 6.5 = 11 (TRANSMIT 8 BITS/CHAR)
 								;BIT 7 = 1 (DATA TERMINAL READY)
 		DB	WR1					;SELECT WRITE REGISTER 1
-		DB	_Tx_INT_EN|_Int_All_Rx_Char_NP
+		DB	_Tx_INT_EN|_Int_All_Rx_Char_NP		(0x1A)
 		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
 								;BIT 0 = 1 (EXTERNAL INTERRUPTS)
 								;BIT 1 = 1 (ENABLE TRANSMIT INTERRUPT)
@@ -1417,6 +1590,8 @@ SIO_0INT:
 
 
 		; INITIALIZE CHANNEL B
+		; _____________________________
+
 		db	8					;OUTPUT 8 BYTES
 		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
 
@@ -1617,7 +1792,7 @@ showtimeout:
 CTC_Init:
 
 		; ------Reset all---------------
-		ld		A,_Reset		; reset channel
+		ld		A,_Reset|_CW		; reset channel
 		out		(CH0),A
 		out		(CH1),A
 		out		(CH2),A

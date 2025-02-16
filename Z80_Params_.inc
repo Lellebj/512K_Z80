@@ -126,6 +126,7 @@ CH0		equ 	_Z80CTC_Base	  ; = $10, linker script
 CH1		equ 	_Z80CTC_Base+1	
 CH2		equ 	_Z80CTC_Base+2	
 CH3		equ 	_Z80CTC_Base+3	
+CTC_TIMEOUT 	equ $EE			; timeout flag
 
 _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
 _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
@@ -195,7 +196,7 @@ ITEM		EQU		1Ch
 STEND		EQU		1Dh
 LISTEND		EQU		1Eh
 SP			EQU		20h
-
+CDEL		EQU 	0xEE
 
 ; 	Variables in SRAM   HEAP TOP  - Moved to load script !
 ;DATA LOCATIONS

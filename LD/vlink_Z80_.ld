@@ -7,24 +7,21 @@
 	ENTRY(ram)
 
 	sram  = 0x8000;          /* start of user memory                     */
-	eeprom = 0x0000;
+	flash = 0x0000;
 
 	MEMORY
 	{
-	RAM  : org = sram,  l = 0xFFFF     /* program can use all RAM > 4K */
-	EEPROM  : org = eeprom,  l = 0x8000     /* program can use all RAM > 4K */
+	RAM  : org = sram,  l = 0x8000     /* program can use all RAM > 4K */
+	FLASH  : org = flash,  l = 0x8000     /* program can use all RAM > 4K */
 	}
 
 	
 	PROVIDE(_String_HEAP	= 0xF000);
 	
 	PROVIDE(_RAMSTART		= 0xD000);	
-	PROVIDE(_FUNCTIONS		= 0xD800);	
-	PROVIDE(_IOLIB			= 0x9000);	
-	PROVIDE(_SD_SPI_LIB		= 0xB000);	
 	PROVIDE(_EETESTPROG		= 0x100);	
 	PROVIDE(_NMISTART		= 0x66);	
-	PROVIDE(_EEPROMSTART	= 0x00);	
+	PROVIDE(_FLASHSTART		= 0x00);	
 	
 	PROVIDE(_Z80PIO_Base	= 0x0);
 	PROVIDE(_Z80CTC_Base	= 0x10);
@@ -91,7 +88,7 @@
 	PROVIDE( charLen 		=	0x1BE + _String_HEAP);			/*	length of written file   2-byte */
 	PROVIDE( sdWRpointer 	=	0x1C0 + _String_HEAP);			/*	pointer to write file   2-byte */
 
-	PROVIDE( outBufferSize	=	160	);							/*	;SIZE OF OUTPUT BUFFER */
+	PROVIDE( outBufferSize	=	0xF0	);							/*	;SIZE OF OUTPUT BUFFER */
 	PROVIDE( outBuffer		=	0x200+ _String_HEAP);	         	 	/*;OUTPUT BUFFER */
 	PROVIDE( endOutBuffer	=	0x2F0+ _String_HEAP);	/*		END OF OUTPUT BUFFER */
 
@@ -102,87 +99,73 @@
 
 
 
-
 	SECTIONS
 	{
 
 
-
-		EEPROM_Startup _EEPROMSTART :
+		FLASH_block  _FLASHSTART :
 			{
-			 KEEP(*.o(EEPROM_Startup))
-			} > EEPROM
+			KEEP(*.o(FLASH_Startup))
 
-		RST08  0x08 : { *.o(RST08)}> EEPROM
-		RST10  0x10 : { *.o(RST10)}> EEPROM
-		RST18  0x18 : { *.o(RST18)}> EEPROM
-		RST20  0x20 : { *.o(RST20)}> EEPROM
-		RST28  0x28 : { *.o(RST28)}> EEPROM
-		RST30  0x30 : { *.o(RST30)}> EEPROM
-		RST38  0x38 : { *.o(RST38)}> EEPROM
+			. = _NMISTART;	
+			KEEP( *.o(INT_IM1))			
+			. = ALIGN (0x80);
 
+			KEEP( *.o(INIT_BODY))
+			. = ALIGN (0x20);
 
-		INT_IM1 _NMISTART : 
-			{
-
-			KEEP( *.o(INT_IM1))
-
-			} > EEPROM
-
-		EEtestprog _EETESTPROG :
-			{
-			_EE_init = .;
-			KEEP( *.o(EEtestprog))
+/*			KEEP( *.o(EEtestprog))
 			_EEprog_end = .;
-			} > EEPROM
 
-/*
-		singleAssembly	_RAMSTART :
-		{
-			KEEP( *.o(singleAssembly))  :
-			_singleAssemblySRam_end  = .;
-		}	> RAM
+			KEEP(*.o (CH376S_Support))
+			. = ALIGN(0x20);
 */
+			} > FLASH
 
-
-		Monitor	_RAMSTART  :
+	
+		
+		MainBody  _RAMSTART :
 		{
-			KEEP( *.o(Monitor))
-			_MainSRam_end  = .;
-		}	> RAM
+	
+			KEEP(*.o(Monitor))
+			_MonEnd = .;
+			. = ALIGN(0x20);
 
-
-		/* Functions	ALIGN (0x10)  : */
-		Functions	_FUNCTIONS :  
-		{
-			KEEP ( *.o (Functions)) ;
-
+			KEEP(*.o (Functions))
 			_Funk_end = .;
-		} 	> RAM
+			. = ALIGN(0x20);
 
+			*.o (CodeConversion)
+			_CodeConv_end = .;
+			. = ALIGN(0x20);
 
-		SD_SPI_FUNC		ALIGN (0x10)  :
-		/* SD_SPI_FUNC	_SD_SPI_LIB : */
-		{
+			*.o (Strings)
+			_Strings_end = .;
+			. = ALIGN(0x20);
+
+			*.o (InOutInterrupt)
+			_IOI_end = .;
+			. = ALIGN(0x20);
+
+			*.o (CH376S_Support)
+			_USB_end = .;
+			. = ALIGN(0x20);
+
+			*.o (Xmodems)
+			_XMODEM_end = .;
+			. = ALIGN(0x20);
+
+			*.o (I2C_Func)
+			_I2C_end = .;
+			. = ALIGN(0x20);
+
 			KEEP ( *.o (SD_SPI_FUNC))
 			_SD_SPI_end = .;
-		} 	> RAM
 
-		SD_HELLO 	ALIGN (0x10)  :
-		/* SD_HELLO   0xC000 : */
-		{
-			KEEP ( *.o (SD_HELLO))
-		} 	> RAM
 
-/*
-		STR_HEAP		ALIGN (0x10)  :
-		/* STR_HEAP	_String_HEAP :  /
-		{
-			_HEAP_init = .;
-			KEEP ( *.o (HEAP))
-			_HEAP_end = .;
-		} 	> RAM
-*/
+		}	> RAM
+
+
 
 	_end = .;
 

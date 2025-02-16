@@ -19,7 +19,7 @@
 ;* Assembler Equates
 ;* -------------------------------------------------------------
 		include 	"Z80_Params_.inc"
-		Section Functions
+		Section I2C_Func
 RAMSPACE	EQU	$C0				;RAM start address
 ROMSPACE	EQU	$300			;EPROM start address
 PORTA		EQU $00				;Port A

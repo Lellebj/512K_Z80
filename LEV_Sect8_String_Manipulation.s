@@ -3,7 +3,7 @@
 
 	
 	ifndef ONESECTION
-		section	Functions	
+		section	Strings	
 
 	else
 		section singleAssembly
@@ -192,7 +192,7 @@ isHex:
 		; ***	from (HL)  .. 0..9,A..F -> NC  others -> C
 		ld 		A,(HL)
 		sub 	'0'
-		jp 		M,.setCarry 			; less than '0'
+		jp 		M,.setCarry 		; less than '0'
 		cp 		10						
 		jp 		P,.checkAF			; bigger than '9'
 		jp 		.nextChar			; char between 0..9 -> OK
@@ -1104,7 +1104,7 @@ Init_RAM_HEAP:
 		
 		ld 		BC,HEAP_SIZE			; defined in linker script
 .cl_vars:
-		ldi
+		ldi							; (DE)<-(HL)
 		dec 	hl
 		jp		PE,.cl_vars			; 		P/V is set if BC – 1 ≠ 0; otherwise, it is reset.
 		ret

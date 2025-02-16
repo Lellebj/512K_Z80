@@ -1,4 +1,4 @@
-# Make Z80 SBC Monitor software
+# Make Z80 SBC BOOT segments 
 # Copyright LB
 
 SYSINCDIR?=include
@@ -8,11 +8,14 @@ BUILD_DIR = Build
 OB_CODE = OBJS
 LIBS=
 
-DEFINES= -D NOFLASH   
+DEFINES= -D BOOTLOAD
 
+# uncomment this for BOOT assemblies, 
+# loadscript: PROVIDE(_RAMSTART		= 0x400); 
+# loadscript: and memory section MainBody >FLASH
 
 # normal assembly:
-# loadscript: PROVIDE(_RAMSTART		= 0xD000);  
+# loadscript: PROVIDE(_RAMSTART		= 0x8000); or 0xD000 
 # loadscript: and memory section MainBody >RAM
 
 
@@ -51,7 +54,7 @@ OBJ_EX=o
 # AS=z80asm
 
 #	Old VASM Z80 assembler and VLINK
-LDFLAGS=-T LD/vlink_Z80_.ld  -MZ80_.map  -b rawbin2  -o $@ -L $(SYSLIBDIR)   
+LDFLAGS=-T LD/vlink_Z80_BOOT.ld  -MZ80_BOOT.map  -b rawbin2  -o $@ -L $(SYSLIBDIR)   
 ASFLAGS=-Fvobj -esc -z80asm -o $@ $(F_LIST) $(DEFINES)
 LD=vlink
 AS=vasmz80_oldstyle
@@ -87,12 +90,12 @@ $(OBJECTS) : $$(patsubst $(OB_CODE)/%.o, %$(S_EX),$$@)
 $(TARGET): $(OBJECTS)
 	$(LD)  $(LDFLAGS)  $^
 	chmod a-x $@
-ifneq ($(strip $(MEDIA)),)
-	cp  ./Build/512K_Z80.BIN  /media/lellebj/$(MEDIA)/Z80EE.BIN
-	cp  ./Build/512K_Z80.BIN.MainBody  /media/lellebj/$(MEDIA)/Z80F.BIN
-	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80F* )
-	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80EE* )
-endif
+# ifneq ($(strip $(MEDIA)),)
+# 	cp  ./Build/512K_Z80.BIN  /media/lellebj/$(MEDIA)/Z80EE.BIN
+# 	cp  ./Build/512K_Z80.BIN.MainBody  /media/lellebj/$(MEDIA)/Z80F.BIN
+# 	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80F* )
+# 	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80EE* )
+# endif
 
 
 

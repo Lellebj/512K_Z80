@@ -5,10 +5,35 @@
 
 
 ;*************************************************
-		section 	Functions
+		section 	CH376S_Support
 
 ;****************************************************************
-USB_TEXT_LABLES		equ 15		; No additional text when using USB.
+;HC376S_CheckConnection
+;connection_fail
+;connection_pass
+;HC376S_ResetAll				$5
+;HC376S_CheckConnection			$6  /81
+;HC376S_setUSBMode				$15 $06
+;HC376S_setSDMode				$15 $03
+;HC376S_diskConnectionStatus   	$30
+;HC376S_USBdiskMount			$31
+;HC376S_setFileName				$2F $2F
+;HC376S_fileOpen				$32
+;doEnumeration
+;HC376S_fileClose				$36  $0/1
+;HC376S_fileCreate				$34
+;HC376S_getFileSize				$68
+;HC376S_fileRead				$80/$27
+;HC376S_fileWrite
+;HC376S_fileDelete
+;getResponseFromUSB
+;waitForResponse
+;outByte367S
+;CTC_Delay
+;CTC_delay_INT_handler
+
+
+USB_TEXT_LABLES		equ 1		; No additional text when using USB.
 								; 1-low level of info; 15-high level of info
 
 USB_INT_SUCCESS		equ $14
@@ -31,7 +56,6 @@ ERR_BPB_EROR		equ $A1
 ERR_DISK_FULL		equ $B1 
 ERR_FDT_OVER		equ $B2
 ERR_FILE_CLOSE		equ $B4
-CTC_TIMEOUT 		equ $EE
 
 	
 		xref 	delay_D0_ms,PrintD0ToScreen,SetHC376Timer
@@ -60,7 +84,6 @@ HC376S_CheckConnection::
 		; ; call 	getResponseFromUSB		; get the actual data, in D0
 		; ; response in E
 
-		call 	SIO_B_DI
 		ld  	A,E
 		ld 		B,$81
 		cpl 
@@ -71,7 +94,7 @@ connection_fail:
 
 		call 	writeSTRBelow_CRLF
 		DB 		0,">Connection to CH376S - FAILED.", 00
-
+		call 	waitForFinishedPrintout
 
 		xor 	A
 		inc 	A
@@ -81,6 +104,8 @@ connection_pass:
 	if (USB_TEXT_LABLES>1)
 		call 	writeSTRBelow_CRLF
 		DB 		0,">Connection to CH376S was successful.", 00
+		call 	waitForFinishedPrintout
+
 	endif
 		xor 	A
 		ret		; Z 
@@ -94,6 +119,8 @@ connection_pass:
 HC376S_ResetAll::
 		ld 		DE,CTC_delay_INT_handler
 		ld 		(CTC_CH1_I_Vector),DE
+
+		; call 	SIO_B_RX_INTon
 
 		call	beginUART		
 
@@ -126,13 +153,14 @@ HC376S_setUSBMode::
 
 		call	waitForResponse	 	;test rxrdy-B
 	
-		;GPIODEBUG
-		ld a,2
-		out (gpio_out),A
-		ld a,0
-		out (gpio_out),A
-		ld a,e
-
+	ifd 	GPIODEBUG
+	ld a,2
+	out (gpio_out),A
+	ld a,0
+	out (gpio_out),A
+	endif
+	
+		ld 		a,e
 		jr 		Z,NoUSBpres			; no response from 'waitForResponse'
 		
 
@@ -145,14 +173,16 @@ HC376S_setUSBMode::
 	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow_CRLF
 		db		0,">USB Mode command acknowledged !",0,0
+		call 	waitForFinishedPrintout
 	endif
 		ld 		A,E	
-		cp	 	USB_INT_CONNECT				; compare A & USB_INT_CONNECT
+		cp	 	USB_INT_CONNECT		; 15?		; compare A & USB_INT_CONNECT
 		jr		NZ,NoUSBpres
 
 	if (USB_TEXT_LABLES>3)
 		call 	writeSTRBelow_CRLF
 		db		0,">USB is present.",0,0
+		call 	waitForFinishedPrintout
 	endif	
 		xor 	A
 		ret									; return with Z
@@ -161,10 +191,12 @@ HC376S_setUSBMode::
 NoUSBpres:
 		call 	writeSTRBelow_CRLF
 		db	0,">No USB is present.",0,0
+		call 	waitForFinishedPrintout
 		jr 		retNZ
 NoSDpres:
 		call 	writeSTRBelow_CRLF
 		db	0,">No SD card is present.",0,0
+		call 	waitForFinishedPrintout
 		jr 		retNZ
 		
 someUSBerror:		
@@ -198,8 +230,8 @@ HC376S_setSDMode::
 		call	waitForResponse	 		;test rxrdy-B
 		jr 		Z,norespSD			; no response from 'waitForResponse'
 
-		; cp	 	CMD_RET_SUCCESS
-		; jr 		NZ,someUSBerror
+		cp	 	CMD_RET_SUCCESS  ; $51?
+		jr 		NZ,someUSBerror
 
 		; call 	delay100ms
 		; call 	waitForResponse				; read data in inport -> A&E
@@ -217,6 +249,7 @@ HC376S_setSDMode::
 		call 	writeSTRBelow
 		db		0,"SD card response OK.  Code:",0,0
 		call 	putDEtoScreen
+		call 	waitForFinishedPrintout
 		call	CRLF
 	endif
 		xor 	A
@@ -225,6 +258,7 @@ HC376S_setSDMode::
 norespSD:
 		call 	writeSTRBelow_CRLF
 		db		" SD card no response",0,0
+		call 	waitForFinishedPrintout
 		ret
 
 
@@ -253,6 +287,7 @@ HC376S_diskConnectionStatus::
 	if (USB_TEXT_LABLES>6)
 		call 	writeSTRBelow_CRLF
 		db		0,">Connection to USB OK.",0,0
+		call 	waitForFinishedPrintout
 	endif
 
 		ret
@@ -260,6 +295,7 @@ HC376S_diskConnectionStatus::
 .connFailed:
 		call 	writeSTRBelow_CRLF
 		db		0,">Connection to USB - FAILED.",0,0
+		call 	waitForFinishedPrintout
 		ret
 
 ;************************************************************************
@@ -285,11 +321,12 @@ HC376S_USBdiskMount::
 		jp 		Z,endtest				; branch on timeout
 										; get the actual data, in A&E
 		ld 		(TempVar5),A
-		cp 		USB_INT_SUCCESS
+		cp 		USB_INT_SUCCESS		;14?
 		jr 		NZ,.connFailed
 	if (USB_TEXT_LABLES>7)
 		call 	writeSTRBelow_CRLF
-		db		0,"> Mounted - OK.",0,0
+		db		0,">Mounted - OK.",0,0
+		call 	waitForFinishedPrintout
 	endif
 		xor 	A					; A = 0  Z set
 		ret
@@ -301,6 +338,7 @@ HC376S_USBdiskMount::
 		db		0,">Failed to Mount disk.  Code:",0,0
 		call 	putDEtoScreen
 		call	CRLF
+		call 	waitForFinishedPrintout
 		ld 		A,$54					; indicate mount failure A-non zero
 		inc 	A
 		ret
@@ -363,6 +401,7 @@ HC376S_fileOpen::
 		ld 		IY,commStr1				;move.l 	USB_filename_ptr,A0 
 		dec 	IY
 		call 	WriteLineCRNL
+		call 	waitForFinishedPrintout
 
 		call 	beginUART
 	
@@ -385,6 +424,7 @@ nxtFileOpen:
 
 		call 	writeSTRBelow_CRLF
 		db		0,">Failed to open file.",0,0
+		call 	waitForFinishedPrintout
 		ld 		A,$65					; indicate mount failure A-non zero
 		inc 	A
 		ret
@@ -393,12 +433,14 @@ nxtFileOpen:
 .openOK:
 		call 	writeSTRBelow
 		db		0," opened successfully, ",0,0
+		call 	waitForFinishedPrintout
 		xor 	A						; A= 0 , Z set
 		ret
 
 openNoFileName:
 		call 	writeSTRBelow_CRLF
 		db		0,">File not found.!",0,0
+		call 	waitForFinishedPrintout
 		ld 		A,$76					; indicate mount failure A-non zero 
 		inc 	A						; ret with NZ
 		ret
@@ -503,6 +545,7 @@ HC376S_fileClose::
 	if (USB_TEXT_LABLES>8)
 		call 	writeSTRBelow
 		db		0,">File close : ",0,0
+		call 	waitForFinishedPrintout
 	endif 
 
 		call 	beginUART
@@ -524,6 +567,7 @@ HC376S_fileClose::
 	if (USB_TEXT_LABLES>9)
 		call 	writeSTRBelow_CRLF
 		db		" closed successfully..",0,0
+		call 	waitForFinishedPrintout
 	endif	
 		ret
 	
@@ -532,6 +576,7 @@ HC376S_fileClose::
 		; call 	PrintD0ToScreenHEX
 		call 	writeSTRBelow_CRLF
 		db		" failed to close file.",0,0
+		call 	waitForFinishedPrintout
 		ret
 
 ;************************************************************************
@@ -633,6 +678,7 @@ HC376S_getFileSize::
 		ld 		DE,(T_BUFFER)			; filesize restrict to max 65535 bytes; only two least bytes
 		call 	putDEtoScreen
 		call	CRLF
+		call 	waitForFinishedPrintout
 		
 		ret
 
@@ -666,7 +712,7 @@ setBytesRead::
 		call 	waitForResponse 		; Z is set if no response from 376S 
 
 		ld 		A,E						; get the actual data, E->A
-		cp		USB_INT_DISK_READ		; read the CH376S message. 
+		cp		USB_INT_DISK_READ		; read the CH376S message.   =1D?
 
 										; If equal to 0x1D, data is present, so return true. Will return 0x14 if no data is present.
 		ret 							; ret true ($1D) or false ($14)								
@@ -689,7 +735,7 @@ continueRead:
 		call 	waitForResponse 		; Z is set if no response from 376S 
 
 		ld 		A,E						; get the actual data, in A&E
-		cp		USB_INT_SUCCESS			; read the CH376S message. 
+		cp		USB_INT_SUCCESS			; 14? read the CH376S message. 
 										; If equal to 0x1D, data is present, so return true. Will return 0x14 if no data is present.
 		ret 							; ret true Z ($14), other false NZ							
 
@@ -703,7 +749,7 @@ continueRead:
 		align 4
 	endif
 
-		;***		usbrd  "TOTBIN1.TXT"  $140000
+		;***		usbrd  "TOTBIN1.TXT"  $1000
 HC376S_fileRead::
 
 		push  	HL
@@ -711,6 +757,7 @@ HC376S_fileRead::
 		
 		call 	writeSTRBelow_CRLF
 		db		" Reading File !. ",0,0
+		call 	waitForFinishedPrintout
 
 .nextblock:		
 		ld 		D,$80 	 		; The maximum value is 0x80  =  128 bytes
@@ -724,13 +771,13 @@ HC376S_fileRead::
 		ld 		E,$27					; CMD_RD_USB_DATA0			
 		call 	outByte367S				; CMD_RD_USB_DATA0
 
-		call 	delay2ms
+		call 	delay20ms
 		call 	waitForResponse 		; Z is set if no response from 376S 
 	
-		ld 		A,E				; get the actual (first byte) data -> length, in D0
+		ld 		A,E				; get the actual (first byte) data -> length, in E
 		ld 		B,E 			; loop counter
 .loop:
-		call 	delay2ms
+		call 	delay20ms
 		call 	waitForResponse 		; Z is set if no response from 376S 
 
 		ld 		(HL),E					;read char		 store in adressblock (HL)
@@ -747,6 +794,7 @@ endBlockRead: 	 				; setBytesRead returned false or continueRead returned false
 	if (USB_TEXT_LABLES>11)
 		call 	writeSTRBelow_CRLF
 		db		" No more DATA !.",0,0
+		call 	waitForFinishedPrintout
 	endif
 		pop 	HL
 		ret
@@ -1012,13 +1060,6 @@ delay_D0_ms:
 		;Response in A&E, use CTC timeout, Z -> no response, NZ -> 376S has responded
 waitForResponse:  
 
-		;GPIODEBUG
-		ld a,4
-		out (gpio_out),A
-		ld a,0
-		out (gpio_out),A
-		ld a,e
-
 		ei
 		halt    
 
@@ -1029,12 +1070,6 @@ waitForResponse:
 				; jr 		Z,.loop
 		; *** 	SIO B interrupt place data in E				; 
 		; ***	No timeout - read data.
-		;GPIODEBUG
-		ld a,4
-		out (gpio_out),A
-		ld a,0
-		out (gpio_out),A
-		ld a,e
 
 
 		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
@@ -1154,24 +1189,19 @@ resDelayFlag:
 
 CTC_delay_INT_handler:
 
-		ld		A,_Counter|_Rising|_Reset|_CW	
+		ld		A,_Counter|_Rising|_Reset	
 		out		(CH1),A					; reset and turn off interrupt CH1
 		ld		A,CTC_TIMEOUT 			; set timeout flag
 		ld 		(CTCdelayFlag),A 		; reset timeout flag
-		;GPIODEBUG
-		push HL
-		ld  HL,(TempVar4)
-		ld  (HL),a
-		inc HL
-		ld (TempVar4),HL
-		pop HL
-		;GPIODEBUG
-		ld a,8
-		out (gpio_out),A
-		ld a,0
-		out (gpio_out),A
-		ld a,e
 
+	ifd 	GPIODEBUG
+	ld a,8
+	out (gpio_out),A
+	ld a,0
+	out (gpio_out),A
+	endif
+		
+		ld 	a,e
 		ei
 		reti
 

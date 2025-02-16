@@ -2,7 +2,7 @@
 		include "Z80_Params_.inc"
 	
 	ifndef ONESECTION
-		section	Functions	
+		section	CodeConversion	
 
 	else
 		section singleAssembly
@@ -216,7 +216,7 @@ cnv_byte:	ld 		A,D
 
            ;-----------------------------------
            ; subr0uti addtot_buf
-           ; purp0se:    c0nvert a hexadecimal digit t0 asci i
+           ; purp0se:    convert a hexadecimal digit t0 asci i
            ; entry: a = binary data in l0wer nibble
            ;exit: a = ascii character
            ;registers used: a,f

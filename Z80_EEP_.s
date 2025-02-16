@@ -1,41 +1,44 @@
 ;Z80_PLD_PCB_.asm
 
 
-		section  EEPROM_Startup    ;EEPROM mem at 0000h
+		section  FLASH_Startup   	 ;FLASH mem at 0000h
 EPS1:
 
 		include 	"Z80_Params_.inc"
-		xref	RAM_Start,PLD_PCB_Start, SC5B,SC4C,SC8B, WriteLineCRNL, WriteLine, ReadLine, CRLF,DumpRegisters
+		xref	RAM_Start, SC5B,SC4C,SC8B, WriteLineCRNL, WriteLine, ReadLine, CRLF,DumpRegisters
 
 		xref	stacktop
 		global 	setFLASHBank, setSRAMBank, enableFLASH, disableFLASH, setFLASHBank
-
-		; ld		sp,stacktop
-
 
 		ld		sp,stacktop
 		
 		; jp 		hit
 		jp		setBanks
-		
+		align 3
 		; section RST08
-		; jp	WriteLineCRNL	
+		jp	WriteLineCRNL	
+		align 3
 		; section RST10	
-		; jp 	WriteLine
+		jp 	WriteLine
+		align 3
 		; section RST18	
-		; jp	ReadLine
+		jp	ReadLine
+		align 3
 		; section RST20	
-		; jp	CRLF
+		jp	CRLF
+		align 3
 		; section RST28	
-		; db 0,0,0
+		db 0,0,0
+		align 3
 		; section RST30	
-		; db 0,0,0
+		db 0,0,0
+		align 3
 		; section RST38	
-		; jp	DumpRegisters
+		jp	DumpRegisters
 
 
 ;********************************************************
-		section  INT_IM1     ;EEPROM mem at 0066h
+		section  INT_IM1     ;FLASH mem at 0066h
 ;********************************************************
 
 		LD C,04		; jp PIO_A_INT
@@ -45,6 +48,206 @@ EPS1:
 		retn		; jp PIO_A_INT
 		defw $0400          ; NMI adress table    
 
+
+
+;************************************************************************************************
+;************************************************************************************************
+;***		FLASH startup sequence (starts at $0080)
+;************************************************************************************************
+;************************************************************************************************
+;********************************************************
+		section  INIT_BODY     ;FLASH mem at 0080h
+;********************************************************
+
+		align 4
+setBanks:
+		; ld 		A,$80					; set bit 7 - SRAM64 set
+		; ld 		(memBankID),A			; clear memory banks
+		
+		call 	EEPIO_Init
+		
+	ifd 	GPIODEBUG
+	ld 		A,$55
+	out 	(gpio_out),A
+	endif
+
+		xor 	A					; A=0
+		ld 		(memBankID),A		; set memory banks #0
+	ifd NOFLASH
+		call 	disableFLASH		; NO FLASH 
+	else	
+		call 	enableFLASH			; start from FLASH
+	endif
+
+		xor 	A
+		call 	setSRAMBank			; ram bank #0
+
+	ifd 	GPIODEBUG
+	ld 		A,$77
+	out 	(gpio_out),A
+	endif
+
+
+		call 	enableIC620_OE 		; enable the outputs.
+	ifd BOOTLOAD
+		jp 		SD_USB_startup
+	else	
+		jp		MONITOR_Start
+	endif
+
+;********************************************************************************************
+;********************************************************************************************	
+		; ******   Copy data from flash $400 to $2000 to SRAM $D000
+		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
+		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
+
+		ld 		HL,$D002
+		ld  	A,'C'
+		ld 		BC,04
+
+.nxt:	cpi 	
+		jr 		NZ,doCopy
+		jp 		PE,.nxt
+		;JP PE means "branch if BC has not been decremented to 0."
+
+		; the code 'CCCC' is found in $D002-D005, do not copy from flashmem.
+		; jp		MONITOR_Start
+
+doCopy:
+		ld 		HL,$400				; source
+		ld 		DE,$D000	 			; destination
+		ld 		BC,$1FF0				; 
+
+		ldir
+
+		; jp		MONITOR_Start
+
+
+;********************************************************************************************
+;********************************************************************************************	
+setSRAMBank:
+		; ***	set the SRAM bank ID; Bank ID in A
+
+		push 	HL
+		push 	BC
+		ld 		HL,memBankID
+		and 	$0F 				; clear all bits but 0-3 in A
+
+		ld 		B,A
+		ld 		A,(HL)				; get the actl. mem Bank ID
+		and 	$F0  				; zero bits 0-3
+		jr 		putBank
+
+;********************************************************************************************
+;********************************************************************************************	
+
+setFLASHBank:
+		; ***	set the FLASH bank ID; Bank ID in A
+
+		push 	HL
+		push 	BC
+		ld 		HL,memBankID
+		and 	$07 				; clear all bits but 0-2
+		rlca
+		rlca
+		rlca
+		rlca						; bank ID = bits 4-6
+
+		ld 		B,A
+		ld 		A,(HL)				; get the actl. mem Bank ID
+		and 	$8F  				; zero bits 4-6
+putBank:
+		or 		B					; put new EEP bank ID in A...
+		ld 		(HL),A				; store new value
+		out 	(_Z80_BankCS),A		; set bank register number 0 and 64K_SRAM=1	
+		pop 	BC
+		pop 	HL
+		ret 
+
+;********************************************************************************************
+;********************************************************************************************	
+enableFLASH:
+		; ***	activate FLASH MEM, leave bank ID unchanged; 
+				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
+				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+		push 	HL
+		push 	BC
+		ld 		HL,rstBankID
+		res 	3,(HL)				; clear bit 3 -> enable FLASH
+		res 	2,(HL)				; temp enable reset of IC622
+putBankF:
+		ld 		A,(HL)
+		out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
+		pop 	BC
+		pop 	HL
+		ret 
+		
+;********************************************************************************************
+;********************************************************************************************	
+disableFLASH:
+		; ***	disconnect FLASH MEM, leave bank ID unchanged; 
+				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
+				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+		push 	HL
+		push 	BC
+		ld 		HL,rstBankID
+		set 	2,(HL) 			; temp disable reset of IC622
+		set 	3,(HL)			; set bit 3 -> disable FLASH
+		jr 		putBankF
+
+;********************************************************************************************
+;********************************************************************************************	
+
+
+disableIC620_OE:
+		; ***	Set IC620 pin 1 high
+		push 	HL
+		push 	BC
+		ld 		HL,rstBankID
+		res 	0,(HL)
+		jr 		putBankF
+
+
+;********************************************************************************************
+;********************************************************************************************	
+
+enableIC620_OE: 
+		; ***	Set IC620 pin 1 low
+		push 	HL
+		push 	BC
+		ld 		HL,rstBankID
+		set 	0,(HL)
+		jr 		putBankF
+
+
+;********************************************************************************************
+;********************************************************************************************	
+
+		; out (_8Bitsout),A
+		
+
+; 
+EEPIO_Init:
+; ;----------******************* PIO PORT A
+		ld A, $0F                 ;mode 1 out
+		out (portA_Contr), A         ; set port A as output
+; 		ld A, Interupt_vector&0xFF                   ; low byte of INT table
+; 		out (portA_Contr), A         ; PIO A interrupt vector
+		ld A, $03
+		out (portA_Contr), A         ; PIO A interrupt disable
+; 		ld a,Interupt_vector>>8                   ; high byte of INT table
+; 		ld I,A
+; 		ei
+; ;----------******************* PIO PORT B
+ 		ld A, $0F                    ;mode 0 output 
+ 		out (portB_Contr), A         ; set port B as output
+ 		ld A, $03
+ 		out (portB_Contr), A         ; PIO B interrupt disable
+ 		ld a,0
+ 		ld (PIO_B_value),a
+ 		out (portB_Data), a
+	ret
+ 
 
 ;********************************************************		
 		section EEtestprog			; main program in sram
@@ -157,224 +360,11 @@ TX_EMP:	sub a
 		jr  z,TX_EMP
 		ret
 
-; RTestprog:
-; 		;--------------------------------------------------
-; 		; ld A,5
-; 		; out (_CE_RST_BANK),A
-; 		; ld 	A,$00	
-; 		; out (_Z80_BankCS),A		// set bank register number 	
-; 		; ld 	A,$01
-; 		; out (_CE_RST_BANK),A 		// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
-
-; 		out (_8Bitsout),A
-
-; 		ld A, $0F                 ;mode 1 out
-; 		out (portA_Contr), A         ; set port A as output
-; 		ld A,$81
-
-; tll:	
-; 		ld (40000),A
-; 		ld A,0
-; 		ld A,(40000)
-
-; 		out (portA_Data),A		; Data to PIO port A
-; 		out (_8Bitsout),A
-; 		;--------------------------------------------------
-; 		ld	DE,$8100
-; 		ld	HL,RDATA
-; 		ld 	BC,RDATA_END-RDATA
-; 		ldir
-; 	if DOALIGN
-; 		align 4
-; 	endif
-
-; RDATA:
-; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-; RDATA_END:
-; TB_length	equ 	RDATA_END-RDATA
 
 
-setBanks:
-		; ld 		A,$80					; set bit 7 - SRAM64 set
-		; ld 		(memBankID),A			; clear memory banks
-		
-		call 	EEPIO_Init
-		ld 		A,$55
-		out 	(gpio_out),A
 
-		xor 	A						; A=0
-		ld 		(memBankID),A			; set memory banks #0
-		call 	disableFLASH			; NO FLASH 
-		xor 	A
-		call 	setSRAMBank			; ram bank #0
-		ld 		A,$77
-		out 	(gpio_out),A
+.end
 
-		; call 	enableFLASH			; start from FLASH
-
-		call 	enableIC620_OE 		; enable the outputs.
-
-		jp		PLD_PCB_Start
-
-;********************************************************************************************
-;********************************************************************************************	
-		; ******   Copy data from flash $1000 to $2FF0 to SRAM $D000
-		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
-		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
-
-		ld 		HL,$D002
-		ld  	A,'C'
-		ld 		BC,04
-
-.nxt:	cpi 	
-		jr 		NZ,doCopy
-		jp 		PE,.nxt
-		;JP PE means "branch if BC has not been decremented to 0."
-
-		; the code 'CCCC' is found in $D002-D005, do not copy from flashmem.
-		jp		PLD_PCB_Start
-
-doCopy:
-		ld 		HL,$1000				; source
-		ld 		DE,$D000	 			; destination
-		ld 		BC,$1FF0				; 
-
-		ldir
-
-		jp		PLD_PCB_Start
-
-
-;********************************************************************************************
-;********************************************************************************************	
-setSRAMBank:
-		; ***	set the SRAM bank ID; Bank ID in A
-
-		push 	HL
-		push 	BC
-		ld 		HL,memBankID
-		and 	$0F 				; clear all bits but 0-3 in A
-
-		ld 		B,A
-		ld 		A,(HL)				; get the actl. mem Bank ID
-		and 	$F0  				; zero bits 0-3
-		jr 		putBank
-
-;********************************************************************************************
-;********************************************************************************************	
-
-setFLASHBank:
-		; ***	set the EEPROM bank ID; Bank ID in A
-
-		push 	HL
-		push 	BC
-		ld 		HL,memBankID
-		and 	$07 				; clear all bits but 0-2
-		rlca
-		rlca
-		rlca
-		rlca						; bank ID = bits 4-6
-
-		ld 		B,A
-		ld 		A,(HL)				; get the actl. mem Bank ID
-		and 	$8F  				; zero bits 4-6
-putBank:
-		or 		B					; put new EEP bank ID in A...
-		ld 		(HL),A				; store new value
-		out 	(_Z80_BankCS),A		; set bank register number 0 and 64K_SRAM=1	
-		pop 	BC
-		pop 	HL
-		ret 
-
-;********************************************************************************************
-;********************************************************************************************	
-enableFLASH:
-		; ***	activate FLASH MEM, leave bank ID unchanged; 
-				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
-				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
-		push 	HL
-		push 	BC
-		ld 		HL,rstBankID
-		res 	3,(HL)				; 
-putBankF:
-		set 	2,(HL)				; temp inhibit reset
-		ld 		A,(HL)
-		out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
-		pop 	BC
-		pop 	HL
-		ret 
-		
-;********************************************************************************************
-;********************************************************************************************	
-disableFLASH:
-		; ***	disconnect FLASH MEM, leave bank ID unchanged; 
-				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
-				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
-		push 	HL
-		push 	BC
-		ld 		HL,rstBankID
-		set 	3,(HL)
-		jr 		putBankF
-
-;********************************************************************************************
-;********************************************************************************************	
-
-
-disableIC620_OE:
-		; ***	Set IC620 pin 1 high
-		push 	HL
-		push 	BC
-		ld 		HL,rstBankID
-		res 	0,(HL)
-		jr 		putBankF
-
-
-;********************************************************************************************
-;********************************************************************************************	
-
-enableIC620_OE: 
-		; ***	Set IC620 pin 1 low
-		push 	HL
-		push 	BC
-		ld 		HL,rstBankID
-		set 	0,(HL)
-		jr 		putBankF
-
-
-;********************************************************************************************
-;********************************************************************************************	
-
-		; out (_8Bitsout),A
-		
-
-; 
-EEPIO_Init:
-; ;----------******************* PIO PORT A
-		ld A, $0F                 ;mode 1 out
-		out (portA_Contr), A         ; set port A as output
-; 		ld A, Interupt_vector&0xFF                   ; low byte of INT table
-; 		out (portA_Contr), A         ; PIO A interrupt vector
-		ld A, $03
-		out (portA_Contr), A         ; PIO A interrupt disable
-; 		ld a,Interupt_vector>>8                   ; high byte of INT table
-; 		ld I,A
-; 		ei
-; ;----------******************* PIO PORT B
- 		ld A, $0F                    ;mode 0 output 
- 		out (portB_Contr), A         ; set port B as output
- 		ld A, $03
- 		out (portB_Contr), A         ; PIO B interrupt disable
- 		ld a,0
- 		ld (PIO_B_value),a
- 		out (portB_Data), a
-	ret
-; 
 
 ;************************************************************************
 ; ShowPC_HALT:
@@ -603,5 +593,47 @@ EEPIO_Init:
 ; 		;defw $0400          ; NMI adress table    
 
 
+; RTestprog:
+; 		;--------------------------------------------------
+; 		; ld A,5
+; 		; out (_CE_RST_BANK),A
+; 		; ld 	A,$00	
+; 		; out (_Z80_BankCS),A		// set bank register number 	
+; 		; ld 	A,$01
+; 		; out (_CE_RST_BANK),A 		// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
 
-.end
+; 		out (_8Bitsout),A
+
+; 		ld A, $0F                 ;mode 1 out
+; 		out (portA_Contr), A         ; set port A as output
+; 		ld A,$81
+
+; tll:	
+; 		ld (40000),A
+; 		ld A,0
+; 		ld A,(40000)
+
+; 		out (portA_Data),A		; Data to PIO port A
+; 		out (_8Bitsout),A
+; 		;--------------------------------------------------
+; 		ld	DE,$8100
+; 		ld	HL,RDATA
+; 		ld 	BC,RDATA_END-RDATA
+; 		ldir
+; 	if DOALIGN
+; 		align 4
+; 	endif
+
+; RDATA:
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+; RDATA_END:
+; TB_length	equ 	RDATA_END-RDATA
+
+

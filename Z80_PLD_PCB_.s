@@ -1,15 +1,13 @@
 ;Z80_PLD_PCB_.asm
 
 		include 	"Z80_Params_.inc"
- 
-
-		
-;********************************************************		
-;		section MainSRam			; main program in sram
-;********************************************************		
-
+		include 	"Salea_Logic.inc"
 	
-		section	Monitor
+
+; ;***********************************************************************
+; 		section	Monitor
+; ;***********************************************************************
+
 
 
 
@@ -24,18 +22,221 @@
 
 			xref 	crc16_2,CRC16
 		
-		xdef 	PLD_PCB_Start
-		xref 	A_RTS_OFF,A_RTS_ON
+		xref 	SIO_A_RTS_OFF,SIO_A_RTS_ON
 
 
 	;***************************************************************
 	;SAMPLE EXECUTION:
 	;***************************************************************
 
-
 DO_Debug:	equ	1		; Set to 1 to show debug printing, else 0 
 
-PLD_PCB_Start:	
+	GLOBAL SD_USB_startup,MONITOR_Start
+
+;************************************************************************************************
+;************************************************************************************************
+;***		SDcard/USB startup sequence
+;************************************************************************************************
+;************************************************************************************************
+		section SD_USB_Start
+
+
+		jp 		MONITOR_Start0 		; jump to MONITOR_Start if hard call to $8000
+
+SD_USB_startup:
+
+	ifd 	GPIODEBUG
+	ld 		A,$33
+	out 	(gpio_out),A
+	endif
+
+
+		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
+
+
+		ld 		(SP_value),SP
+	
+	ifd 	GPIODEBUG
+	ld 		A,$AA
+	out 	(gpio_out),A
+	endif
+	
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+			; initialize buffer counters and pointers.
+	ifd 	GPIODEBUG
+	ld 		A,$BB
+	out 	(gpio_out),A
+	endif
+
+		call	PIO_Init
+	ifd 	GPIODEBUG
+	ld 		A,$CC
+	out 	(gpio_out),A
+	endif
+		call 	CTC_Init
+	ifd 	GPIODEBUG
+	ld 		A,$DD
+	out 	(gpio_out),A
+	endif
+		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+	ifd 	GPIODEBUG
+	ld 		A,$DF
+	out 	(gpio_out),A
+	endif
+		call	S_head_tail			; save input heads and tails
+	ifd 	GPIODEBUG
+	ld 		A,$81
+	out 	(gpio_out),A
+	endif
+
+		; call	sh_test
+		; call 	Flash_WR_Test
+		; ld	HL,$2010
+		; call	Flash_SE_Erase
+
+		call	CRLF
+		call 	writeSTRBelow
+		defb   	"\r\n"
+		defb	"=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\r\n"
+		defb	"Start from SD/USB\r\n"
+		; defb	"    git: @@GIT_VERSION@@\r\n"
+		; defb	"    build: @@DATE@@\r\n"
+		; defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"\0"
+
+		 call 	waitForFinishedPrintout
+
+	ifd 	GPIODEBUG
+	ld 		A,$83
+	out 	(gpio_out),A
+	endif
+		call	CRLF
+
+;*****	Setup Boot load from SD card.
+;***************************************
+		ld 		DE,commStr1					; save filename in commStr1
+		ld 		HL,rfile_name
+.nxtchr:
+		ldi									; (DE) <- (HL) 
+		ld 		A,(HL)
+		or 		A 							; = 0 ?
+		jr  	NZ,.nxtchr
+		ld 		(DE),A						; save '0'
+		ld 		HL,S1x						; result in S1x
+		ld 		(commAdr1),HL
+
+		call 	p_C_Read_SD
+
+
+;***	correct $0A to $00 $00 in S1x (check for ascii lower than $20)
+		ld 		HL,S1x
+		ld 		A,$20
+		ld 		DE,commStr1
+
+.find0A:
+		ldi						; (DE) <- (HL) 
+		cp 		(HL)			; char lower than ' '  $20 - (HL)
+		jp 		M,.find0A		; char > ' '...
+
+		ld 		A,00
+		ld 		(de),A
+		inc 	de
+		ld 		(de),A			; strip eventually $0A, $0D, ...
+		inc 	de
+		ld 		(de),A			; Boot file name present in commStr1
+		ld 		HL,_RAMSTART
+		ld 		(commAdr1),HL 	; place adress for boot file...
+		call 	p_C_Read_SD		; read and place boot file.
+
+
+		call 	writeSTRBelow
+		defb   "\r\nUSE RAM bank #0, Copy FLASH Boot seq\r\n"
+		defb   "To RAM bank #1 ($0-$2000) \r\n"
+		defb	"Jump to _RAMSTART! \r\n",0,0,0
+
+		jp 		_RAMSTART 		; monitor start $D000
+
+.loopINF:
+		halt
+	ifd 	GPIODEBUG	
+	ld 		A,$99
+	out 	(gpio_out),A
+	endif
+		jr 		.loopINF
+rfile_name:
+	 db "BOOTFILE.TXT",0,0,0,0
+	; db "PROVIDE.txt",0,0,0,0
+
+	
+;************************************************************************************************
+;************************************************************************************************
+p_C_Read_SD:
+
+		;call 	checkArgsTAL				; check necessary args
+		;jp		NZ,argumentsError			; show argument error and return
+	
+		ld 		DE,CTC_delay_INT_handler
+		ld 		(CTC_CH1_I_Vector),DE
+	ifd 	GPIODEBUG
+	xor A
+	out (gpio_out),A
+	endif
+		; call  	SIO_A_DI					; disable text output
+	ifd 	GPIODEBUG
+	ld a,4
+	out (gpio_out),A
+	ld a,0
+	out (gpio_out),A
+	endif
+
+		ld a,e	
+
+		call 	purgeRXB					; XMODEM_CRC_SUB.s
+		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
+		call 	HC376S_ResetAll
+		call 	HC376S_CheckConnection
+		; ld 		A,(commParseTable)
+		; cp 		15							; 15 read SD; 17-read USB
+		; jr 		Z,.doSD
+		; cp 		21							; 21 read SD enumerate, 22 read USB enumerate
+		; jr 		Z,.doSD
+		; call 	HC376S_setUSBMode
+		; call 	HC376S_diskConnectionStatus		; dont use with SD card
+		; jr 		.cont
+.doSD:
+		call 	HC376S_setSDMode
+		
+.cont:
+		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+		jr 		NZ,SDabort
+
+
+		call 	HC376S_setFileName
+		call 	HC376S_fileOpen
+		jr 		NZ,SDabort
+		call 	waitForFinishedPrintout
+
+		call 	HC376S_getFileSize
+		call 	HC376S_fileRead
+		call 	HC376S_fileClose
+SDabort:
+
+		; ***	reset the interrupt handler for CTC
+		; call 	SIO_A_EI					; enable text output
+		call 	HC376S_ResetAll
+		call 	CTC1_INT_OFF
+		ld		HL,CTC_CH1_Interrupt_Handler
+		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+		ret
+
+MONITOR_Start0:	
+
+;***********************************************************************
+		section	Monitor			; enter point for monitor
+;***********************************************************************
+
+MONITOR_Start:	
+
 		; ***	should be start address $D000
 		jr 		.initRH
 		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
@@ -45,9 +246,34 @@ PLD_PCB_Start:
 		align	3
 
 .initRH:
-		;GPIODEBUG
-		ld 		A,$33
-		out 	(gpio_out),A
+	call 	waitForFinishedPrintout
+	
+
+	ifd 	GPIODEBUG
+	ld 		A,$33
+	out 	(gpio_out),A
+	endif
+;		***  	NOFLASH - Don not use the FLASH mem -> 64kRAM
+; 		*** 	Copy Flash boot sequence to RAM bank #0 $0-$1800
+; 		*** 	first to temp storage area.
+		ld		DE,$B000		; temp storage area 0xB000
+		ld		hl,0000
+
+		ld 		BC,$1800			;Boot seq size ~6kb
+		ldir							; (DE)<-(HL)
+; 		*** 	secondly: to Rambank #1 storage area.
+
+;		***		deselect FLASH mem
+; 		***		Swithch to RAM bank #1
+
+		call  	p_FOFF_No_Print
+		ld 		A,1
+		call 	p_srbank0
+		ld		DE,0000		; temp storage area 0xB000
+		ld		hl,$B000
+
+		ld 		BC,$1800			;Boot seq size ~6kb
+		ldir							; (DE)<-(HL)
 
 
 
@@ -55,35 +281,42 @@ PLD_PCB_Start:
 
 
 		ld 		(SP_value),SP
-		ld 		A,$AA
-		;GPIODEBUG
-		out 	(gpio_out),A
+
+	ifd 	GPIODEBUG
+	ld 		A,$AA
+	out 	(gpio_out),A
+	endif
 
 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
 			; initialize buffer counters and pointers.
-	 	ld 		A,$BB
-		;GPIODEBUG
-		out 	(gpio_out),A
+	ifd		PIODEBUG
+	ld 		A,$BB
+	out 	(gpio_out),A
+	endif
 
 		call	PIO_Init
-		ld 		A,$CC
-		;GPIODEBUG
-		out 	(gpio_out),A
+	ifd 	GPIODEBUG
+	ld 		A,$CC
+	out 	(gpio_out),A
+	endif
 
 		call 	CTC_Init
-		ld 		A,$DD
-		;GPIODEBUG
-		out 	(gpio_out),A
+	ifd 	GPIODEBUG
+	ld 		A,$DD
+	out 	(gpio_out),A
+	endif
 
 		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-		ld 		A,$DF
-		;GPIODEBUG
-		out 	(gpio_out),A
+	ifd 	GPIODEBUG
+	ld 		A,$DF
+	out 	(gpio_out),A
+	endif
 
 		call	S_head_tail			; save input heads and tails
-		;GPIODEBUG
-		ld 		A,$81
-		out 	(gpio_out),A
+	ifd 	GPIODEBUG
+	ld 		A,$81
+	out 	(gpio_out),A
+	endif
 
 		; call	sh_test
 		; call 	Flash_WR_Test
@@ -100,34 +333,36 @@ PLD_PCB_Start:
 		defb	"    FLASH->SRAM 0xD000.\r\n"
 		defb	"\0"
 
-		;GPIODEBUG
-		ld 		A,$83
-		out 	(gpio_out),A
-
+	ifd 	GPIODEBUG
+	ld 		A,$83
+	out 	(gpio_out),A
+	endif
 		call	CRLF
 
 next_line:
 
-		call 	initCommParseTable
-		;GPIODEBUG
-		ld 		A,$85
-		out 	(gpio_out),A
+		call 	initCommParseTable			; Put zeros.....
+	ifd 	GPIODEBUG
+	ld 		A,$85
+	out 	(gpio_out),A
+	endif
 
 		; ***	indicate memory banks   F[x]  Flash memory bank x
 		; ***	indicate memory banks   S[y]  SRAM memory bank y
-				; if bit 7 (memBankID) = 1  no FLASH memory is selected
-				; if bit 7 (memBankID) = 0 FLASH memory is lower 32k and SRAM upper 32k
+				; if bit 3 (rstBankID) = 1  no FLASH memory is selected
+				; if bit 3 (rstBankID) = 0 FLASH memory is lower 32k and SRAM upper 32k
 		ld 		HL,T_BUFFER+1 			; prepare output buffer		
 		ld 		(HL),'F'	
-		ld 		A,(memBankID)
-		bit 	7,A					; bit 7 set -> 64kSRAM
+		ld 		A,(rstBankID)
+		bit 	3,A					; bit 3 set -> 64kSRAM
 		jr 		Z,useFlash
 		ld 		(HL),'S'	
 useFlash:
 		inc 	HL
 		ld 		(HL),'['	
 		inc 	HL
-		bit 	7,A					; bit 7 set -> 64kSRAM
+		bit 	3,A					; bit 7 set -> 64kSRAM
+		ld  	A,(memBankID)
 		jr 		Z,.IDflash
 
 		; ***	show sram bank number
@@ -146,10 +381,12 @@ useFlash:
 		ld  	(HL),']'
 		inc 	HL
 
-		ld 		A,$87
-		out 	(gpio_out),A
+	ifd 	GPIODEBUG	
+	ld 		A,$87
+	out 	(gpio_out),A
+	endif
 
-		; 	*** Print prompt text to screen, value of PC and content in memory
+	; 	*** Print prompt text to screen, value of PC and content in memory
 		ld 		DE,(PCvalue)
 		ld  	(HL),'['
 		inc 	HL
@@ -197,8 +434,6 @@ useFlash:
 
 		ld 		HL,Textbuf
 		call 	skipPriorDelimit			; set (HL) first char
-		; ld 		A,7
-		; out 	(portA_Data),A
 
 		jp 		C,temp_finish 				; end encountered; no command (empty line)	
 
@@ -208,9 +443,7 @@ useFlash:
 		; ***	Search command in 'command_list:'
 		;  		DE = typed command first char in DE (Textbuf)
 		ld 		HL,command_list+1			; first char in first command in the list
-		; ld 		A,9
-		; out 	(portA_Data),A
-
+		
 scanCommandList:
 		ld 		C,(HL)						; command # in C
 		inc 	HL 							; (HL)=first char
@@ -248,19 +481,29 @@ zero_byte:	db  0
 findNextITEM:
 		; ***	find next ITEM or LISTEND
 		ld 		a,(HL)
-		cp		ITEM
+		cp		CDEL					; command adress delimiter
+		jr 		z,.skipPastCommAdr
+	
+		cp		ITEM					; command adress delimiter
 		jr 		z,nextInList
-
+	
 		cp 		LISTEND
 		jr 		NZ,.cont
 
 		; ***	Command list did not match; check if direct address '$' or byte input
 		ld 		A,$FF
-		ld 		(PCinpFlag),A			; indicate ev. typed address to change PCV or bytes ...
-		pop 	HL					; HL start of typed string (again)
+		ld 		(PCinpFlag),A			; indicate ev. typed ($)address to change PCV or input bytes ...
+		pop 	HL						; HL start of typed string (again)
 		ld 		A,(HL)
 		jp 		checkaddress			; No more commands to check, check if address entered , '$'
+										; or relative adress '@'
 										; or direct input of bytes.....
+.skipPastCommAdr:
+		inc  	HL		;hig adr.
+		inc  	HL		; low adr.
+		inc  	HL		;  '0'
+		inc  	HL		;  next row
+		jr 		findNextITEM
 
 .cont:	inc 	HL
 		jr 		findNextITEM
@@ -284,64 +527,96 @@ inputerror:
 		call 	CRLF
 		jp 		next_line
 
-command_addresses:
-		defw 	00
-		defw 	p_load			;1
-		defw 	p_dumpmem		;2
-		defw 	p_pc			;3
-		defw 	p_clearmem		;4
-		defw 	p_exe			;5
-		defw 	p_go			;6
-		defw 	p_incDecPC		;7
-		defw 	p_incDecPC		;8
-		defw 	p_FON			;9
-		defw 	p_FOFF			;10
-		defw 	p_flwr			;11. write data to EEPROM
-		defw 	p_flse			;12. sector erase
-		defw 	p_xmod			;13. transfer files via x-modem
-		defw 	p_reset			;14. Jump to $0000
-		defw	p_C_Read		;15. Read from SD card   sdrd  "file"  $Addr
-		defw	p_C_Write		;16. Write to SD card   sdrd  "file"  $Addr.l $Addr.h/Num
-		defw	p_C_Read		;17. Read from USB   sdrd  "file"  $Addr
-		defw	p_C_Write		;18. Write to USB   sdrd  "file"  $Addr.l $Addr.h/Num
-		defw	p_C_Delete		;19. delete file on SD card   sdrd  "file"  $Addr
-		defw	p_C_Delete		;20. delete file on USB  sdrd  "file"  $Addr.l $Addr.h/Num
-		defw 	p_C_Read		;21. List root level files/dirs on sd card
-		defw 	p_C_Read 		;22. List root level files/dirs on USB
-		defw	p_cptFl			;23. copy from mem to flash memory (on selected bank)
-		defw 	p_flbank		;24. Set flash bank #
-		defw	p_srbank		;25. Set sram bank #
+; command_addresses:
+; 		defw 	00
+; 		defw 	p_load			;1
+; 		defw 	p_dumpmem		;2
+; 		defw 	p_pc			;3
+; 		defw 	p_eep			;4
+; 		defw 	p_clearmem		;5
+; 		defw 	p_exe			;6
+; 		defw 	p_go			;7
+; 		defw 	p_incDecPC		;8
+; 		defw 	p_incDecPC		;9
+; 		defw 	p_FON			;10
+; 		defw 	p_FOFF			;11
+; 		defw 	p_flwr			;12. write data to FLASH
+; 		defw 	p_flse			;13. sector erase
+; 		defw 	p_xmod			;14. transfer files via x-modem
+; 		defw 	p_reset			;16. Jump to $0000
+; 		defw	p_C_Read		;16. Read from SD card   sdrd  "file"  $Addr
+; 		defw	p_C_Write		;17. Write to SD card   sdrd  "file"  $Addr.l $Addr.h/Num
+; 		defw	p_C_Read		;18. Read from USB   sdrd  "file"  $Addr
+; 		defw	p_C_Write		;19. Write to USB   sdrd  "file"  $Addr.l $Addr.h/Num
+; 		defw	p_C_Delete		;20. delete file on SD card   sdrd  "file"  $Addr
+; 		defw	p_C_Delete		;21. delete file on USB  sdrd  "file"  $Addr.l $Addr.h/Num
+; 		defw 	p_C_Read		;22. List root level files/dirs on sd card
+; 		defw 	p_C_Read 		;23. List root level files/dirs on USB
+; 		defw	p_cptFl			;24. copy from mem to flash memory (on selected bank)
+; 		defw 	p_flbank		;25. Set flash bank #
+; 		defw	p_srbank		;26. Set sram bank #
+
 command_list:
 ;		*** command textstring1/2 	address1/2	 lvalue1/2
 
-		db		ITEM,1,4,"load",STEND,%100010,0
-		db		ITEM,2,2,"dm",	STEND,%000010,0
-		db		ITEM,3,2,"pc",	STEND,%000000,0
-		db		ITEM,4,2,"cm",	STEND,%000000,0
-		db		ITEM,5,3,"exe",	STEND,%000000,0
-		db		ITEM,6,2,"go",	STEND,%000000,0
-		db		ITEM,7,2,"++",	STEND,%000000,0
-		db		ITEM,8,2,"--",	STEND,%000000,0
-		db		ITEM,9,4,"f-on",	STEND,%000000,0
-		db		ITEM,9,8,"flash-on",	STEND,%000000,0
-		db		ITEM,10,5,"f-off",	STEND,%000000,0
-		db		ITEM,10,9,"flash-off",	STEND,%000000,0
-		db		ITEM,11,4,"flwr",	STEND,%001110,0		; write to flash: flwr  <$Addr.mem> <$Addr.flash>  <Num> (0E)
-		db		ITEM,12,4,"flse",	STEND,%000000,0
-		db		ITEM,13,4,"xmod",	STEND,%001000,0		; xmodem from PC   xmod <address>
-		db		ITEM,14,3,"rst",	STEND,%000000,0
-		db		ITEM,15,4,"sdrd",	STEND,%101000,0		; Read from SD card   sdrd  "file"  $Addr
-		db		ITEM,16,4,"sdwr",	STEND,%101010,0 	; Write to SD card   sdwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
-		db		ITEM,17,5,"usbrd",	STEND,%101000,0		; Read from USB      usbrd  "file"  $Addr
-		db		ITEM,18,5,"usbwr",	STEND,%101010,0 	; Write to USB        usbwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
-		db		ITEM,19,5,"sddel",	STEND,%100000,0 	; Delete file on SD card   sddel  "file"  
-		db		ITEM,20,6,"usbdel",	STEND,%100000,0 	; Delete file on USB   usbdel  "file"  
-		db		ITEM,21,5,"sddir",	STEND,%100000,0 	; List root level files/dirs on sd card
-		db		ITEM,22,6,"usbdir",	STEND,%100000,0 	; List root level files/dirs on USB
-		db 		ITEM,23,5,"cptfl",	STEND,%001100,0		; copy from adress range to flash   cptfl  $Addr   $Addr
-		db 		ITEM,24,6,"flbank",	STEND,%000010,0		; set flash bank #	
-		db 		ITEM,25,6,"srbank",	STEND,%000010,0		; set sram bank #	
-		db		ITEM,26,3,"nop",	STEND,%000000,0
+		db		ITEM,1,4,"load",STEND,%100010,0,CDEL
+		dw 		p_load,0
+		db		ITEM,2,2,"dm",	STEND,%000010,0,CDEL
+		dw  	p_dumpmem,0
+		db		ITEM,3,2,"pc",	STEND,%000000,0,CDEL
+		dw 		p_pc,0
+		db		ITEM,4,3,"eep",	STEND,%000000,0,CDEL
+		dw 		p_eep,0
+		db		ITEM,5,2,"cm",	STEND,%000000,0,CDEL
+		dw  	p_clearmem,0
+		db		ITEM,6,3,"exe",	STEND,%000000,0,CDEL
+		dw 		p_exe,0
+		db		ITEM,7,2,"go",	STEND,%000000,0,CDEL
+		dw 		p_go,0
+		db		ITEM,8,2,"++",	STEND,%000000,0,CDEL
+		dw 		p_incDecPC,0
+		db		ITEM,9,2,"--",	STEND,%000000,0,CDEL
+		dw 		p_incDecPC,0
+		db		ITEM,10,3,"fl1",		STEND,%000000,0,CDEL
+		dw		p_FON,0
+		db		ITEM,10,8,"flash-on",	STEND,%000000,0,CDEL
+		dw 		p_FON,0
+		db		ITEM,11,3,"fl0",		STEND,%000000,0,CDEL
+		dw 		p_FOFF,0
+		db		ITEM,11,9,"flash-off",	STEND,%000000,0,CDEL
+		dw 		p_FOFF,0
+		db		ITEM,12,4,"flwr",	STEND,%001110,0,CDEL
+		dw 		p_flwr,0									; write to flash: flwr  <$Addr.mem> <$Addr.flash>  <Num> (0E)
+		db		ITEM,13,4,"flse",	STEND,%000000,0,CDEL
+		dw 		p_flse,0
+		db		ITEM,14,4,"xmod",	STEND,%001000,0,CDEL
+		dw 		p_xmod,0									; xmodem from PC   xmod <address>
+		db		ITEM,15,3,"rst",	STEND,%000000,0,CDEL
+		dw 		p_reset,0
+		db		ITEM,16,4,"sdrd",	STEND,%101000,0,CDEL
+		dw		p_C_Read,0									; Read from SD card   sdrd  "file"  $Addr
+		db		ITEM,17,4,"sdwr",	STEND,%101010,0,CDEL
+		dw 		p_C_Write,0									; Write to SD card   sdwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+		db		ITEM,18,5,"usbrd",	STEND,%101000,0,CDEL
+		dw 		p_C_Read,0									; Read from USB      usbrd  "file"  $Addr
+		db		ITEM,19,5,"usbwr",	STEND,%101010,0,CDEL
+		dw 		p_C_Write,0									; Write to USB        usbwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
+		db		ITEM,20,5,"sddel",	STEND,%100000,0,CDEL
+		dw 		p_C_Delete,0 								; Delete file on SD card   sddel  "file"  
+		db		ITEM,21,6,"usbdel",	STEND,%100000,0,CDEL
+		dw 		p_C_Delete,0 								; Delete file on USB   usbdel  "file"  
+		db		ITEM,22,5,"sddir",	STEND,%100000,0,CDEL
+		dw 		p_C_Read,0 									; List root level files/dirs on sd card
+		db		ITEM,23,6,"usbdir",	STEND,%100000,0,CDEL
+		dw 		p_C_Read,0 									; List root level files/dirs on USB
+		db 		ITEM,24,5,"cptfl",	STEND,%001100,0,CDEL
+		dw 		p_cptFl,0									; copy from adress range to flash   cptfl  $Addr   $Addr
+		db 		ITEM,25,2,"fb",		STEND,%000010,0,CDEL
+		dw 		p_flbank,0									; set flash bank #	
+		db 		ITEM,26,2,"sb",		STEND,%000010,0,CDEL
+		dw		p_srbank,0									; set sram bank #	
+		db		ITEM,27,3,"nop",	STEND,%000000,0,CDEL
+		dw 		0,0
 		db		LISTEND
 commListLen  equ   27
 
@@ -367,7 +642,7 @@ commListLen  equ   27
 ;		commParseTable
 ;		***************************************************
 ;		***	decode input line;
-;		*** <cmd>    "TEXT"  	$xxyyzz  xxyyzz
+;		*** <cmd>    "TEXT"  	$xxyy  xxyy
 ;		*** command textstring 	address	 lvalue
 ;		************************************************************
 ;		*** commParseTable:
@@ -409,7 +684,7 @@ initCommParseTable:
 ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
 
 	;***************************************************************
-	;	Command identified -> now search for stringh :
+	;	Command identified -> now search for string :
 	;***************************************************************
 
 matchInList:
@@ -420,16 +695,18 @@ matchInList:
 
 		inc 	sp
 		inc 	sp						; restore PC from PUSH in <scanCommandList>
-		inc 	HL 						; HL point to first after <STEND>  ->req arguments
-		ld 		A,(HL) 					; A= required arguments
- 		ld 		HL,commParseTable
-		ld 		(HL),C 					; store the command number in (commParseTable, F080)
-		inc 	HL
-		ld 		(HL),A					; store required arguments  in (commParseTable+1, F081)
+		inc 	HL 						; HL point to first after <STEND>  ->req arguments  (STEND,%100010,0,CDEL,p_load,0)
+		ld 		A,(HL) 					; A= required arguments from table
+		ld 		IY,commParseTable		; IY =commParseTable =	0x80 + _String_HEAP
+		ld   	(IY+2),L 
+		ld   	(IY+3),H				; save the command adress.
+		
+		ld 		(IY),C 					; store the command number in (commParseTable, 0x80)
+		ld 		(IY+1),A				; store required arguments  in (commParseTable+1, 0x81)
 		; call 	writeSTRBelow_CRLF
 		; DB 		0,"Found a valid command  see (C).. !",CR,LF,00
-		ld 		H,D
-		ld		L,E		
+		push 	DE
+		pop 	HL						; HL=DE = first delimiter after command
 		dec 	HL							; DE -> HL -> last char before delimiter
 paramLoopEntry:	
 
@@ -440,11 +717,12 @@ paramLoopEntry:
 
 		cp 		'"'							; beginning of string ?̣
 		jr 		NZ,checkaddress				;  NZ -> (HL) points to non delimiter
+
 		; ***	extract string 
 		inc 	HL 							; skip '"' (HL)-> first char
 
-		ld 		D,H
-		ld		E,L							; DE -> first char after '"' <source>
+		push  	HL
+		pop  	DE							; DE -> first char after '"' <source>
 		call 	skipCharsUntilDelim			; find second '"'
 		dec 	HL 							; skip first delimiter (ev. CR)
 		ld 		A,(HL)
@@ -487,19 +765,27 @@ checkaddress:
 		; ***	A = (HL), first char after delimiter
 
 		ld 		(PCinpFlag+1),A			; if value '(PCinpFlag+1)' == '$' -> address input
+										; if value '(PCinpFlag+1)' == '@' -> relative (PCval) address input
 		cp 		'$'						; identified address id
 		ld 		A,0
-		jr 		NZ,getLvalue			; first value of A (PCinpFlag+1) is '$' ??
-		inc 	HL 						; skip past '$'
+		jr 		Z,chkADR			; first value of A (PCinpFlag+1) is '$' ??
+		cp 		'@'						; identified address id
+		jr 		Z,chkRelADR			; first value of A (PCinpFlag+1) is '$' ??
+
+		jr 		getLvalue				
+
+chkRelADR:
+;		***		get relative address to PCval		
+chkADR:		inc 	HL 						; skip past '$' or '@'
 
 chkADR1:
 	; ***		Check where to store address...
 
 		ld 		IX,commAdr1
 		; ld 		A,0
-		cp 		(IX)			; check if zero ? (already stored)
+		cp 		(IX)			; check if zero ? (ascii value already stored)
 		jr 		NZ,chkADR2
-		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
+		cp 		(IX+1)			; check if zero (byte 2)? (ascii value already stored)
 		jr 		NZ,chkADR2
 		jr 		makeASCIItoHEX
 chkADR2:
@@ -514,17 +800,17 @@ chkADR2:
 
 getLvalue:
 		ld 		IX,commLvl1
-		cp 		(IX)			; check if zero ? (already stored)
+		cp 		(IX)			; check if zero ? (ascii value already stored)
 		jr 		NZ,chkLVL2
-		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
+		cp 		(IX+1)			; check if zero (byte 2)? (ascii value already stored)
 		jr 		NZ,chkLVL2
 		jr 		makeASCIItoHEX
 
 chkLVL2:
 		ld 		IX,commLvl2
-		cp 		(IX)			; check if zero ? (already stored)
+		cp 		(IX)			; check if zero ? (ascii value already stored)
 		jp 		NZ,inputerror	; error : No more addresses to store
-		cp 		(IX+1)			; check if zero (byte 2) ? (already stored)
+		cp 		(IX+1)			; check if zero (byte 2) ? (ascii value already stored)
 		jp 		NZ,inputerror	; error : No more addresses to store
 
 
@@ -534,14 +820,14 @@ makeASCIItoHEX:
 		; 		IX point to destination...
 		ld 		D,H
 		ld		E,L						; DE -> first char after '$' <source>
-		call 	skipCharsUntilDelim			; find next delimiter or CR ; adr in HL
+		call 	skipCharsUntilDelim		; find next delimiter or CR ; adr in HL
 		ld 		A,(HL)
 
 	;***************************************************************
 	;	copy string to  'commParseTable', IX points to dest address.
 	;***************************************************************
 
-		and 	A						; clear C
+		and 	A						; clear Carry
 		sbc 	HL,DE 					; amount of chars...->HL ( H=0); DE -> first char after '$' <source>
 
 		; ***	Do not check even or odd...
@@ -551,12 +837,12 @@ makeASCIItoHEX:
 		ld 		B,L 					; char counter
 		ld 		HL,00					;  
 
-		ex 		DE,HL					; HL -> first char after '$' <source>	
+		ex 		DE,HL					; HL -> first char after '$' <ascii source>	
 
 nextHalfByte:
 
-		call 	isHex					; return with Carry, value in A is NOT HEX
-		jp 		C,inputerror			; 		; return with Carry, value in A is NOT HEX
+		call 	isHex					; check char in (HL) return with Carry, value in A is NOT HEX
+		jp 		C,inputerror			; return with Carry, value in A is NOT HEX
 
 		sla 	E						; shift left E-> Carry
 		rl 		D 						; Carry -> rotate left D
@@ -573,7 +859,7 @@ nextHalfByte:
 		ld 		(IX+1),D				; store D value [big endian]
 
 		inc 	HL
-		; inc 	IX
+
 		djnz 	nextHalfByte
 		;***	HL should point to first delimiter...
 
@@ -589,16 +875,17 @@ byteEnd:
 		; ***	Store Bytes from LVL1 to (PCval) this is not finished...
 
 		push 	HL
-		ld 		HL,(PCvalue)	
-		ld 		DE,commLvl1
-		ld 		A,(DE)
-		ld 		(HL),A
-		inc 	HL
-		inc 	DE
-		ld 		A,(DE)
+		ld 		DE,(PCvalue)	
+		ld 		HL,commLvl1
+		; ld 		A,(DE)
+		; ld 		(HL),A
+		; inc 	HL
+		; inc 	DE
+		ldi  							; (DE)<-(HL), inc HL,DE, dec BC
+		ld 		A,(HL)
 		or 		A
 		jr 		Z,noHighNib
-		ld 		(HL),A
+		ld 		(DE),A
 noHighNib:
 		pop 	HL		
 		; ***	reset flag
@@ -620,6 +907,7 @@ executeCommand:
 		; call 	writeSTRBelow
 		; DB 		0,"Finish parsing !",CR,LF,00
 		; call 	DumpRegisters			; checkpoint for list of arguments
+		; ***	IY+2 point to command address. IY=commParseTable
 
 		ld 		A,(PCinpFlag)
 		or 		A   					; check if zero  
@@ -652,32 +940,18 @@ JPTable01:
 
 		jp      C,inputerror
 
-		push  	HL
-		sla 	A 							; multiply *2
-		ld 		HL,command_addresses
+		push  	HL					; make space in stack for 'return' address
 
-		add		A, L						; addition to avoid disturbing
-		ld 		L,A							; another register pair
-		ld		A,0
-		adc		A,H
-		ld		H, A						; access routine address
-
-										;obtain routine address from table and transfer 
-										;control to it, leaving all register pairs unchanged
+		; 								;obtain routine address from table and transfer 
+		; 								;control to it, leaving all register pairs unchanged
 		
-		ld 		A,(HL)
-
-		inc 	HL
-		ld 		H,(HL)
-		ld 		L,A
+		ld   	IY,(commParseTable+2)	; get address $F080+2
+		ld   	L,(IY+3)				; load address in HL, move pointer 3 pos forward
+		ld   	H,(IY+4)
 
 		ex 		(SP),HL					;restore old HL, push routine address
 		ret 							; jump to routine
 
-		; exx
-		; ld		HL,$0077
-		; exx	
-		; call DumpRegisters
 argumentsError:
 		call 	writeSTRBelow
 		DB 		0,"Some arguments mismatch !",CR,LF,00
@@ -705,47 +979,19 @@ p_dumpmem:
 		ret
 p_pc:
 		ret
+
+p_eep:
+
+
+		ld 		HL,000
+		ld 		(PCvalue),hl
+		ret
+
 p_clearmem:
+;		***		clear memory from PC/Adr n bytes from ram memory
+
 		ret
 p_exe:
-		ld 		DE,CTC_delay_INT_handler
-		ld 		(CTC_CH1_I_Vector),DE
-
-		ld  	DE,$0020
-		ld 		(TempVar4),DE
-
-		;GPIODEBUG
-		xor A
-		out (gpio_out),A
-
-		call 	purgeRXB					; XMODEM_CRC_SUB.s
-		; call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
-		call 	HC376S_ResetAll
-
-		call 	CTC1_INT_OFF
-
-		jr 		.abort
-		call 	HC376S_CheckConnection
-
-		call 	HC376S_setUSBMode
-		call 	HC376S_diskConnectionStatus		; dont use with SD card
-		call 	HC376S_USBdiskMount				; ret with NZ  on failure
-		jr 		NZ,.abort
-		call 	HC376S_setFileName
-		call 	HC376S_fileOpen
-		jr 		NZ,.abort
-
-		call 	HC376S_getFileSize
-		call 	HC376S_fileRead
-		call 	HC376S_fileClose
-.abort:
-
-		; ***	reset the interrupt handler for CTC
-		; call 	HC376S_ResetAll
-		call 	CTC1_INT_OFF
-		ld		HL,CTC_CH1_Interrupt_Handler
-		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
-		ret
 
 
 
@@ -755,14 +1001,14 @@ p_go:
 		jr 	p_exe
 
 
-		; ld 		A,(TempVar1)
-		; inc 	A
-		; ld 		(TempVar1),A
-		; cp 		15
-		; call 	DumpRegisters
+		ld 		A,(TempVar1)
+		inc 	A
+		ld 		(TempVar1),A
+		cp 		15
+		call 	DumpRegisters
 		
-		; ret 	P
-		; jr 		p_go
+		ret 	P
+		jr 		p_go
 p_incDecPC:
 		ld 		HL,commLvl1
 		ld 		A,0
@@ -776,9 +1022,9 @@ p_incDecPC:
 		jr 		NZ,.justOne
 		ld 		DE,1
 .justOne:
-		ld 		A,(commParseTable)
+		ld 		A,(commParseTable)	; command number in commParseTable
 		ld 		HL,(PCvalue)
-		cp 		7 					; ++ (increase) ??
+		cp 		8 					; ++ (increase) ??
 		jr  	nz,.sub
 		add 	HL,DE 				; increase HL (PCvalue) with DE
 		jr 		.common
@@ -788,27 +1034,8 @@ p_incDecPC:
 .common:
 		ld 		(PCvalue),HL
 		ret
-
-p_FON:
-		; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0)
-
-		call 	enableFLASH
-
-		call 	writeSTRBelow
-		DB 		0," Use 256k FLASH (7 banks),lower 32k and SRAM (bank16),upper 32k !",CR,LF,00
-		ret
-
-p_FOFF:
-		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1)
-		call 	disableFLASH
-
-		call 	writeSTRBelow
-		DB 		0," Use only 512k (16 banks) SRAM !",CR,LF,00
-
-		ret
-
 p_flwr:
-		; *** 	testwrite to EEPROM
+		; *** 	testwrite to FLASH
 		
 		; call 	checkArgsTAL				; check necessary args ("string" $Adr1   Lvl1)
 		; jp		NZ,argumentsError			; show argument error and return
@@ -846,12 +1073,12 @@ p_xmod:
 		ld 		DE,(commLvl1)
 .nxta:		
 
-
+		ifndef 	BOOTLOAD				; don not use during BOOT
 		call 	doImportXMODEM
 
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
-	
+		endif	
 		ret
 
 p_C_Read:
@@ -862,13 +1089,20 @@ p_C_Read:
 		ld 		DE,CTC_delay_INT_handler
 		ld 		(CTC_CH1_I_Vector),DE
 
-		ld  	DE,$0020
-		ld 		(TempVar4),DE
+	ifd 	GPIODEBUG
+	xor A
+	out (gpio_out),A
+	endif
 
-		;GPIODEBUG
-		xor A
-		out (gpio_out),A
-
+		call  	SIO_A_DI					; disable text output
+	ifd 	GPIODEBUG
+	ld a,4
+	out (gpio_out),A
+	ld a,0
+	out (gpio_out),A
+	endif
+	
+		ld a,e
 		call 	purgeRXB					; XMODEM_CRC_SUB.s
 		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
 		call 	HC376S_ResetAll
@@ -887,6 +1121,7 @@ p_C_Read:
 .cont:
 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
 		jr 		NZ,abort
+
 		call 	HC376S_setFileName
 		call 	HC376S_fileOpen
 		jr 		NZ,abort
@@ -897,6 +1132,7 @@ p_C_Read:
 abort:
 
 		; ***	reset the interrupt handler for CTC
+		call 	SIO_A_EI					; enable text output
 		call 	HC376S_ResetAll
 		call 	CTC1_INT_OFF
 		ld		HL,CTC_CH1_Interrupt_Handler
@@ -984,17 +1220,103 @@ p_C_Delete:
 		jp 		abort
 
 p_cptFl:
-p_flbank:
-		; ***	set flash bank #
-		ld 		A,(commLvl1) 			; load param into A
 		call 	setFLASHBank				; change to bank
 		ret
-p_srbank:
-		; ***	set sram bank #
-		ld 		A,(commLvl1) 			; load param into A
 		call 	setSRAMBank 			; change to bank
 		ret
+;********************************************************************************************
+;********************************************************************************************	
+p_srbank:
+	; ***	set sram bank #
+	call 	p_FOFF				; disable the flash memory
+	ld 		A,(commLvl1) 			; load param into A
+; ***	set the SRAM bank ID; Bank ID in A
+p_srbank0:
 
+	push 	HL
+	push 	BC
+	ld 		HL,memBankID
+	and 	$0F 				; clear all bits but 0-3 in A
+
+	ld 		B,A
+	ld 		A,(HL)				; get the actl. mem Bank ID
+	and 	$F0  				; zero bits 0-3
+	jr 		putBank
+
+;********************************************************************************************
+;********************************************************************************************	
+
+p_flbank:
+	; ***	set flash bank #
+
+	call 	p_FON				; enable  the  flash memory
+	ld 		A,(commLvl1) 			; load param into A
+; ***	set the FLASH bank ID; Bank ID in A
+
+	push 	HL
+	push 	BC
+	ld 		HL,memBankID
+	and 	$07 				; clear all bits but 0-2
+	rlca
+	rlca
+	rlca
+	rlca						; bank ID = bits 4-6
+
+	ld 		B,A
+	ld 		A,(HL)				; get the actl. mem Bank ID
+	and 	$8F  				; zero bits 4-6
+putBank:
+	or 		B					; put new EEP bank ID in A...
+	ld 		(HL),A				; store new value
+	out 	(_Z80_BankCS),A		; set bank register number 0 and 64K_SRAM=1	
+	pop  	BC
+	pop 	HL
+	ret
+
+;********************************************************************************************
+;********************************************************************************************	
+
+p_FON:
+		; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0)
+		; ***	activate FLASH MEM, leave bank ID unchanged; 
+			; if '64K_SRAM' 1  ($08) no FLASH memory is selected
+			; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+	call 	writeSTRBelow
+	DB 		0," Use 256k FLASH (7 banks),lower 32k and SRAM (16 banks),upper 32k !",CR,LF,00
+	call 	waitForFinishedPrintout
+	push 	HL
+	ld 		HL,rstBankID
+	res 	3,(HL)				; clear bit 3 -> enable FLASH
+	res 	2,(HL)				; temp enable reset of IC622
+putBankF:
+	ld 		A,(HL)
+	out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
+	pop 	HL
+	ret 
+	
+;********************************************************************************************
+;********************************************************************************************	
+p_FOFF:
+	; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1)
+	; ***	disconnect FLASH MEM, leave bank ID unchanged; 
+			; if '64K_SRAM' 1  ($08) no FLASH memory is selected
+			; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+	call 	writeSTRBelow
+	DB 		" Use only SRAM (16 banks),upper 32k !",CR,LF,00
+	call 	waitForFinishedPrintout
+
+p_FOFF_No_Print:
+	push 	HL
+	ld 		HL,rstBankID
+	set 	2,(HL) 			; temp disable reset of IC622
+	set 	3,(HL)			; set bit 3 -> disable FLASH
+	jr 		putBankF
+	; ld 		A,(HL)
+	; out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
+	; pop 	HL
+	; call 	writeSTRBelow
+	; DB 		0," Use only 512k (16 banks) SRAM !",CR,LF,00
+	ret 
 
 ;********************************************************************************************     
 ;********************************************************************************************     
