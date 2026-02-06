@@ -87,3 +87,4 @@ OBJS/Z80_USB_TXRX.o
 OBJS/Z80_USB_TXRX.o.lst
 2063-Z80-cpm-main/.gitignore
 Z80_BOOT.map
+OBJS/Z80_USB_TXRX.o.lst

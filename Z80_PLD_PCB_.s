@@ -769,13 +769,11 @@ checkaddress:
 		cp 		'$'						; identified address id
 		ld 		A,0
 		jr 		Z,chkADR			; first value of A (PCinpFlag+1) is '$' ??
-		cp 		'@'						; identified address id
-		jr 		Z,chkRelADR			; first value of A (PCinpFlag+1) is '$' ??
+		; cp 		'@'						; identified address id
+		; jr 		Z,chkADR			; first value of A (PCinpFlag+1) is '$' ??
 
 		jr 		getLvalue				
 
-chkRelADR:
-;		***		get relative address to PCval		
 chkADR:		inc 	HL 						; skip past '$' or '@'
 
 chkADR1:
@@ -819,7 +817,7 @@ makeASCIItoHEX:
 		; ***	only two bytes (four chars)....
 		; 		IX point to destination...
 		ld 		D,H
-		ld		E,L						; DE -> first char after '$' <source>
+		ld		E,L						; DE -> first char after '$' | '@' <source>
 		call 	skipCharsUntilDelim		; find next delimiter or CR ; adr in HL
 		ld 		A,(HL)
 
@@ -871,9 +869,11 @@ byteEnd:
 
 		ld  	A,(PCinpFlag+1) 		; address input for PCValue ?
 		cp 		'$' 					; adress flag ?
+		; jr 		Z,changePCVal
+		; cp 		'@' 					; relative adress flag ?
 		jr 		Z,changePCVal
-		; ***	Store Bytes from LVL1 to (PCval) this is not finished...
 
+		; ***	Store  bytes from LVL1 to (PCval)
 		push 	HL
 		ld 		DE,(PCvalue)	
 		ld 		HL,commLvl1
@@ -894,11 +894,25 @@ noHighNib:
 		; ld 		(PCinpFlag+1),A
 		jp 		paramLoopEntry 				; loop and check for more parameters
 
+		
 changePCVal:
-		; ***	Change PCvalue from 'commAdr1'
+		; ***	Change relative PCvalue from 'commAdr1' or
+		; ***	change PCvalue from 'commAdr1'
+		; ***	A contains '$' or '@'
 		push 	HL
+		push  	DE
+		cp   	'@' 					; relative adress ?
+		jr 		Z,.reladr
+; 		***		absolute adr !		
+		ld 		HL,00
+		ld 		(PCvalue),HL				; clear and then add value from commAdr1
+
+.reladr:		
 		ld 		HL,(commAdr1)
+		ld  	DE,(PCvalue)
+		add 	HL,DE
 		ld 		(PCvalue),HL
+		pop 	DE
 		pop 	HL 						; restore value of first delimiter
 		jp 		paramLoopEntry 				; loop and check for more parameters
 
@@ -982,7 +996,6 @@ p_pc:
 
 p_eep:
 
-
 		ld 		HL,000
 		ld 		(PCvalue),hl
 		ret
@@ -990,7 +1003,18 @@ p_eep:
 p_clearmem:
 ;		***		clear memory from PC/Adr n bytes from ram memory
 
+		ld 		BC,(commLvl1)    	;amount of bytes
+		ld   	DE,(PCvalue)		 
+		ld		hl,.zero_byte
+		
+.cl_vars:
+		ldi							; (DE)<-(HL)
+		dec 	hl
+		jp		PE,.cl_vars			; 		P/V is set if BC – 1 ≠ 0; otherwise, it is reset.
+
 		ret
+.zero_byte:	db  0
+
 p_exe:
 
 
