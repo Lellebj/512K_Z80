@@ -51,7 +51,7 @@
 	PROVIDE( SP_value		=	0x120 + _String_HEAP);
 	PROVIDE( reg16_value	=	0x124 + _String_HEAP);
 	PROVIDE( reg16_value2	=	0x126 + _String_HEAP);
-	PROVIDE( validCommand	=	0x127 + _String_HEAP);		/* command number found 1 byte */
+	PROVIDE( validCommand	=	0x128 + _String_HEAP);		/* command number found 1 byte */
 	PROVIDE( PCvalue		=	0x12A + _String_HEAP);		/* actual PC value , 2 bytes */
 	PROVIDE( PCinpFlag		=	0x12C + _String_HEAP);		/* indicates input of typed address 2 byte */
 	PROVIDE( generalFlags	=	0x12E + _String_HEAP);		/* indicates general flags, 2 byte */
@@ -117,7 +117,12 @@
 		    KEEP( *.o(SD_USB_Start))
 			_SDUSB_EEprog_end = .;
 			. = ALIGN(0x20);
-	
+
+		    KEEP( *.o(EEtestprog))
+			_EET_EEprog_end = .;
+			. = ALIGN(0x20);
+
+
 			*.o (CodeConversion)
 			_CodeConv_end = .;
 			. = ALIGN(0x20);

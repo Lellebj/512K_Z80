@@ -29,7 +29,7 @@
 	;SAMPLE EXECUTION:
 	;***************************************************************
 
-DO_Debug:	equ	1		; Set to 1 to show debug printing, else 0 
+DO_Debug:	equ	0		; Set to 1 to show debug printing, else 0 
 
 	GLOBAL SD_USB_startup,MONITOR_Start
 
@@ -1017,7 +1017,7 @@ p_clearmem:
 
 p_exe:
 
-
+		; call 	LCD_Test
 
 		ret
 p_go:

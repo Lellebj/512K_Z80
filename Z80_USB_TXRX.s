@@ -62,7 +62,7 @@ ERR_FILE_CLOSE		equ $B4
 		GLOBAL	getResponseFromUSB,HC376S_CheckConnection,HC376S_ResetAll,HC376S_setUSBMode,HC376S_diskConnectionStatus
 		GLOBAL 	HC376S_USBdiskMount,HC376S_setFileName,HC376S_fileOpen,HC376S_fileClose,HC376S_fileCreate
 		GLOBAL 	HC376S_getFileSize,HC376S_fileRead,HC376S_fileDelete,HC376S_fileWrite,HC376S_setSDMode
-		GLOBAL  delay100ms,CTC_delay_INT_handler
+		GLOBAL  delay100ms, delay20ms, delay10ms, delay5ms, delay1ms, delay100us, CTC_delay_INT_handler
 
 HC376S_CheckConnection::
 
@@ -1157,6 +1157,10 @@ delay500us:
 		jr 		CTC_Delay
 delay200us:
 		ld 		DE,$0519		; 8MHz: $----  10MHz:  0519, Prescaler
+		ld 		A,00
+		jr 		CTC_Delay
+delay100us:
+		ld 		DE,$028C		; 8MHz: $----  10MHz:  0519, Prescaler
 		ld 		A,00
 		jr 		CTC_Delay
 CTC_Delay:

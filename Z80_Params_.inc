@@ -1,13 +1,6 @@
 ;Z80_PLD_PCB_.asm
 
 
-
-; ;Function addresses
-; setcursor		= $3100
-; writecommand	= $3180
-; writedata		= $3140
-; testBusyFlag    = $31B0
-; HD44780_main_init = $3000
 stacktop: equ	0xFFF0	
 
 

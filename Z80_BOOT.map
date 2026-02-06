@@ -1,27 +1,34 @@
 
 Files:
-  I2C_func.o:  symbols only
-  LEV_Sect11_IO_Interrupts.o:  InOutInterrupt aa0(3a2) hex
-  LEV_Sect4_Code_Conversion.o:  CodeConversion 2a0(27d) hex
-  LEV_Sect8_String_Manipulation.o:  Strings 520(577) hex
-  XMODEM_CRC_SUB.o:  symbols only
-  Z80_EEP_.o:  FLASH_Startup 0(3b), INT_IM1 66(c), INIT_BODY 80(a3) hex
-  Z80_PLD_FLash_support.o:  symbols only
-  Z80_PLD_PCB_.o:  SD_USB_Start 140(148) hex
-  Z80_USB_TXRX.o:  CH376S_Support e60(615) hex
+  I2C_func.o:  I2C_Func ed80(dd) hex
+  LEV_Sect11_IO_Interrupts.o:  InOutInterrupt e180(382) hex
+  LEV_Sect4_Code_Conversion.o:  CodeConversion d980(27d) hex
+  LEV_Sect8_String_Manipulation.o:  Strings dc00(577) hex
+  XMODEM_CRC_SUB.o:  Xmodems eb40(22d) hex
+  Z80_EEP_.o:  FLASH_Startup 0(43), INT_IM1 66(c), INIT_BODY 80(95), EEtestprog d000(12c) hex
+  Z80_PLD_FLash_support.o:  Functions d900(7c) hex
+  Z80_PLD_PCB_.o:  SD_USB_Start 120(148), Monitor d140(7a8) hex
+  Z80_USB_TXRX.o:  CH376S_Support e520(60c) hex
 
 
 Section mapping (numbers in hex):
 ------------------------------
-  00000000 FLASH_block  (size 1475)
-           00000000 - 0000003b Z80_EEP_.o(FLASH_Startup)
+  00000000 FLASH_block  (size 268)
+           00000000 - 00000043 Z80_EEP_.o(FLASH_Startup)
            00000066 - 00000072 Z80_EEP_.o(INT_IM1)
-           00000080 - 00000123 Z80_EEP_.o(INIT_BODY)
-           00000140 - 00000288 Z80_PLD_PCB_.o(SD_USB_Start)
-           000002a0 - 0000051d LEV_Sect4_Code_Conversion.o(CodeConversion)
-           00000520 - 00000a97 LEV_Sect8_String_Manipulation.o(Strings)
-           00000aa0 - 00000e42 LEV_Sect11_IO_Interrupts.o(InOutInterrupt)
-           00000e60 - 00001475 Z80_USB_TXRX.o(CH376S_Support)
+           00000080 - 00000115 Z80_EEP_.o(INIT_BODY)
+           00000120 - 00000268 Z80_PLD_PCB_.o(SD_USB_Start)
+------------------------------
+  0000d000 MainBody  (size 1e60, allocated 1e5d)
+           0000d000 - 0000d12c Z80_EEP_.o(EEtestprog)
+           0000d140 - 0000d8e8 Z80_PLD_PCB_.o(Monitor)
+           0000d900 - 0000d97c Z80_PLD_FLash_support.o(Functions)
+           0000d980 - 0000dbfd LEV_Sect4_Code_Conversion.o(CodeConversion)
+           0000dc00 - 0000e177 LEV_Sect8_String_Manipulation.o(Strings)
+           0000e180 - 0000e502 LEV_Sect11_IO_Interrupts.o(InOutInterrupt)
+           0000e520 - 0000eb2c Z80_USB_TXRX.o(CH376S_Support)
+           0000eb40 - 0000ed6d XMODEM_CRC_SUB.o(Xmodems)
+           0000ed80 - 0000ee5d I2C_func.o(I2C_Func)
 
 
 Symbols of FLASH_block:
@@ -38,6 +45,286 @@ Symbols of FLASH_block:
   0x0000 _Timer: local abs, size 0
   0x0000 _Tx_5bits_char: local abs, size 0
   0x0000 _Rx_INT_Disable: local abs, size 0
+  0x0000 DO_Debug: local abs, size 0
+  0x0000 WR0: local abs, size 0
+  0x0000 _RX_5_bits: local abs, size 0
+  0x0000 _X1_Clock_mode: local abs, size 0
+  0x0000 _Rx_Disable: local abs, size 0
+  0x0000 NUL: local abs, size 0
+  0x0000 DOALIGN: local abs, size 0
+  0x0001 BOOTLOAD: local abs, size 0
+  0x0001 _Rx_Enable: local abs, size 0
+  0x0001 _CW: local abs, size 0
+  0x0001 WR1: local abs, size 0
+  0x0001 SOH: local abs, size 0
+  0x0001 _Parity_EN: local abs, size 0
+  0x0001 _Ext_INT_EN: local abs, size 0
+  0x0001 BOOTLOAD: local abs, size 0
+  0x0001 _Rx_Enable: local abs, size 0
+  0x0001 _CW: local abs, size 0
+  0x0001 WR1: local abs, size 0
+  0x0001 SOH: local abs, size 0
+  0x0001 _Parity_EN: local abs, size 0
+  0x0001 _Ext_INT_EN: local abs, size 0
+  0x0002 _Reset: local abs, size 0
+  0x0002 EOT_FOUND: local abs, size 0
+  0x0002 WR2: local abs, size 0
+  0x0002 _RTS_Enable: local abs, size 0
+  0x0002 STX: local abs, size 0
+  0x0002 _Parity_Even: local abs, size 0
+  0x0002 _Tx_INT_EN: local abs, size 0
+  0x0002 _Reset: local abs, size 0
+  0x0002 EOT_FOUND: local abs, size 0
+  0x0002 WR2: local abs, size 0
+  0x0002 _RTS_Enable: local abs, size 0
+  0x0002 STX: local abs, size 0
+  0x0002 _Parity_Even: local abs, size 0
+  0x0002 _Tx_INT_EN: local abs, size 0
+  0x0003 WR3: local abs, size 0
+  0x0003 ETX: local abs, size 0
+  0x0003 WR3: local abs, size 0
+  0x0003 ETX: local abs, size 0
+  0x0004 EOT: local abs, size 0
+  0x0004 _Stop_1_bit: local abs, size 0
+  0x0004 _Status_Vector: local abs, size 0
+  0x0004 WR4: local abs, size 0
+  0x0004 _TC_Follow: local abs, size 0
+  0x0004 EOT: local abs, size 0
+  0x0004 _Stop_1_bit: local abs, size 0
+  0x0004 _Status_Vector: local abs, size 0
+  0x0004 WR4: local abs, size 0
+  0x0004 _TC_Follow: local abs, size 0
+  0x0005 ENQ: local abs, size 0
+  0x0005 WR5: local abs, size 0
+  0x0005 ENQ: local abs, size 0
+  0x0005 WR5: local abs, size 0
+  0x0006 ACK: local abs, size 0
+  0x0006 ACK: local abs, size 0
+  0x0007 BEL: local abs, size 0
+  0x0007 BEL: local abs, size 0
+  0x0008 _CLK_TRG_Start: local abs, size 0
+  0x0008 _Stop_1_2_bit: local abs, size 0
+  0x0008 _Tx_Enable: local abs, size 0
+  0x0008 _err01_: local abs, size 0
+  0x0008 _Rx_INT_First_Char: local abs, size 0
+  0x0008 BS: local abs, size 0
+  0x0008 _CLK_TRG_Start: local abs, size 0
+  0x0008 _Stop_1_2_bit: local abs, size 0
+  0x0008 _Tx_Enable: local abs, size 0
+  0x0008 _err01_: local abs, size 0
+  0x0008 _Rx_INT_First_Char: local abs, size 0
+  0x0008 BS: local abs, size 0
+  0x0009 HT: local abs, size 0
+  0x0009 _err02_: local abs, size 0
+  0x0009 HT: local abs, size 0
+  0x0009 _err02_: local abs, size 0
+  0x000a LFChar: local abs, size 0
+  0x000a LF: local abs, size 0
+  0x000a CTCpulse: local abs, size 0
+  0x000a LFChar: local abs, size 0
+  0x000a LF: local abs, size 0
+  0x000a CTCpulse: local abs, size 0
+  0x000b CTCtimeout: local abs, size 0
+  0x000b VT: local abs, size 0
+  0x000b CTCtimeout: local abs, size 0
+  0x000b VT: local abs, size 0
+  0x000c _Stop_2_bit: local abs, size 0
+  0x000c FF: local abs, size 0
+  0x000c _err03_: local abs, size 0
+  0x000c _Stop_2_bit: local abs, size 0
+  0x000c FF: local abs, size 0
+  0x000c _err03_: local abs, size 0
+  0x000d CR: local abs, size 0
+  0x000d CRChar: local abs, size 0
+  0x000d _err04_: local abs, size 0
+  0x000d CR: local abs, size 0
+  0x000d CRChar: local abs, size 0
+  0x000d _err04_: local abs, size 0
+  0x000e _err05_: local abs, size 0
+  0x000e SO: local abs, size 0
+  0x000e _err05_: local abs, size 0
+  0x000e SO: local abs, size 0
+  0x000f SI: local abs, size 0
+  0x000f SI: local abs, size 0
+  0x0010 DLE: local abs, size 0
+  0x0010 _Rising: local abs, size 0
+  0x0010 _INT_All_Rx_Char_P: local abs, size 0
+  0x0010 _Reset_STAT_INT: local abs, size 0
+  0x0010 _Send_Break: local abs, size 0
+  0x0010 DLE: local abs, size 0
+  0x0010 _Rising: local abs, size 0
+  0x0010 _INT_All_Rx_Char_P: local abs, size 0
+  0x0010 _Reset_STAT_INT: local abs, size 0
+  0x0010 _Send_Break: local abs, size 0
+  0x0011 DC1: local abs, size 0
+  0x0011 DC1: local abs, size 0
+  0x0012 DC2: local abs, size 0
+  0x0012 DC2: local abs, size 0
+  0x0013 DC3: local abs, size 0
+  0x0013 DC3: local abs, size 0
+  0x0014 DC4: local abs, size 0
+  0x0014 DC4: local abs, size 0
+  0x0015 NAK: local abs, size 0
+  0x0015 NAK: local abs, size 0
+  0x0016 SYN: local abs, size 0
+  0x0016 SYN: local abs, size 0
+  0x0017 ETB: local abs, size 0
+  0x0017 ETB: local abs, size 0
+  0x0018 _Int_All_Rx_Char_NP: local abs, size 0
+  0x0018 _Ch_Reset: local abs, size 0
+  0x0018 CAN: local abs, size 0
+  0x0018 _Int_All_Rx_Char_NP: local abs, size 0
+  0x0018 _Ch_Reset: local abs, size 0
+  0x0018 CAN: local abs, size 0
+  0x0019 EM: local abs, size 0
+  0x0019 EM: local abs, size 0
+  0x001a SUB: local abs, size 0
+  0x001a SUB: local abs, size 0
+  0x001b EscChar: local abs, size 0
+  0x001b ESC: local abs, size 0
+  0x001b EscChar: local abs, size 0
+  0x001b ESC: local abs, size 0
+  0x001b commListLen: local abs, size 0
+  0x001c FS: local abs, size 0
+  0x001c ITEM: local abs, size 0
+  0x001c FS: local abs, size 0
+  0x001c ITEM: local abs, size 0
+  0x001d GS: local abs, size 0
+  0x001d STEND: local abs, size 0
+  0x001d GS: local abs, size 0
+  0x001d STEND: local abs, size 0
+  0x001e RS: local abs, size 0
+  0x001e LISTEND: local abs, size 0
+  0x001e RS: local abs, size 0
+  0x001e LISTEND: local abs, size 0
+  0x001f US: local abs, size 0
+  0x001f US: local abs, size 0
+  0x0020 SP: local abs, size 0
+  0x0020 _Prescaler: local abs, size 0
+  0x0020 _Tx_7bits_char: local abs, size 0
+  0x0020 _EN_INT_Nx_Char: local abs, size 0
+  0x0020 _WAIT_READY_R_T: local abs, size 0
+  0x0020 _Auto_Enable: local abs, size 0
+  0x0020 SP: local abs, size 0
+  0x0020 _Prescaler: local abs, size 0
+  0x0020 _Tx_7bits_char: local abs, size 0
+  0x0020 _EN_INT_Nx_Char: local abs, size 0
+  0x0020 _WAIT_READY_R_T: local abs, size 0
+  0x0020 _Auto_Enable: local abs, size 0
+  0x0028 _Reset_TxINT_Pend: local abs, size 0
+  0x0028 _Reset_TxINT_Pend: local abs, size 0
+  0x0030 _Error_Reset: local abs, size 0
+  0x0030 _Error_Reset: local abs, size 0
+  0x0038 _Ret_F_Int: local abs, size 0
+  0x0038 _Ret_F_Int: local abs, size 0
+  0x0040 _Tx_6bits_char: local abs, size 0
+  0x0040 _WAIT_READY_FUNC: local abs, size 0
+  0x0040 _X16_Clock_mode: local abs, size 0
+  0x0040 _Counter: local abs, size 0
+  0x0040 _RX_6_bits: local abs, size 0
+  0x0040 _Tx_6bits_char: local abs, size 0
+  0x0040 _WAIT_READY_FUNC: local abs, size 0
+  0x0040 _X16_Clock_mode: local abs, size 0
+  0x0040 _Counter: local abs, size 0
+  0x0040 _RX_6_bits: local abs, size 0
+  0x0041 TestChar: local abs, size 0
+  0x0041 TestChar: local abs, size 0
+  0x0060 _Tx_8bits_char: local abs, size 0
+  0x0060 _Tx_8bits_char: local abs, size 0
+  0x0080 _DTR_Enable: local abs, size 0
+  0x0080 _RX_7_bits: local abs, size 0
+  0x0080 _X32_Clock_mode: local abs, size 0
+  0x0080 _INT_EN: local abs, size 0
+  0x0080 _WAIT_READY_EN: local abs, size 0
+  0x0080 setBanks: local reloc, size 0
+  0x0080 _DTR_Enable: local abs, size 0
+  0x0080 _RX_7_bits: local abs, size 0
+  0x0080 _X32_Clock_mode: local abs, size 0
+  0x0080 _INT_EN: local abs, size 0
+  0x0080 _WAIT_READY_EN: local abs, size 0
+  0x00a3 doCopy: local reloc, size 0
+  0x00ae setSRAMBank: global reloc, size 0
+  0x00bb setFLASHBank: global reloc, size 0
+  0x00c0 _X64_Clock_mode: local abs, size 0
+  0x00c0 _RX_8_bits: local abs, size 0
+  0x00c0 _X64_Clock_mode: local abs, size 0
+  0x00c0 _RX_8_bits: local abs, size 0
+  0x00ca putBank: local reloc, size 0
+  0x00d1 enableFLASH: global reloc, size 0
+  0x00da putBankF: local reloc, size 0
+  0x00e0 disableFLASH: global reloc, size 0
+  0x00eb disableIC620_OE: local reloc, size 0
+  0x00ee CTC_TIMEOUT: local abs, size 0
+  0x00ee CDEL: local abs, size 0
+  0x00ee CTC_TIMEOUT: local abs, size 0
+  0x00ee CDEL: local abs, size 0
+  0x00f4 enableIC620_OE: local reloc, size 0
+  0x00fd EEPIO_Init: local reloc, size 0
+  0x0123 SD_USB_startup: global reloc, size 0
+  0x021b rfile_name: local reloc, size 0
+  0x022b p_C_Read_SD: local reloc, size 0
+  0x025b SDabort: local reloc, size 0
+  0x0268 _SDUSB_EEprog_end: global reloc, size 0
+  0x0268 MONITOR_Start0: local reloc, size 0
+  0xf000 Heap: local abs, size 0
+  0xf000 Heap: local abs, size 0
+  0xf1d0 PIO_B_value: local abs, size 0
+  0xf1d0 PIO_B_value: local abs, size 0
+  0xf1f0 Result_NumToHex: local abs, size 0
+  0xf1f0 Result_NumToHex: local abs, size 0
+  0xf400 SIO_USB_WR_Vec: local abs, size 0
+  0xf400 Interupt_vector: local abs, size 0
+  0xf400 SIO_Int_Vec: local abs, size 0
+  0xf400 SIO_USB_WR_Vec: local abs, size 0
+  0xf400 Interupt_vector: local abs, size 0
+  0xf400 SIO_Int_Vec: local abs, size 0
+  0xf402 SIO_USB_EXT_Vec: local abs, size 0
+  0xf402 SIO_USB_EXT_Vec: local abs, size 0
+  0xf404 SIO_USB_Read_Vec: local abs, size 0
+  0xf404 SIO_USB_Read_Vec: local abs, size 0
+  0xf406 SIO_USB_Spec_Vec: local abs, size 0
+  0xf406 SIO_USB_Spec_Vec: local abs, size 0
+  0xf408 SIO_Int_WR_Vec: local abs, size 0
+  0xf408 SIO_Int_WR_Vec: local abs, size 0
+  0xf40a SIO_Int_EXT_Vec: local abs, size 0
+  0xf40a SIO_Int_EXT_Vec: local abs, size 0
+  0xf40c SIO_Int_Read_Vec: local abs, size 0
+  0xf40c SIO_Int_Read_Vec: local abs, size 0
+  0xf40e SIO_Int_Spec_Vec: local abs, size 0
+  0xf40e SIO_Int_Spec_Vec: local abs, size 0
+  0xf410 CTC_CH0_I_Vector: local abs, size 0
+  0xf410 CTC_CH0_I_Vector: local abs, size 0
+  0xf412 CTC_CH1_I_Vector: local abs, size 0
+  0xf412 CTC_CH1_I_Vector: local abs, size 0
+  0xf414 CTC_CH2_I_Vector: local abs, size 0
+  0xf414 CTC_CH2_I_Vector: local abs, size 0
+  0xf416 CTC_CH3_I_Vector: local abs, size 0
+  0xf416 CTC_CH3_I_Vector: local abs, size 0
+  0xfff0 stacktop: global abs, size 0
+  0xfff0 stacktop: local abs, size 0
+
+Symbols of MainBody:
+  0x0000 _Timer: local abs, size 0
+  0x0000 _Tx_5bits_char: local abs, size 0
+  0x0000 _Rx_INT_Disable: local abs, size 0
+  0x0000 WR0: local abs, size 0
+  0x0000 _RX_5_bits: local abs, size 0
+  0x0000 _X1_Clock_mode: local abs, size 0
+  0x0000 _Rx_Disable: local abs, size 0
+  0x0000 NUL: local abs, size 0
+  0x0000 DOALIGN: local abs, size 0
+  0x0000 _Timer: local abs, size 0
+  0x0000 _Tx_5bits_char: local abs, size 0
+  0x0000 _Rx_INT_Disable: local abs, size 0
+  0x0000 WR0: local abs, size 0
+  0x0000 _RX_5_bits: local abs, size 0
+  0x0000 _X1_Clock_mode: local abs, size 0
+  0x0000 _Rx_Disable: local abs, size 0
+  0x0000 NUL: local abs, size 0
+  0x0000 DOALIGN: local abs, size 0
+  0x0000 _Timer: local abs, size 0
+  0x0000 _Tx_5bits_char: local abs, size 0
+  0x0000 _Rx_INT_Disable: local abs, size 0
   0x0000 WR0: local abs, size 0
   0x0000 _RX_5_bits: local abs, size 0
   0x0000 _X1_Clock_mode: local abs, size 0
@@ -69,6 +356,17 @@ Symbols of FLASH_block:
   0x0000 _RX_5_bits: local abs, size 0
   0x0000 _X1_Clock_mode: local abs, size 0
   0x0000 _Rx_Disable: local abs, size 0
+  0x0000 NUL: local abs, size 0
+  0x0000 DOALIGN: local abs, size 0
+  0x0000 PORTA: local abs, size 0
+  0x0000 _Timer: local abs, size 0
+  0x0000 _Tx_5bits_char: local abs, size 0
+  0x0000 _Rx_INT_Disable: local abs, size 0
+  0x0000 WR0: local abs, size 0
+  0x0000 _RX_5_bits: local abs, size 0
+  0x0000 _X1_Clock_mode: local abs, size 0
+  0x0000 _Rx_Disable: local abs, size 0
+  0x0000 SCL: local abs, size 0
   0x0000 NUL: local abs, size 0
   0x0000 DOALIGN: local abs, size 0
   0x0001 BOOTLOAD: local abs, size 0
@@ -107,6 +405,36 @@ Symbols of FLASH_block:
   0x0001 SOH: local abs, size 0
   0x0001 _Parity_EN: local abs, size 0
   0x0001 _Ext_INT_EN: local abs, size 0
+  0x0001 BOOTLOAD: local abs, size 0
+  0x0001 _Rx_Enable: local abs, size 0
+  0x0001 _CW: local abs, size 0
+  0x0001 WR1: local abs, size 0
+  0x0001 SOH: local abs, size 0
+  0x0001 _Parity_EN: local abs, size 0
+  0x0001 _Ext_INT_EN: local abs, size 0
+  0x0001 SDA: local abs, size 0
+  0x0001 PORTB: local abs, size 0
+  0x0001 BOOTLOAD: local abs, size 0
+  0x0001 _Rx_Enable: local abs, size 0
+  0x0001 _CW: local abs, size 0
+  0x0001 WR1: local abs, size 0
+  0x0001 SOH: local abs, size 0
+  0x0001 _Parity_EN: local abs, size 0
+  0x0001 _Ext_INT_EN: local abs, size 0
+  0x0002 _Reset: local abs, size 0
+  0x0002 EOT_FOUND: local abs, size 0
+  0x0002 WR2: local abs, size 0
+  0x0002 _RTS_Enable: local abs, size 0
+  0x0002 STX: local abs, size 0
+  0x0002 _Parity_Even: local abs, size 0
+  0x0002 _Tx_INT_EN: local abs, size 0
+  0x0002 _Reset: local abs, size 0
+  0x0002 EOT_FOUND: local abs, size 0
+  0x0002 WR2: local abs, size 0
+  0x0002 _RTS_Enable: local abs, size 0
+  0x0002 STX: local abs, size 0
+  0x0002 _Parity_Even: local abs, size 0
+  0x0002 _Tx_INT_EN: local abs, size 0
   0x0002 _Reset: local abs, size 0
   0x0002 EOT_FOUND: local abs, size 0
   0x0002 WR2: local abs, size 0
@@ -152,6 +480,10 @@ Symbols of FLASH_block:
   0x0003 ETX: local abs, size 0
   0x0003 WR3: local abs, size 0
   0x0003 ETX: local abs, size 0
+  0x0003 WR3: local abs, size 0
+  0x0003 ETX: local abs, size 0
+  0x0003 WR3: local abs, size 0
+  0x0003 ETX: local abs, size 0
   0x0004 EOT: local abs, size 0
   0x0004 _Stop_1_bit: local abs, size 0
   0x0004 _Status_Vector: local abs, size 0
@@ -177,6 +509,17 @@ Symbols of FLASH_block:
   0x0004 _Status_Vector: local abs, size 0
   0x0004 WR4: local abs, size 0
   0x0004 _TC_Follow: local abs, size 0
+  0x0004 EOT: local abs, size 0
+  0x0004 _Stop_1_bit: local abs, size 0
+  0x0004 _Status_Vector: local abs, size 0
+  0x0004 WR4: local abs, size 0
+  0x0004 _TC_Follow: local abs, size 0
+  0x0004 DDRA: local abs, size 0
+  0x0004 EOT: local abs, size 0
+  0x0004 _Stop_1_bit: local abs, size 0
+  0x0004 _Status_Vector: local abs, size 0
+  0x0004 WR4: local abs, size 0
+  0x0004 _TC_Follow: local abs, size 0
   0x0005 ENQ: local abs, size 0
   0x0005 WR5: local abs, size 0
   0x0005 ENQ: local abs, size 0
@@ -187,6 +530,13 @@ Symbols of FLASH_block:
   0x0005 WR5: local abs, size 0
   0x0005 ENQ: local abs, size 0
   0x0005 WR5: local abs, size 0
+  0x0005 ENQ: local abs, size 0
+  0x0005 WR5: local abs, size 0
+  0x0005 DDRB: local abs, size 0
+  0x0005 ENQ: local abs, size 0
+  0x0005 WR5: local abs, size 0
+  0x0006 ACK: local abs, size 0
+  0x0006 ACK: local abs, size 0
   0x0006 ACK: local abs, size 0
   0x0006 ACK: local abs, size 0
   0x0006 ACK: local abs, size 0
@@ -197,6 +547,20 @@ Symbols of FLASH_block:
   0x0007 BEL: local abs, size 0
   0x0007 BEL: local abs, size 0
   0x0007 BEL: local abs, size 0
+  0x0007 BEL: local abs, size 0
+  0x0007 BEL: local abs, size 0
+  0x0008 _CLK_TRG_Start: local abs, size 0
+  0x0008 _Stop_1_2_bit: local abs, size 0
+  0x0008 _Tx_Enable: local abs, size 0
+  0x0008 _err01_: local abs, size 0
+  0x0008 _Rx_INT_First_Char: local abs, size 0
+  0x0008 BS: local abs, size 0
+  0x0008 _CLK_TRG_Start: local abs, size 0
+  0x0008 _Stop_1_2_bit: local abs, size 0
+  0x0008 _Tx_Enable: local abs, size 0
+  0x0008 _err01_: local abs, size 0
+  0x0008 _Rx_INT_First_Char: local abs, size 0
+  0x0008 BS: local abs, size 0
   0x0008 _CLK_TRG_Start: local abs, size 0
   0x0008 _Stop_1_2_bit: local abs, size 0
   0x0008 _Tx_Enable: local abs, size 0
@@ -237,6 +601,16 @@ Symbols of FLASH_block:
   0x0009 _err02_: local abs, size 0
   0x0009 HT: local abs, size 0
   0x0009 _err02_: local abs, size 0
+  0x0009 HT: local abs, size 0
+  0x0009 _err02_: local abs, size 0
+  0x0009 HT: local abs, size 0
+  0x0009 _err02_: local abs, size 0
+  0x000a LFChar: local abs, size 0
+  0x000a LF: local abs, size 0
+  0x000a CTCpulse: local abs, size 0
+  0x000a LFChar: local abs, size 0
+  0x000a LF: local abs, size 0
+  0x000a CTCpulse: local abs, size 0
   0x000a LFChar: local abs, size 0
   0x000a LF: local abs, size 0
   0x000a CTCpulse: local abs, size 0
@@ -262,6 +636,16 @@ Symbols of FLASH_block:
   0x000b VT: local abs, size 0
   0x000b CTCtimeout: local abs, size 0
   0x000b VT: local abs, size 0
+  0x000b CTCtimeout: local abs, size 0
+  0x000b VT: local abs, size 0
+  0x000b CTCtimeout: local abs, size 0
+  0x000b VT: local abs, size 0
+  0x000c _Stop_2_bit: local abs, size 0
+  0x000c FF: local abs, size 0
+  0x000c _err03_: local abs, size 0
+  0x000c _Stop_2_bit: local abs, size 0
+  0x000c FF: local abs, size 0
+  0x000c _err03_: local abs, size 0
   0x000c _Stop_2_bit: local abs, size 0
   0x000c FF: local abs, size 0
   0x000c _err03_: local abs, size 0
@@ -293,6 +677,12 @@ Symbols of FLASH_block:
   0x000d CR: local abs, size 0
   0x000d CRChar: local abs, size 0
   0x000d _err04_: local abs, size 0
+  0x000d CR: local abs, size 0
+  0x000d CRChar: local abs, size 0
+  0x000d _err04_: local abs, size 0
+  0x000d CR: local abs, size 0
+  0x000d CRChar: local abs, size 0
+  0x000d _err04_: local abs, size 0
   0x000e _err05_: local abs, size 0
   0x000e SO: local abs, size 0
   0x000e _err05_: local abs, size 0
@@ -303,6 +693,12 @@ Symbols of FLASH_block:
   0x000e SO: local abs, size 0
   0x000e _err05_: local abs, size 0
   0x000e SO: local abs, size 0
+  0x000e _err05_: local abs, size 0
+  0x000e SO: local abs, size 0
+  0x000e _err05_: local abs, size 0
+  0x000e SO: local abs, size 0
+  0x000f SI: local abs, size 0
+  0x000f SI: local abs, size 0
   0x000f SI: local abs, size 0
   0x000f SI: local abs, size 0
   0x000f SI: local abs, size 0
@@ -333,6 +729,18 @@ Symbols of FLASH_block:
   0x0010 _INT_All_Rx_Char_P: local abs, size 0
   0x0010 _Reset_STAT_INT: local abs, size 0
   0x0010 _Send_Break: local abs, size 0
+  0x0010 DLE: local abs, size 0
+  0x0010 _Rising: local abs, size 0
+  0x0010 _INT_All_Rx_Char_P: local abs, size 0
+  0x0010 _Reset_STAT_INT: local abs, size 0
+  0x0010 _Send_Break: local abs, size 0
+  0x0010 DLE: local abs, size 0
+  0x0010 _Rising: local abs, size 0
+  0x0010 _INT_All_Rx_Char_P: local abs, size 0
+  0x0010 _Reset_STAT_INT: local abs, size 0
+  0x0010 _Send_Break: local abs, size 0
+  0x0011 DC1: local abs, size 0
+  0x0011 DC1: local abs, size 0
   0x0011 DC1: local abs, size 0
   0x0011 DC1: local abs, size 0
   0x0011 DC1: local abs, size 0
@@ -343,6 +751,10 @@ Symbols of FLASH_block:
   0x0012 DC2: local abs, size 0
   0x0012 DC2: local abs, size 0
   0x0012 DC2: local abs, size 0
+  0x0012 DC2: local abs, size 0
+  0x0012 DC2: local abs, size 0
+  0x0013 DC3: local abs, size 0
+  0x0013 DC3: local abs, size 0
   0x0013 DC3: local abs, size 0
   0x0013 DC3: local abs, size 0
   0x0013 DC3: local abs, size 0
@@ -354,11 +766,15 @@ Symbols of FLASH_block:
   0x0014 DC4: local abs, size 0
   0x0014 DC4: local abs, size 0
   0x0014 USB_INT_SUCCESS: local abs, size 0
+  0x0014 DC4: local abs, size 0
+  0x0014 DC4: local abs, size 0
   0x0015 NAK: local abs, size 0
   0x0015 NAK: local abs, size 0
   0x0015 NAK: local abs, size 0
   0x0015 NAK: local abs, size 0
   0x0015 USB_INT_CONNECT: local abs, size 0
+  0x0015 NAK: local abs, size 0
+  0x0015 NAK: local abs, size 0
   0x0015 NAK: local abs, size 0
   0x0016 SYN: local abs, size 0
   0x0016 SYN: local abs, size 0
@@ -366,12 +782,16 @@ Symbols of FLASH_block:
   0x0016 SYN: local abs, size 0
   0x0016 USB_INT_DISCONNECT: local abs, size 0
   0x0016 SYN: local abs, size 0
+  0x0016 SYN: local abs, size 0
+  0x0016 SYN: local abs, size 0
   0x0017 ETB: local abs, size 0
   0x0017 ETB: local abs, size 0
   0x0017 ETB: local abs, size 0
   0x0017 ETB: local abs, size 0
   0x0017 ETB: local abs, size 0
   0x0017 USB_INT_BUF_OVER: local abs, size 0
+  0x0017 ETB: local abs, size 0
+  0x0017 ETB: local abs, size 0
   0x0018 _Int_All_Rx_Char_NP: local abs, size 0
   0x0018 _Ch_Reset: local abs, size 0
   0x0018 CAN: local abs, size 0
@@ -388,11 +808,21 @@ Symbols of FLASH_block:
   0x0018 _Ch_Reset: local abs, size 0
   0x0018 USB_INT_USB_READY: local abs, size 0
   0x0018 CAN: local abs, size 0
+  0x0018 _Int_All_Rx_Char_NP: local abs, size 0
+  0x0018 _Ch_Reset: local abs, size 0
+  0x0018 CAN: local abs, size 0
+  0x0018 _Int_All_Rx_Char_NP: local abs, size 0
+  0x0018 _Ch_Reset: local abs, size 0
+  0x0018 CAN: local abs, size 0
   0x0019 EM: local abs, size 0
   0x0019 EM: local abs, size 0
   0x0019 EM: local abs, size 0
   0x0019 EM: local abs, size 0
   0x0019 EM: local abs, size 0
+  0x0019 EM: local abs, size 0
+  0x0019 EM: local abs, size 0
+  0x001a SUB: local abs, size 0
+  0x001a SUB: local abs, size 0
   0x001a SUB: local abs, size 0
   0x001a SUB: local abs, size 0
   0x001a SUB: local abs, size 0
@@ -408,6 +838,15 @@ Symbols of FLASH_block:
   0x001b ESC: local abs, size 0
   0x001b EscChar: local abs, size 0
   0x001b ESC: local abs, size 0
+  0x001b EscChar: local abs, size 0
+  0x001b ESC: local abs, size 0
+  0x001b EscChar: local abs, size 0
+  0x001b DACADDR: local abs, size 0
+  0x001b ESC: local abs, size 0
+  0x001c FS: local abs, size 0
+  0x001c ITEM: local abs, size 0
+  0x001c FS: local abs, size 0
+  0x001c ITEM: local abs, size 0
   0x001c FS: local abs, size 0
   0x001c ITEM: local abs, size 0
   0x001c FS: local abs, size 0
@@ -429,6 +868,10 @@ Symbols of FLASH_block:
   0x001d GS: local abs, size 0
   0x001d USB_INT_DISK_READ: local abs, size 0
   0x001d STEND: local abs, size 0
+  0x001d GS: local abs, size 0
+  0x001d STEND: local abs, size 0
+  0x001d GS: local abs, size 0
+  0x001d STEND: local abs, size 0
   0x001e RS: local abs, size 0
   0x001e LISTEND: local abs, size 0
   0x001e RS: local abs, size 0
@@ -440,12 +883,30 @@ Symbols of FLASH_block:
   0x001e USB_INT_DISK_WRITE: local abs, size 0
   0x001e RS: local abs, size 0
   0x001e LISTEND: local abs, size 0
+  0x001e RS: local abs, size 0
+  0x001e LISTEND: local abs, size 0
+  0x001e RS: local abs, size 0
+  0x001e LISTEND: local abs, size 0
   0x001f US: local abs, size 0
   0x001f US: local abs, size 0
   0x001f US: local abs, size 0
   0x001f US: local abs, size 0
   0x001f US: local abs, size 0
   0x001f USB_INT_DISK_ERR: local abs, size 0
+  0x001f US: local abs, size 0
+  0x001f US: local abs, size 0
+  0x0020 SP: local abs, size 0
+  0x0020 _Prescaler: local abs, size 0
+  0x0020 _Tx_7bits_char: local abs, size 0
+  0x0020 _EN_INT_Nx_Char: local abs, size 0
+  0x0020 _WAIT_READY_R_T: local abs, size 0
+  0x0020 _Auto_Enable: local abs, size 0
+  0x0020 SP: local abs, size 0
+  0x0020 _Prescaler: local abs, size 0
+  0x0020 _Tx_7bits_char: local abs, size 0
+  0x0020 _EN_INT_Nx_Char: local abs, size 0
+  0x0020 _WAIT_READY_R_T: local abs, size 0
+  0x0020 _Auto_Enable: local abs, size 0
   0x0020 SP: local abs, size 0
   0x0020 _Prescaler: local abs, size 0
   0x0020 _Tx_7bits_char: local abs, size 0
@@ -481,6 +942,10 @@ Symbols of FLASH_block:
   0x0028 _Reset_TxINT_Pend: local abs, size 0
   0x0028 _Reset_TxINT_Pend: local abs, size 0
   0x0028 _Reset_TxINT_Pend: local abs, size 0
+  0x0028 _Reset_TxINT_Pend: local abs, size 0
+  0x0028 _Reset_TxINT_Pend: local abs, size 0
+  0x0030 _Error_Reset: local abs, size 0
+  0x0030 _Error_Reset: local abs, size 0
   0x0030 _Error_Reset: local abs, size 0
   0x0030 _Error_Reset: local abs, size 0
   0x0030 _Error_Reset: local abs, size 0
@@ -491,6 +956,18 @@ Symbols of FLASH_block:
   0x0038 _Ret_F_Int: local abs, size 0
   0x0038 _Ret_F_Int: local abs, size 0
   0x0038 _Ret_F_Int: local abs, size 0
+  0x0038 _Ret_F_Int: local abs, size 0
+  0x0038 _Ret_F_Int: local abs, size 0
+  0x0040 _Tx_6bits_char: local abs, size 0
+  0x0040 _WAIT_READY_FUNC: local abs, size 0
+  0x0040 _X16_Clock_mode: local abs, size 0
+  0x0040 _Counter: local abs, size 0
+  0x0040 _RX_6_bits: local abs, size 0
+  0x0040 _Tx_6bits_char: local abs, size 0
+  0x0040 _WAIT_READY_FUNC: local abs, size 0
+  0x0040 _X16_Clock_mode: local abs, size 0
+  0x0040 _Counter: local abs, size 0
+  0x0040 _RX_6_bits: local abs, size 0
   0x0040 _Tx_6bits_char: local abs, size 0
   0x0040 _WAIT_READY_FUNC: local abs, size 0
   0x0040 _X16_Clock_mode: local abs, size 0
@@ -522,10 +999,14 @@ Symbols of FLASH_block:
   0x0041 TestChar: local abs, size 0
   0x0041 ERR_OPEN_DIR: local abs, size 0
   0x0041 TestChar: local abs, size 0
+  0x0041 TestChar: local abs, size 0
+  0x0041 TestChar: local abs, size 0
   0x0042 ERR_MISS_FILE: local abs, size 0
   0x0043 ERR_FOUND_NAME: local abs, size 0
   0x0051 CMD_RET_SUCCESS: local abs, size 0
   0x005f CMD_RET_ABORT: local abs, size 0
+  0x0060 _Tx_8bits_char: local abs, size 0
+  0x0060 _Tx_8bits_char: local abs, size 0
   0x0060 _Tx_8bits_char: local abs, size 0
   0x0060 _Tx_8bits_char: local abs, size 0
   0x0060 _Tx_8bits_char: local abs, size 0
@@ -536,7 +1017,16 @@ Symbols of FLASH_block:
   0x0080 _X32_Clock_mode: local abs, size 0
   0x0080 _INT_EN: local abs, size 0
   0x0080 _WAIT_READY_EN: local abs, size 0
-  0x0080 setBanks: local reloc, size 0
+  0x0080 _DTR_Enable: local abs, size 0
+  0x0080 _RX_7_bits: local abs, size 0
+  0x0080 _X32_Clock_mode: local abs, size 0
+  0x0080 _INT_EN: local abs, size 0
+  0x0080 _WAIT_READY_EN: local abs, size 0
+  0x0080 _DTR_Enable: local abs, size 0
+  0x0080 _RX_7_bits: local abs, size 0
+  0x0080 _X32_Clock_mode: local abs, size 0
+  0x0080 _INT_EN: local abs, size 0
+  0x0080 _WAIT_READY_EN: local abs, size 0
   0x0080 _DTR_Enable: local abs, size 0
   0x0080 _RX_7_bits: local abs, size 0
   0x0080 _X32_Clock_mode: local abs, size 0
@@ -561,11 +1051,9 @@ Symbols of FLASH_block:
   0x0084 ERR_LARGE_SECTOR: local abs, size 0
   0x0092 ERR_TYPE_ERROR: local abs, size 0
   0x00a1 ERR_BPB_EROR: local abs, size 0
-  0x00ae doCopy: local reloc, size 0
   0x00b1 ERR_DISK_FULL: local abs, size 0
   0x00b2 ERR_FDT_OVER: local abs, size 0
   0x00b4 ERR_FILE_CLOSE: local abs, size 0
-  0x00bc setSRAMBank: global reloc, size 0
   0x00c0 _X64_Clock_mode: local abs, size 0
   0x00c0 _RX_8_bits: local abs, size 0
   0x00c0 _X64_Clock_mode: local abs, size 0
@@ -576,310 +1064,447 @@ Symbols of FLASH_block:
   0x00c0 _RX_8_bits: local abs, size 0
   0x00c0 _X64_Clock_mode: local abs, size 0
   0x00c0 _RX_8_bits: local abs, size 0
-  0x00c9 setFLASHBank: global reloc, size 0
-  0x00d8 putBank: local reloc, size 0
-  0x00df enableFLASH: global reloc, size 0
-  0x00e8 putBankF: local reloc, size 0
+  0x00c0 _X64_Clock_mode: local abs, size 0
+  0x00c0 _RX_8_bits: local abs, size 0
+  0x00c0 _X64_Clock_mode: local abs, size 0
+  0x00c0 _RX_8_bits: local abs, size 0
+  0x00c0 RAMSPACE: local abs, size 0
   0x00ee CTC_TIMEOUT: local abs, size 0
-  0x00ee disableFLASH: global reloc, size 0
+  0x00ee CDEL: local abs, size 0
   0x00ee CTC_TIMEOUT: local abs, size 0
+  0x00ee CDEL: local abs, size 0
   0x00ee CTC_TIMEOUT: local abs, size 0
+  0x00ee CDEL: local abs, size 0
   0x00ee CTC_TIMEOUT: local abs, size 0
+  0x00ee CDEL: local abs, size 0
   0x00ee CTC_TIMEOUT: local abs, size 0
-  0x00f9 disableIC620_OE: local reloc, size 0
-  0x0102 enableIC620_OE: local reloc, size 0
-  0x010b EEPIO_Init: local reloc, size 0
-  0x0143 SD_USB_startup: global reloc, size 0
-  0x0232 rfile_name: local reloc, size 0
-  0x0240 p_C_Read_SD: local reloc, size 0
-  0x027b SDabort: local reloc, size 0
-  0x0288 _SDUSB_EEprog_end: global reloc, size 0
-  0x0288 PLD_PCB_Start: global reloc, size 0
-  0x02a0 BN2BCD: global reloc, size 0
-  0x02a2 D100LP: local reloc, size 0
-  0x02ab D10LP: local reloc, size 0
-  0x02b9 BCD2BN: global reloc, size 0
-  0x02c7 SC4B: local reloc, size 0
-  0x02c7 Bin2Hex16: global reloc, size 0
-  0x02cd Bin2Hex8: global reloc, size 0
-  0x02ce entr8: local reloc, size 0
-  0x02d6 cnv_byte: local reloc, size 0
-  0x02e7 AddToT_Buf: global reloc, size 0
-  0x02f2 HEX2BN: global reloc, size 0
-  0x0301 A2HEX: local reloc, size 0
-  0x0309 A2HEX1: local reloc, size 0
-  0x030a SC4D: local reloc, size 0
-  0x030a BN2DEC: global reloc, size 0
-  0x0322 CNVERT_4E: local reloc, size 0
-  0x0327 DVL00P: local reloc, size 0
-  0x0334 DECCNT: local reloc, size 0
-  0x033a CHINS: local reloc, size 0
-  0x0344 EXIT: local reloc, size 0
-  0x0350 P0S: local reloc, size 0
-  0x0351 INSERT: local reloc, size 0
-  0x0368 EXITMR: local reloc, size 0
-  0x0375 BUFPTR: local reloc, size 0
-  0x0377 CURLEN: local reloc, size 0
-  0x0378 NGFLAG: local reloc, size 0
-  0x0379 BUFFER: local reloc, size 0
-  0x0380 DEC2BN: global reloc, size 0
-  0x038d INIT1: local reloc, size 0
-  0x0399 PLUS: local reloc, size 0
-  0x039d SKIP: local reloc, size 0
-  0x03a1 CNVERT_4F: local reloc, size 0
-  0x03a2 CHKDIG: local reloc, size 0
-  0x03ca OKEXIT: local reloc, size 0
-  0x03cc EREXIT: local reloc, size 0
-  0x03cf NGFLAG_4F: local reloc, size 0
-  0x03d0 LC2UC: global reloc, size 0
-  0x03da EXIT_4G: local reloc, size 0
-  0x03db SC4G: local reloc, size 0
-  0x03db putDEtoScreen: global reloc, size 0
-  0x03ea putDEtoScreenDEC: global reloc, size 0
-  0x03f9 DumpRegisters: global reloc, size 0
-  0x045d all_flags: local reloc, size 0
-  0x048e disp_flags: local reloc, size 0
-  0x0499 adv_iy: local reloc, size 0
-  0x049e display_4_registers: local reloc, size 0
-  0x04a0 display_regs: local reloc, size 0
-  0x04c6 display_n_8registers: global reloc, size 0
-  0x04e7 add_space: global reloc, size 0
-  0x04ee adjust_txtbuf_length: local reloc, size 0
-  0x04f7 MFILL: global reloc, size 0
-  0x0502 BLKMOV: global reloc, size 0
-  0x0502 SC5A: local reloc, size 0
-  0x051a DOLEFT: local reloc, size 0
-  0x051d _CodeConv_end: global reloc, size 0
-  0x0520 strCompare: global reloc, size 0
-  0x052c str2ISshorter: local reloc, size 0
-  0x0531 cmpLoop: local reloc, size 0
-  0x0538 cmpLength: local reloc, size 0
-  0x0540 LENS1: local reloc, size 0
-  0x0541 LENS2: local reloc, size 0
-  0x0542 delimChars: local reloc, size 0
-  0x054c isDelimit: global reloc, size 0
-  0x0554 nxtdelim: local reloc, size 0
-  0x055e exitDelim: local reloc, size 0
-  0x0562 exitZero: local reloc, size 0
-  0x0566 skipPriorDelimit: global reloc, size 0
-  0x056f skipCharsUntilDelim: global reloc, size 0
-  0x0578 isHex: global reloc, size 0
-  0x059c isChar: global reloc, size 0
-  0x05b0 CONCAT: global reloc, size 0
-  0x05cf TOOLNG: local reloc, size 0
-  0x05e4 LENOK: local reloc, size 0
-  0x05eb DOCAT: local reloc, size 0
-  0x05f7 EXIT: local reloc, size 0
-  0x0603 S1ADR: local reloc, size 0
-  0x0605 S1LEN: local reloc, size 0
-  0x0606 S2LEN: local reloc, size 0
-  0x0607 STRGOV: local reloc, size 0
-  0x0608 POS: global reloc, size 0
-  0x0625 SLP1: local reloc, size 0
-  0x0638 cmpLoop_8C: local reloc, size 0
-  0x0643 SLP2: local reloc, size 0
-  0x0647 FOUND: local reloc, size 0
-  0x064b NOTFND: local reloc, size 0
-  0x064d STRING: local reloc, size 0
-  0x064f SUBSTG: local reloc, size 0
-  0x0651 SLEN: local reloc, size 0
-  0x0652 SUBLEN: local reloc, size 0
-  0x0653 INDEX: local reloc, size 0
-  0x0654 COPY: global reloc, size 0
-  0x0675 RECALC: local reloc, size 0
-  0x067e CNT1OK: local reloc, size 0
-  0x068a CNT2OK: local reloc, size 0
-  0x0699 OKEXIT_8D: local reloc, size 0
-  0x069b EREXIT: local reloc, size 0
-  0x069d MAXLEN: local reloc, size 0
-  0x069e CPYERR: local reloc, size 0
-  0x069f IDX_8D: local reloc, size 0
-  0x06a0 CNT_8D: local reloc, size 0
-  0x06a1 MXLEN_8D: local reloc, size 0
-  0x06a2 SSTG_8D: local reloc, size 0
-  0x06c2 DSTG_8D: local reloc, size 0
-  0x06e2 DELETE: global reloc, size 0
-  0x06ff TRUNC: local reloc, size 0
-  0x0707 CNTOK: local reloc, size 0
-  0x071a OKEXIT_8E: local reloc, size 0
-  0x071c DELERR: local reloc, size 0
-  0x071d IDX_8E: local reloc, size 0
-  0x071e CNT_8E: local reloc, size 0
-  0x071f SSTG_8E: local reloc, size 0
-  0x072d INSERT_STR: global reloc, size 0
-  0x0734 IDX0: local reloc, size 0
-  0x0738 CHKLEN: local reloc, size 0
-  0x0742 TRUNC_8F: local reloc, size 0
-  0x074c IDXLEN: local reloc, size 0
-  0x075c IDXL1: local reloc, size 0
-  0x0763 LENOK_8F: local reloc, size 0
-  0x077c MVESUB: local reloc, size 0
-  0x0787 INSERR: local reloc, size 0
-  0x0788 IDX_8F: local reloc, size 0
-  0x0789 MXLEN_8F: local reloc, size 0
-  0x078a STG_8F: local reloc, size 0
-  0x07b2 SSTG_8F: local reloc, size 0
-  0x07da Init_RAM_HEAP: global reloc, size 0
-  0x07ea zero_byte: local reloc, size 0
-  0x07eb dumpMemory: global reloc, size 0
-  0x081b display_BC_bytes: local reloc, size 0
-  0x0853 displayBytes: local reloc, size 0
-  0x0855 displayLoop: local reloc, size 0
-  0x0875 firstRound: local reloc, size 0
-  0x0881 checkZero16: local reloc, size 0
-  0x0889 dumpText: local reloc, size 0
-  0x0909 String_HEAP_Start: local reloc, size 0
-  0x0909 DateBuf: global reloc, size 0
-  0x0920 MsgText1: global reloc, size 0
-  0x093a st2g1: global reloc, size 0
-  0x094c st1g2: global reloc, size 0
-  0x095e steq: global reloc, size 0
-  0x0970 subst: global reloc, size 0
-  0x0977 RegLabels1: global reloc, size 0
-  0x099e RegLabels2: global reloc, size 0
-  0x09c5 RegLabels3: global reloc, size 0
-  0x09ec RegFlags: global reloc, size 0
-  0x09fd Str0: global reloc, size 0
-  0x0a16 Str2: global reloc, size 0
-  0x0a30 Str3: global reloc, size 0
-  0x0a49 Str4: global reloc, size 0
-  0x0a61 Str7: global reloc, size 0
-  0x0a79 sourctext1: global reloc, size 0
-  0x0a86 sourctext2: global reloc, size 0
-  0x0a97 _Strings_end: global reloc, size 0
-  0x0a97 String_HEAP_end: local reloc, size 0
-  0x0a97 endtext: global reloc, size 0
-  0x0aa0 waitForKey: global reloc, size 0
-  0x0aac R_LOOP: local reloc, size 0
-  0x0aac ReadLine: global reloc, size 0
-  0x0abb waitEntry: local reloc, size 0
-  0x0ad0 cont2: local reloc, size 0
-  0x0adf c_nextchar: local reloc, size 0
-  0x0af0 cont1: local reloc, size 0
-  0x0afc ReadChar: global reloc, size 0
-  0x0b13 RetInpStatus: global reloc, size 0
-  0x0b1a S_head_tail: global reloc, size 0
-  0x0b20 bmve: local reloc, size 0
-  0x0b31 WriteLine: global reloc, size 0
-  0x0b33 nxtchr: local reloc, size 0
-  0x0b42 WriteLineCRNL: global reloc, size 0
-  0x0b45 CRLF: global reloc, size 0
-  0x0b45 CRNL: local reloc, size 0
-  0x0b49 WriteChar: global reloc, size 0
-  0x0b4d WaitOutBuff: local reloc, size 0
-  0x0b6e GetOutStatus: local reloc, size 0
-  0x0b75 InitBuffers: global reloc, size 0
-  0x0b89 cleanInBuffer: global reloc, size 0
-  0x0b9a cleanOutBuffer: global reloc, size 0
-  0x0ba8 waitForFinishedPrintout: global reloc, size 0
-  0x0baf InitInterrupt: global reloc, size 0
-  0x0bfe SIO_Init: global reloc, size 0
-  0x0c06 ReadINTHandler: local reloc, size 0
-  0x0c27 exitRHandler: local reloc, size 0
-  0x0c33 WriteINTHandler: local reloc, size 0
-  0x0c42 nodata: local reloc, size 0
-  0x0c4c wrdone: local reloc, size 0
-  0x0c58 ReadUSBHandler: global reloc, size 0
-  0x0c6a Write_USB_Handler: local reloc, size 0
-  0x0c76 Extern_B_USB_Handler: local reloc, size 0
-  0x0c82 SpecINT_B_USB_Handler: local reloc, size 0
-  0x0c8e SIO_A_EI: global reloc, size 0
-  0x0c97 SIO_A_DI: global reloc, size 0
-  0x0ca0 SIO_A_TXRX_INTon: global reloc, size 0
-  0x0ca9 SIO_A_TXRX_INToff: global reloc, size 0
-  0x0cb2 SIO_A_TX_INTon: global reloc, size 0
-  0x0cbb SIO_A_RX_INTon: global reloc, size 0
-  0x0cc4 SIO_A_RTS_OFF: global reloc, size 0
-  0x0ccf SIO_A_RTS_ON: global reloc, size 0
-  0x0cd8 SIO_B_RX_INTon: global reloc, size 0
-  0x0ce1 SIO_B_TXRX_INToff: global reloc, size 0
-  0x0cea SIO_B_EI: global reloc, size 0
-  0x0cf3 SIO_B_DI: global reloc, size 0
-  0x0cfc purgeRXA: global reloc, size 0
-  0x0d09 purgeRXB: global reloc, size 0
-  0x0d16 TX_NAK: global reloc, size 0
-  0x0d1e TX_ACK: global reloc, size 0
-  0x0d26 TX_C: global reloc, size 0
-  0x0d2e TX_X: global reloc, size 0
-  0x0d36 TX_EMP: global reloc, size 0
-  0x0d42 CTC1_INT_OFF: global reloc, size 0
-  0x0d4b ExternINTHandler: local reloc, size 0
-  0x0d54 SpecINTHandler: local reloc, size 0
-  0x0d5d CharToSIO_0: local reloc, size 0
-  0x0d73 incInPointer: local reloc, size 0
-  0x0d81 incOutPointer: local reloc, size 0
-  0x0d8f InitSIO_0Ports: global reloc, size 0
-  0x0d9a initSIOBInterrupt: global reloc, size 0
-  0x0da3 SIO_0INT: global reloc, size 0
-  0x0dc4 writeSTRBelow: global reloc, size 0
-  0x0dce writeSTRBelow_CRLF: global reloc, size 0
-  0x0dd8 puts_crlf: global reloc, size 0
-  0x0de0 PIO_Init: global reloc, size 0
-  0x0e01 CTC_CH1_Interrupt_Handler: global reloc, size 0
-  0x0e01 CTC_CH0_Interrupt_Handler: global reloc, size 0
-  0x0e15 CTC_CH3_Interrupt_Handler: global reloc, size 0
-  0x0e15 showtimeout: local reloc, size 0
-  0x0e15 CTC_CH2_Interrupt_Handler: global reloc, size 0
-  0x0e21 CTC_Init: global reloc, size 0
-  0x0e42 _IOI_end: global reloc, size 0
-  0x0e60 HC376S_CheckConnection: global reloc, size 0
-  0x0e84 connection_fail: local reloc, size 0
-  0x0eae connection_pass: local reloc, size 0
-  0x0eb0 HC376S_ResetAll: global reloc, size 0
-  0x0ec4 HC376S_setUSBMode: global reloc, size 0
-  0x0ef4 NoUSBpres: local reloc, size 0
-  0x0f12 NoSDpres: local reloc, size 0
-  0x0f34 someUSBerror: local reloc, size 0
-  0x0f4a retNZ: local reloc, size 0
-  0x0f4d HC376S_setSDMode: global reloc, size 0
-  0x0f6b norespSD: local reloc, size 0
-  0x0f88 HC376S_diskConnectionStatus: global reloc, size 0
-  0x0fc4 HC376S_USBdiskMount: global reloc, size 0
-  0x1012 HC376S_setFileName: global reloc, size 0
-  0x102f HC376S_fileOpen: global reloc, size 0
-  0x105e nxtFileOpen: local reloc, size 0
-  0x10ad openNoFileName: local reloc, size 0
-  0x10cb doEnumeration: local reloc, size 0
-  0x1146 HC376S_fileClose: global reloc, size 0
-  0x1181 HC376S_fileCreate: global reloc, size 0
-  0x11e8 HC376S_getFileSize: global reloc, size 0
-  0x1230 endtest: local reloc, size 0
-  0x1256 setBytesRead: local reloc, size 0
-  0x1271 continueRead: local reloc, size 0
-  0x1283 HC376S_fileRead: global reloc, size 0
-  0x12c6 endBlockRead: local reloc, size 0
-  0x12c8 setByteWrite: local reloc, size 0
-  0x12e2 HC376S_fileWrite: global reloc, size 0
-  0x1319 nextblockW: local reloc, size 0
-  0x1363 lastBlock: local reloc, size 0
-  0x137a endBlockWrite: local reloc, size 0
-  0x137b HC376S_fileDelete: global reloc, size 0
-  0x13b3 getResponseFromUSB: global reloc, size 0
-  0x13bb noresp: local reloc, size 0
-  0x13bc delay_D0_ms: global reloc, size 0
-  0x13bc waitForResponse: local reloc, size 0
-  0x13ca beginUART: local reloc, size 0
-  0x13d5 outByte367S: local reloc, size 0
-  0x13e3 delay1s: global reloc, size 0
-  0x13ea delay500ms: global reloc, size 0
-  0x13f1 delay350ms: local reloc, size 0
-  0x13f8 delay250ms: local reloc, size 0
-  0x13ff delay200ms: global reloc, size 0
-  0x1406 delay100ms: global reloc, size 0
-  0x140d delay50ms: global reloc, size 0
-  0x1414 delay20ms: global reloc, size 0
-  0x141b delay10ms: global reloc, size 0
-  0x1422 delay5ms: local reloc, size 0
-  0x1429 delay2ms: local reloc, size 0
-  0x1430 delay1ms: local reloc, size 0
-  0x1437 delay500us: local reloc, size 0
-  0x143e delay200us: local reloc, size 0
-  0x1445 CTC_Delay: local reloc, size 0
-  0x145a resDelayFlag: local reloc, size 0
-  0x1460 CTC_delay_INT_handler: global reloc, size 0
-  0x1475 _USB_end: global reloc, size 0
-  0x1475 blockend_USB: global reloc, size 0
-  0x1475 blockstart_USB: global reloc, size 0
+  0x00ee CDEL: local abs, size 0
+  0x00ee CTC_TIMEOUT: local abs, size 0
+  0x00ee CDEL: local abs, size 0
+  0x00ee CTC_TIMEOUT: local abs, size 0
+  0x00ee CDEL: local abs, size 0
+  0x0300 ROMSPACE: local abs, size 0
+  0xd000 hit: local reloc, size 0
+  0xd004 hit3: local reloc, size 0
+  0xd106 hit2: local reloc, size 0
+  0xd121 TX_EMP: local reloc, size 0
+  0xd12c _EEtestprog_end: global reloc, size 0
+  0xd140 MONITOR_Start: global reloc, size 0
+  0xd241 next_line: local reloc, size 0
+  0xd252 useFlash: local reloc, size 0
+  0xd2b9 scanCommandList: local reloc, size 0
+  0xd2be findCommandInList: local reloc, size 0
+  0xd2c9 zero_byte: local reloc, size 0
+  0xd2ca findNextITEM: local reloc, size 0
+  0xd2ea nextInList: local reloc, size 0
+  0xd2ee inputerror: local reloc, size 0
+  0xd321 command_list: local reloc, size 0
+  0xd4d1 initCommParseTable: local reloc, size 0
+  0xd4e4 matchInList: local reloc, size 0
+  0xd4fb paramLoopEntry: local reloc, size 0
+  0xd52f checkaddress: local reloc, size 0
+  0xd53a chkADR: local reloc, size 0
+  0xd53b chkADR1: local reloc, size 0
+  0xd54b chkADR2: local reloc, size 0
+  0xd55d getLvalue: local reloc, size 0
+  0xd56d chkLVL2: local reloc, size 0
+  0xd57d makeASCIItoHEX: local reloc, size 0
+  0xd58b nextHalfByte: local reloc, size 0
+  0xd5ac byteEnd: local reloc, size 0
+  0xd5c9 noHighNib: local reloc, size 0
+  0xd5cd changePCVal: local reloc, size 0
+  0xd5e9 executeCommand: local reloc, size 0
+  0xd5fa temp_finish: local reloc, size 0
+  0xd5fd JPTable01: local reloc, size 0
+  0xd617 argumentsError: local reloc, size 0
+  0xd638 p_reset: local reloc, size 0
+  0xd64c p_load: local reloc, size 0
+  0xd64d p_dumpmem: local reloc, size 0
+  0xd651 p_pc: local reloc, size 0
+  0xd652 p_eep: local reloc, size 0
+  0xd659 p_clearmem: local reloc, size 0
+  0xd66c p_exe: local reloc, size 0
+  0xd66d p_go: local reloc, size 0
+  0xd67e p_incDecPC: local reloc, size 0
+  0xd6a3 p_flwr: local reloc, size 0
+  0xd6ae errNoFlash: local reloc, size 0
+  0xd6d8 p_flse: local reloc, size 0
+  0xd6e1 p_xmod: local reloc, size 0
+  0xd6ed p_C_Read: local reloc, size 0
+  0xd736 abort: local reloc, size 0
+  0xd746 p_C_Write: local reloc, size 0
+  0xd79e p_C_Delete: local reloc, size 0
+  0xd7d5 p_cptFl: local reloc, size 0
+  0xd7dd p_srbank: local reloc, size 0
+  0xd7e3 p_srbank0: local reloc, size 0
+  0xd7f0 p_flbank: local reloc, size 0
+  0xd805 putBank: local reloc, size 0
+  0xd80c p_FON: local reloc, size 0
+  0xd861 putBankF: local reloc, size 0
+  0xd866 p_FOFF: local reloc, size 0
+  0xd894 p_FOFF_No_Print: local reloc, size 0
+  0xd89f checkArgsTAL: local reloc, size 0
+  0xd8d3 shift_0_1: local reloc, size 0
+  0xd8e0 shiftIn1: local reloc, size 0
+  0xd8e4 bit_test9: local reloc, size 0
+  0xd8e8 _MonEnd: global reloc, size 0
+  0xd8e8 textloop: local reloc, size 0
+  0xd900 Flash_WR_Test: global reloc, size 0
+  0xd90b nextSector: local reloc, size 0
+  0xd914 wrOneByte: local reloc, size 0
+  0xd928 checkSector: local reloc, size 0
+  0xd936 finishWrite: local reloc, size 0
+  0xd937 Flash_SE_Erase: global reloc, size 0
+  0xd957 WR_sequence: local reloc, size 0
+  0xd967 WR_toggle: local reloc, size 0
+  0xd969 new_toggle: local reloc, size 0
+  0xd972 disableIC620_OE: global reloc, size 0
+  0xd977 enableIC620_OE: global reloc, size 0
+  0xd97c _Funk_end: global reloc, size 0
+  0xd980 BN2BCD: global reloc, size 0
+  0xd982 D100LP: local reloc, size 0
+  0xd98b D10LP: local reloc, size 0
+  0xd999 BCD2BN: global reloc, size 0
+  0xd9a7 SC4B: local reloc, size 0
+  0xd9a7 Bin2Hex16: global reloc, size 0
+  0xd9ad Bin2Hex8: global reloc, size 0
+  0xd9ae entr8: local reloc, size 0
+  0xd9b6 cnv_byte: local reloc, size 0
+  0xd9c7 AddToT_Buf: global reloc, size 0
+  0xd9d2 HEX2BN: global reloc, size 0
+  0xd9e1 A2HEX: local reloc, size 0
+  0xd9e9 A2HEX1: local reloc, size 0
+  0xd9ea SC4D: local reloc, size 0
+  0xd9ea BN2DEC: global reloc, size 0
+  0xda02 CNVERT_4E: local reloc, size 0
+  0xda07 DVL00P: local reloc, size 0
+  0xda14 DECCNT: local reloc, size 0
+  0xda1a CHINS: local reloc, size 0
+  0xda24 EXIT: local reloc, size 0
+  0xda30 P0S: local reloc, size 0
+  0xda31 INSERT: local reloc, size 0
+  0xda48 EXITMR: local reloc, size 0
+  0xda55 BUFPTR: local reloc, size 0
+  0xda57 CURLEN: local reloc, size 0
+  0xda58 NGFLAG: local reloc, size 0
+  0xda59 BUFFER: local reloc, size 0
+  0xda60 DEC2BN: global reloc, size 0
+  0xda6d INIT1: local reloc, size 0
+  0xda79 PLUS: local reloc, size 0
+  0xda7d SKIP: local reloc, size 0
+  0xda81 CNVERT_4F: local reloc, size 0
+  0xda82 CHKDIG: local reloc, size 0
+  0xdaaa OKEXIT: local reloc, size 0
+  0xdaac EREXIT: local reloc, size 0
+  0xdaaf NGFLAG_4F: local reloc, size 0
+  0xdab0 LC2UC: global reloc, size 0
+  0xdaba EXIT_4G: local reloc, size 0
+  0xdabb SC4G: local reloc, size 0
+  0xdabb putDEtoScreen: global reloc, size 0
+  0xdaca putDEtoScreenDEC: global reloc, size 0
+  0xdad9 DumpRegisters: global reloc, size 0
+  0xdb3d all_flags: local reloc, size 0
+  0xdb6e disp_flags: local reloc, size 0
+  0xdb79 adv_iy: local reloc, size 0
+  0xdb7e display_4_registers: local reloc, size 0
+  0xdb80 display_regs: local reloc, size 0
+  0xdba6 display_n_8registers: global reloc, size 0
+  0xdbc7 add_space: global reloc, size 0
+  0xdbce adjust_txtbuf_length: local reloc, size 0
+  0xdbd7 MFILL: global reloc, size 0
+  0xdbe2 BLKMOV: global reloc, size 0
+  0xdbe2 SC5A: local reloc, size 0
+  0xdbfa DOLEFT: local reloc, size 0
+  0xdbfd _CodeConv_end: global reloc, size 0
+  0xdc00 strCompare: global reloc, size 0
+  0xdc0c str2ISshorter: local reloc, size 0
+  0xdc11 cmpLoop: local reloc, size 0
+  0xdc18 cmpLength: local reloc, size 0
+  0xdc20 LENS1: local reloc, size 0
+  0xdc21 LENS2: local reloc, size 0
+  0xdc22 delimChars: local reloc, size 0
+  0xdc2c isDelimit: global reloc, size 0
+  0xdc34 nxtdelim: local reloc, size 0
+  0xdc3e exitDelim: local reloc, size 0
+  0xdc42 exitZero: local reloc, size 0
+  0xdc46 skipPriorDelimit: global reloc, size 0
+  0xdc4f skipCharsUntilDelim: global reloc, size 0
+  0xdc58 isHex: global reloc, size 0
+  0xdc7c isChar: global reloc, size 0
+  0xdc90 CONCAT: global reloc, size 0
+  0xdcaf TOOLNG: local reloc, size 0
+  0xdcc4 LENOK: local reloc, size 0
+  0xdccb DOCAT: local reloc, size 0
+  0xdcd7 EXIT: local reloc, size 0
+  0xdce3 S1ADR: local reloc, size 0
+  0xdce5 S1LEN: local reloc, size 0
+  0xdce6 S2LEN: local reloc, size 0
+  0xdce7 STRGOV: local reloc, size 0
+  0xdce8 POS: global reloc, size 0
+  0xdd05 SLP1: local reloc, size 0
+  0xdd18 cmpLoop_8C: local reloc, size 0
+  0xdd23 SLP2: local reloc, size 0
+  0xdd27 FOUND: local reloc, size 0
+  0xdd2b NOTFND: local reloc, size 0
+  0xdd2d STRING: local reloc, size 0
+  0xdd2f SUBSTG: local reloc, size 0
+  0xdd31 SLEN: local reloc, size 0
+  0xdd32 SUBLEN: local reloc, size 0
+  0xdd33 INDEX: local reloc, size 0
+  0xdd34 COPY: global reloc, size 0
+  0xdd55 RECALC: local reloc, size 0
+  0xdd5e CNT1OK: local reloc, size 0
+  0xdd6a CNT2OK: local reloc, size 0
+  0xdd79 OKEXIT_8D: local reloc, size 0
+  0xdd7b EREXIT: local reloc, size 0
+  0xdd7d MAXLEN: local reloc, size 0
+  0xdd7e CPYERR: local reloc, size 0
+  0xdd7f IDX_8D: local reloc, size 0
+  0xdd80 CNT_8D: local reloc, size 0
+  0xdd81 MXLEN_8D: local reloc, size 0
+  0xdd82 SSTG_8D: local reloc, size 0
+  0xdda2 DSTG_8D: local reloc, size 0
+  0xddc2 DELETE: global reloc, size 0
+  0xdddf TRUNC: local reloc, size 0
+  0xdde7 CNTOK: local reloc, size 0
+  0xddfa OKEXIT_8E: local reloc, size 0
+  0xddfc DELERR: local reloc, size 0
+  0xddfd IDX_8E: local reloc, size 0
+  0xddfe CNT_8E: local reloc, size 0
+  0xddff SSTG_8E: local reloc, size 0
+  0xde0d INSERT_STR: global reloc, size 0
+  0xde14 IDX0: local reloc, size 0
+  0xde18 CHKLEN: local reloc, size 0
+  0xde22 TRUNC_8F: local reloc, size 0
+  0xde2c IDXLEN: local reloc, size 0
+  0xde3c IDXL1: local reloc, size 0
+  0xde43 LENOK_8F: local reloc, size 0
+  0xde5c MVESUB: local reloc, size 0
+  0xde67 INSERR: local reloc, size 0
+  0xde68 IDX_8F: local reloc, size 0
+  0xde69 MXLEN_8F: local reloc, size 0
+  0xde6a STG_8F: local reloc, size 0
+  0xde92 SSTG_8F: local reloc, size 0
+  0xdeba Init_RAM_HEAP: global reloc, size 0
+  0xdeca zero_byte: local reloc, size 0
+  0xdecb dumpMemory: global reloc, size 0
+  0xdefb display_BC_bytes: local reloc, size 0
+  0xdf33 displayBytes: local reloc, size 0
+  0xdf35 displayLoop: local reloc, size 0
+  0xdf55 firstRound: local reloc, size 0
+  0xdf61 checkZero16: local reloc, size 0
+  0xdf69 dumpText: local reloc, size 0
+  0xdfe9 String_HEAP_Start: local reloc, size 0
+  0xdfe9 DateBuf: global reloc, size 0
+  0xe000 MsgText1: global reloc, size 0
+  0xe01a st2g1: global reloc, size 0
+  0xe02c st1g2: global reloc, size 0
+  0xe03e steq: global reloc, size 0
+  0xe050 subst: global reloc, size 0
+  0xe057 RegLabels1: global reloc, size 0
+  0xe07e RegLabels2: global reloc, size 0
+  0xe0a5 RegLabels3: global reloc, size 0
+  0xe0cc RegFlags: global reloc, size 0
+  0xe0dd Str0: global reloc, size 0
+  0xe0f6 Str2: global reloc, size 0
+  0xe110 Str3: global reloc, size 0
+  0xe129 Str4: global reloc, size 0
+  0xe141 Str7: global reloc, size 0
+  0xe159 sourctext1: global reloc, size 0
+  0xe166 sourctext2: global reloc, size 0
+  0xe177 _Strings_end: global reloc, size 0
+  0xe177 String_HEAP_end: local reloc, size 0
+  0xe177 endtext: global reloc, size 0
+  0xe180 waitForKey: global reloc, size 0
+  0xe18c R_LOOP: local reloc, size 0
+  0xe18c ReadLine: global reloc, size 0
+  0xe19b waitEntry: local reloc, size 0
+  0xe1b0 cont2: local reloc, size 0
+  0xe1bf c_nextchar: local reloc, size 0
+  0xe1d0 cont1: local reloc, size 0
+  0xe1dc ReadChar: global reloc, size 0
+  0xe1f3 RetInpStatus: global reloc, size 0
+  0xe1fa S_head_tail: global reloc, size 0
+  0xe200 bmve: local reloc, size 0
+  0xe211 WriteLine: global reloc, size 0
+  0xe213 nxtchr: local reloc, size 0
+  0xe222 WriteLineCRNL: global reloc, size 0
+  0xe225 CRLF: global reloc, size 0
+  0xe225 CRNL: local reloc, size 0
+  0xe229 WriteChar: global reloc, size 0
+  0xe22d WaitOutBuff: local reloc, size 0
+  0xe24e GetOutStatus: local reloc, size 0
+  0xe255 InitBuffers: global reloc, size 0
+  0xe269 cleanInBuffer: global reloc, size 0
+  0xe27a cleanOutBuffer: global reloc, size 0
+  0xe288 waitForFinishedPrintout: global reloc, size 0
+  0xe28f InitInterrupt: global reloc, size 0
+  0xe2de SIO_Init: global reloc, size 0
+  0xe2e6 ReadINTHandler: local reloc, size 0
+  0xe307 exitRHandler: local reloc, size 0
+  0xe313 WriteINTHandler: local reloc, size 0
+  0xe322 nodata: local reloc, size 0
+  0xe32c wrdone: local reloc, size 0
+  0xe338 ReadUSBHandler: global reloc, size 0
+  0xe342 Write_USB_Handler: local reloc, size 0
+  0xe346 Extern_B_USB_Handler: local reloc, size 0
+  0xe34a SpecINT_B_USB_Handler: local reloc, size 0
+  0xe34e SIO_A_EI: global reloc, size 0
+  0xe357 SIO_A_DI: global reloc, size 0
+  0xe360 SIO_A_TXRX_INTon: global reloc, size 0
+  0xe369 SIO_A_TXRX_INToff: global reloc, size 0
+  0xe372 SIO_A_TX_INTon: global reloc, size 0
+  0xe37b SIO_A_RX_INTon: global reloc, size 0
+  0xe384 SIO_A_RTS_OFF: global reloc, size 0
+  0xe38f SIO_A_RTS_ON: global reloc, size 0
+  0xe398 SIO_B_RX_INTon: global reloc, size 0
+  0xe3a1 SIO_B_TXRX_INToff: global reloc, size 0
+  0xe3aa SIO_B_EI: global reloc, size 0
+  0xe3b3 SIO_B_DI: global reloc, size 0
+  0xe3bc purgeRXA: global reloc, size 0
+  0xe3c9 purgeRXB: global reloc, size 0
+  0xe3d6 TX_NAK: global reloc, size 0
+  0xe3de TX_ACK: global reloc, size 0
+  0xe3e6 TX_C: global reloc, size 0
+  0xe3ee TX_X: global reloc, size 0
+  0xe3f6 TX_EMP: global reloc, size 0
+  0xe402 CTC1_INT_OFF: global reloc, size 0
+  0xe40b ExternINTHandler: local reloc, size 0
+  0xe414 SpecINTHandler: local reloc, size 0
+  0xe41d CharToSIO_0: local reloc, size 0
+  0xe433 incInPointer: local reloc, size 0
+  0xe441 incOutPointer: local reloc, size 0
+  0xe44f InitSIO_0Ports: global reloc, size 0
+  0xe45a initSIOBInterrupt: global reloc, size 0
+  0xe463 SIO_0INT: global reloc, size 0
+  0xe484 writeSTRBelow: global reloc, size 0
+  0xe48e writeSTRBelow_CRLF: global reloc, size 0
+  0xe498 puts_crlf: global reloc, size 0
+  0xe4a0 PIO_Init: global reloc, size 0
+  0xe4c1 CTC_CH1_Interrupt_Handler: global reloc, size 0
+  0xe4c1 CTC_CH0_Interrupt_Handler: global reloc, size 0
+  0xe4d5 CTC_CH3_Interrupt_Handler: global reloc, size 0
+  0xe4d5 showtimeout: local reloc, size 0
+  0xe4d5 CTC_CH2_Interrupt_Handler: global reloc, size 0
+  0xe4e1 CTC_Init: global reloc, size 0
+  0xe502 _IOI_end: global reloc, size 0
+  0xe520 HC376S_CheckConnection: global reloc, size 0
+  0xe544 connection_fail: local reloc, size 0
+  0xe56e connection_pass: local reloc, size 0
+  0xe570 HC376S_ResetAll: global reloc, size 0
+  0xe584 HC376S_setUSBMode: global reloc, size 0
+  0xe5ac NoUSBpres: local reloc, size 0
+  0xe5ca NoSDpres: local reloc, size 0
+  0xe5ec someUSBerror: local reloc, size 0
+  0xe602 retNZ: local reloc, size 0
+  0xe605 HC376S_setSDMode: global reloc, size 0
+  0xe623 norespSD: local reloc, size 0
+  0xe640 HC376S_diskConnectionStatus: global reloc, size 0
+  0xe67c HC376S_USBdiskMount: global reloc, size 0
+  0xe6ca HC376S_setFileName: global reloc, size 0
+  0xe6e7 HC376S_fileOpen: global reloc, size 0
+  0xe716 nxtFileOpen: local reloc, size 0
+  0xe765 openNoFileName: local reloc, size 0
+  0xe783 doEnumeration: local reloc, size 0
+  0xe7fe HC376S_fileClose: global reloc, size 0
+  0xe839 HC376S_fileCreate: global reloc, size 0
+  0xe8a0 HC376S_getFileSize: global reloc, size 0
+  0xe8e8 endtest: local reloc, size 0
+  0xe90e setBytesRead: local reloc, size 0
+  0xe929 continueRead: local reloc, size 0
+  0xe93b HC376S_fileRead: global reloc, size 0
+  0xe97e endBlockRead: local reloc, size 0
+  0xe980 setByteWrite: local reloc, size 0
+  0xe99a HC376S_fileWrite: global reloc, size 0
+  0xe9d1 nextblockW: local reloc, size 0
+  0xea1b lastBlock: local reloc, size 0
+  0xea32 endBlockWrite: local reloc, size 0
+  0xea33 HC376S_fileDelete: global reloc, size 0
+  0xea6b getResponseFromUSB: global reloc, size 0
+  0xea73 noresp: local reloc, size 0
+  0xea74 delay_D0_ms: global reloc, size 0
+  0xea74 waitForResponse: local reloc, size 0
+  0xea82 beginUART: local reloc, size 0
+  0xea8d outByte367S: local reloc, size 0
+  0xea9b delay1s: global reloc, size 0
+  0xeaa2 delay500ms: global reloc, size 0
+  0xeaa9 delay350ms: local reloc, size 0
+  0xeab0 delay250ms: local reloc, size 0
+  0xeab7 delay200ms: global reloc, size 0
+  0xeabe delay100ms: global reloc, size 0
+  0xeac5 delay50ms: global reloc, size 0
+  0xeacc delay20ms: global reloc, size 0
+  0xead3 delay10ms: global reloc, size 0
+  0xeada delay5ms: global reloc, size 0
+  0xeae1 delay2ms: local reloc, size 0
+  0xeae8 delay1ms: global reloc, size 0
+  0xeaef delay500us: local reloc, size 0
+  0xeaf6 delay200us: local reloc, size 0
+  0xeafd delay100us: global reloc, size 0
+  0xeb04 CTC_Delay: local reloc, size 0
+  0xeb19 resDelayFlag: local reloc, size 0
+  0xeb1f CTC_delay_INT_handler: global reloc, size 0
+  0xeb2c _USB_end: global reloc, size 0
+  0xeb2c blockend_USB: global reloc, size 0
+  0xeb2c blockstart_USB: global reloc, size 0
+  0xeb40 _LCD_END: global reloc, size 0
+  0xeb40 RX_CR: local reloc, size 0
+  0xeb40 RAM_Start: global reloc, size 0
+  0xeb43 RX_BS: local reloc, size 0
+  0xeb46 EO_CH_AV: local reloc, size 0
+  0xeb4d SPEC_RX_CONDITON: local reloc, size 0
+  0xeb50 doImportXMODEM: global reloc, size 0
+  0xeb9c nextC: local reloc, size 0
+  0xeb9d nextBlock: local reloc, size 0
+  0xebe5 blockFinished: local reloc, size 0
+  0xebef receiveBlockIn: local reloc, size 0
+  0xec02 checkByte01: local reloc, size 0
+  0xec10 Er01_: local reloc, size 0
+  0xec14 Er02_: local reloc, size 0
+  0xec18 Er03_: local reloc, size 0
+  0xec1c Er04_: local reloc, size 0
+  0xec20 checkBlockNum: local reloc, size 0
+  0xec2c checkComplBlockNum: local reloc, size 0
+  0xec39 getBlockData: local reloc, size 0
+  0xec45 checkBlockChecksum: local reloc, size 0
+  0xec6c retBlockComplete: local reloc, size 0
+  0xec70 restoreSIO_0IO: local reloc, size 0
+  0xec80 exitRecBlock: local reloc, size 0
+  0xeca7 timeOutErr: local reloc, size 0
+  0xecce blockErrors1_3: local reloc, size 0
+  0xed05 retry9Err: local reloc, size 0
+  0xed30 checkSumErr: local reloc, size 0
+  0xed49 CRC16: global reloc, size 0
+  0xed4c bytelp: local reloc, size 0
+  0xed51 rotlp: local reloc, size 0
+  0xed5f clear: local reloc, size 0
+  0xed6d _XMODEM_end: global reloc, size 0
+  0xed80 BitCounter: local reloc, size 0
+  0xed81 Value: local reloc, size 0
+  0xed82 Direction: local reloc, size 0
+  0xed83 Start: local reloc, size 0
+  0xed95 TxLoop: local reloc, size 0
+  0xed9a GoDown: local reloc, size 0
+  0xeda6 GD2: local reloc, size 0
+  0xedac GoUp: local reloc, size 0
+  0xedb9 GU2: local reloc, size 0
+  0xedbd SendIt: local reloc, size 0
+  0xedda I2CTxByte: local reloc, size 0
+  0xede0 I2CNextBit: local reloc, size 0
+  0xede4 SendHigh: local reloc, size 0
+  0xedec setup: local reloc, size 0
+  0xedf6 SendLow: local reloc, size 0
+  0xee03 I2CTxCont: local reloc, size 0
+  0xee10 I2CAckPoll: local reloc, size 0
+  0xee31 I2CNoAck: local reloc, size 0
+  0xee3c I2CStartBit: local reloc, size 0
+  0xee47 I2CStopBit: local reloc, size 0
+  0xee54 I2CSetupDelay: local reloc, size 0
+  0xee57 I2CBitDelay: local reloc, size 0
+  0xee5d _I2C_end: global reloc, size 0
+  0xee60 _SD_SPI_end: global reloc, size 0
+  0xf000 Heap: local abs, size 0
+  0xf000 Heap: local abs, size 0
   0xf000 Heap: local abs, size 0
   0xf000 Heap: local abs, size 0
   0xf000 Heap: local abs, size 0
@@ -890,6 +1515,10 @@ Symbols of FLASH_block:
   0xf1d0 PIO_B_value: local abs, size 0
   0xf1d0 PIO_B_value: local abs, size 0
   0xf1d0 PIO_B_value: local abs, size 0
+  0xf1d0 PIO_B_value: local abs, size 0
+  0xf1d0 PIO_B_value: local abs, size 0
+  0xf1f0 Result_NumToHex: local abs, size 0
+  0xf1f0 Result_NumToHex: local abs, size 0
   0xf1f0 Result_NumToHex: local abs, size 0
   0xf1f0 Result_NumToHex: local abs, size 0
   0xf1f0 Result_NumToHex: local abs, size 0
@@ -910,6 +1539,14 @@ Symbols of FLASH_block:
   0xf400 SIO_USB_WR_Vec: local abs, size 0
   0xf400 Interupt_vector: local abs, size 0
   0xf400 SIO_Int_Vec: local abs, size 0
+  0xf400 SIO_USB_WR_Vec: local abs, size 0
+  0xf400 Interupt_vector: local abs, size 0
+  0xf400 SIO_Int_Vec: local abs, size 0
+  0xf400 SIO_USB_WR_Vec: local abs, size 0
+  0xf400 Interupt_vector: local abs, size 0
+  0xf400 SIO_Int_Vec: local abs, size 0
+  0xf402 SIO_USB_EXT_Vec: local abs, size 0
+  0xf402 SIO_USB_EXT_Vec: local abs, size 0
   0xf402 SIO_USB_EXT_Vec: local abs, size 0
   0xf402 SIO_USB_EXT_Vec: local abs, size 0
   0xf402 SIO_USB_EXT_Vec: local abs, size 0
@@ -920,6 +1557,10 @@ Symbols of FLASH_block:
   0xf404 SIO_USB_Read_Vec: local abs, size 0
   0xf404 SIO_USB_Read_Vec: local abs, size 0
   0xf404 SIO_USB_Read_Vec: local abs, size 0
+  0xf404 SIO_USB_Read_Vec: local abs, size 0
+  0xf404 SIO_USB_Read_Vec: local abs, size 0
+  0xf406 SIO_USB_Spec_Vec: local abs, size 0
+  0xf406 SIO_USB_Spec_Vec: local abs, size 0
   0xf406 SIO_USB_Spec_Vec: local abs, size 0
   0xf406 SIO_USB_Spec_Vec: local abs, size 0
   0xf406 SIO_USB_Spec_Vec: local abs, size 0
@@ -930,6 +1571,10 @@ Symbols of FLASH_block:
   0xf408 SIO_Int_WR_Vec: local abs, size 0
   0xf408 SIO_Int_WR_Vec: local abs, size 0
   0xf408 SIO_Int_WR_Vec: local abs, size 0
+  0xf408 SIO_Int_WR_Vec: local abs, size 0
+  0xf408 SIO_Int_WR_Vec: local abs, size 0
+  0xf40a SIO_Int_EXT_Vec: local abs, size 0
+  0xf40a SIO_Int_EXT_Vec: local abs, size 0
   0xf40a SIO_Int_EXT_Vec: local abs, size 0
   0xf40a SIO_Int_EXT_Vec: local abs, size 0
   0xf40a SIO_Int_EXT_Vec: local abs, size 0
@@ -940,6 +1585,10 @@ Symbols of FLASH_block:
   0xf40c SIO_Int_Read_Vec: local abs, size 0
   0xf40c SIO_Int_Read_Vec: local abs, size 0
   0xf40c SIO_Int_Read_Vec: local abs, size 0
+  0xf40c SIO_Int_Read_Vec: local abs, size 0
+  0xf40c SIO_Int_Read_Vec: local abs, size 0
+  0xf40e SIO_Int_Spec_Vec: local abs, size 0
+  0xf40e SIO_Int_Spec_Vec: local abs, size 0
   0xf40e SIO_Int_Spec_Vec: local abs, size 0
   0xf40e SIO_Int_Spec_Vec: local abs, size 0
   0xf40e SIO_Int_Spec_Vec: local abs, size 0
@@ -950,6 +1599,10 @@ Symbols of FLASH_block:
   0xf410 CTC_CH0_I_Vector: local abs, size 0
   0xf410 CTC_CH0_I_Vector: local abs, size 0
   0xf410 CTC_CH0_I_Vector: local abs, size 0
+  0xf410 CTC_CH0_I_Vector: local abs, size 0
+  0xf410 CTC_CH0_I_Vector: local abs, size 0
+  0xf412 CTC_CH1_I_Vector: local abs, size 0
+  0xf412 CTC_CH1_I_Vector: local abs, size 0
   0xf412 CTC_CH1_I_Vector: local abs, size 0
   0xf412 CTC_CH1_I_Vector: local abs, size 0
   0xf412 CTC_CH1_I_Vector: local abs, size 0
@@ -960,12 +1613,18 @@ Symbols of FLASH_block:
   0xf414 CTC_CH2_I_Vector: local abs, size 0
   0xf414 CTC_CH2_I_Vector: local abs, size 0
   0xf414 CTC_CH2_I_Vector: local abs, size 0
+  0xf414 CTC_CH2_I_Vector: local abs, size 0
+  0xf414 CTC_CH2_I_Vector: local abs, size 0
   0xf416 CTC_CH3_I_Vector: local abs, size 0
   0xf416 CTC_CH3_I_Vector: local abs, size 0
   0xf416 CTC_CH3_I_Vector: local abs, size 0
   0xf416 CTC_CH3_I_Vector: local abs, size 0
   0xf416 CTC_CH3_I_Vector: local abs, size 0
-  0xfff0 stacktop: global abs, size 0
+  0xf416 CTC_CH3_I_Vector: local abs, size 0
+  0xf416 CTC_CH3_I_Vector: local abs, size 0
+  0xfff0 stacktop: local abs, size 0
+  0xfff0 stacktop: local abs, size 0
+  0xfff0 stacktop: local abs, size 0
   0xfff0 stacktop: local abs, size 0
   0xfff0 stacktop: local abs, size 0
   0xfff0 stacktop: local abs, size 0
@@ -974,6 +1633,7 @@ Symbols of FLASH_block:
 Linker symbols:
   0x8000 sram: global abs, size 0
   0x0000 flash: global abs, size 0
+  0xd000 _RAMSTART: global abs, size 0
   0x0000 _Z80PIO_Base: global abs, size 0
   0x0010 _Z80CTC_Base: global abs, size 0
   0x0020 _Z80SIO_Base: global abs, size 0
@@ -1020,9 +1680,9 @@ Linker symbols:
   0xf1bc packLen: global abs, size 0
   0xf1be charLen: global abs, size 0
   0xf1c0 sdWRpointer: global abs, size 0
-  0x00a0 outBufferSize: global abs, size 0
+  0x00f0 outBufferSize: global abs, size 0
   0xf200 outBuffer: global abs, size 0
   0xf2f0 endOutBuffer: global abs, size 0
   0x0048 list_len: global abs, size 0
   0xf300 Comm_Ptr_list: global abs, size 0
-  0x1480 _end: global abs, size 0
+  0xee60 _end: global abs, size 0

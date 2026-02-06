@@ -1,0 +1,389 @@
+	; ***********************************************************
+	;  Support file for Hitachi HD4480 4 line display
+	; ***********************************************************
+	; *CE_TMP1 register HC374.  D0-D7  in/out adress $60-6F
+	; *CE_TMP2 register HC1765  D0-D3  in/out adress $70-7F
+	;		D0	RS		Register select
+	; 		D1	R/W		Read/ *Write    [Always kept LOW, no read function]
+	; 		D3	Enable	Enable read/write
+	;	PROVIDE(_CE_HD44780_DATA = 0x60);		/*	 50 - 5F  */
+	;	PROVIDE(_CE_HD44780_CTRL = 0x70);		/*	 50 - 5F  */
+
+	;* LCD VSS & K (blue, brown) pin to ground
+	;* LCD VCC & A (green, red) pin to 5V
+	;* 10K resistor:
+	;* ends to +5V and ground
+	;* wiper to LCD VO pin (pin 3) 
+	;
+
+		section   	LCD_DRIVER
+
+HD44780_command			equ $70
+HD44780_data			equ $60
+
+		include "Z80_Params_.inc"
+		include "HD_44780_defs.inc"
+
+		GLOBAL  LCD_Test
+
+
+	;#code RAMPAGE, $50, *            ; RAM area        
+LCD_Test:
+		call HD44780_main_init
+
+		; Try to print something
+		ld ix,t_string3
+		ld b,19
+		ld de,$0105	; row 1 column 5
+		; call setcursor	; runs also 'command'
+nextchar1:
+		ld a,(ix+0)
+		inc ix
+		call write_char_to_LCD
+		djnz nextchar1
+
+		ret 
+
+		; call ShowPC_HALT
+
+		; Try to print something 2
+		ld ix,t_string2
+		ld b,$09
+		ld de,$0205	; row 2 column 5
+		call setcursor	; runs also 'command'
+nextchar2:
+		ld a,(ix+0)
+		inc ix
+		call write_char_to_LCD
+		djnz nextchar2
+		out (portA_Data),a
+
+		call ShowPC_HALT
+
+		; Try to print something 2
+		ld ix,t_string3
+		ld b,$07
+		ld de,$0305	; row 2 column 5
+		call setcursor	; runs also 'command'
+nextchar3:
+		ld a,(ix+0)
+		inc ix
+		call write_char_to_LCD
+		djnz nextchar3
+		out (portA_Data),a
+
+		call ShowPC_HALT
+		nop
+		inc ix
+		nop
+		inc ix
+
+slut:      
+			rst 00h 
+
+				
+initbytes:   byte $01, $38, $0E, $06, $B0
+t_string1:   ascii "ARZ80 micro"
+t_string2:   ascii "Waking up"
+t_string3:   ascii "ABCDEFGHIJKLMNOPQ->"
+
+
+
+	;************************************************************************
+	; ShowPC_HALT:
+	; Dump prog counter prior to HALT instr. value present in stack (pointed by SP).
+	; uses  IX (pointer to HEX chars)
+	;       IY (pointer at stack)
+	;       BC ( count)
+	;       HL (value for conversion to HEX)
+	;       DE (positon of display 2004A)
+	;************************************************************************
+
+ShowPC_HALT:
+		ld (SP_value),sp
+		ld iy,(SP_value)
+		ld L,(iy+0)
+		ld H,(iy+1)
+		
+		call Num2Hex
+		ld de,$0002	; row 0 column 2
+		call setcursor	; runs also 'command'
+		ld b,$04
+		ld ix,Result_NumToHex    ; adress for ascii chars.
+nxt4:
+		ld a,(ix+0)
+		inc ix
+		call write_char_to_LCD
+		djnz nxt4
+		halt
+		ret
+
+		align 8            
+t_intAstr:   ascii "PIO A INT"
+	;************************************************************************
+	; Hexadecimal conversion operates directly on nibbles and takes advantage of nifty DAA trick.
+	;Input: HL = number to convert, IX = location of ASCII string
+	;Output: ASCII string at (IX) 
+	;************************************************************************
+
+Num2Hex:
+		ld ix,Result_NumToHex
+		ld	a,h
+		call	Num1
+		ld	a,h
+		call	Num2
+		ld	a,l
+		call	Num1
+		ld	a,l
+		jr	Num2
+			
+Num1:	rra
+		rra
+		rra
+		rra
+Num2:	or	$F0
+		daa
+		add	a,$A0
+		adc	a,$40
+
+		ld	(ix+0),a
+		inc	ix
+		ret
+
+
+
+
+	;************************************************************************
+	; Init the HC44780 circuit
+	;       Call the CTC delay  functions
+	;
+	;************************************************************************
+
+
+
+HD44780_main_init:
+
+
+		;//put the LCD into 4 bit or 8 bit mode
+		;// this is according to the hitachi HD44780 datasheet
+		;// figure 24, pg 46
+		;// we start in 8bit mode, try to set 4 bit mode
+
+; 		***		Fix the CTC timer		
+		ld 	DE,CTC_delay_INT_handler
+		ld 	(CTC_CH1_I_Vector),DE
+
+		ld   	DE,HD44780_CTRL
+		ld 		A,00
+		ld    	(DE),A 					; reset the RS/E/R/W register.
+
+		ld 		A,LCD_FUNCTIONSET|LCD_8BITMODE
+		call 	write_comm_to_LCD
+		call 	delay10ms   			; start timout counter 10 ms
+		call 	waitForResponse 		; Z is set if CTC timeout
+
+		ld      A,LCD_FUNCTIONSET|LCD_8BITMODE
+		call    write_comm_to_LCD
+		call 	delay1ms   			; start timout counter 10 ms
+		call 	waitForResponse 		; Z is set if CTC timeout
+		
+		ld      A,LCD_FUNCTIONSET|LCD_8BITMODE
+		call    write_comm_to_LCD
+		call 	delay1ms   			; start timout counter 10 ms
+		call 	waitForResponse 		; Z is set if CTC timeout
+
+				
+
+
+;		*** 	set # lines, font size, etc.
+		ld 		A,LCD_FUNCTIONSET|LCD_8BITMODE|LCD_2LINE|LCD_5x8DOTS 
+		call 	write_comm_to_LCD
+
+
+		;// turn the display on with no cursor or blinking default
+		;_displaycontrol = 0x04  ;//LCD_DISPLAYON(04) | LCD_CURSOROFF (02) | LCD_BLINKOFF (01);  
+
+		ld 		A,LCD_DISPLAYCONTROL|LCD_DISPLAYON|LCD_CURSORON
+		call 	write_comm_to_LCD
+
+		; ld 		A,LCD_CLEARDISPLAY
+		; call 	write_comm_to_LCD     ;//LCD_CLEARDISPLAY);  // clear display, set cursor position to zero
+		; call 	delay100us   			; start timout counter 10 ms
+		; call 	waitForResponse 		; Z is set if CTC timeout
+
+		ld   	A,LCD_ENTRYMODESET|LCD_ENTRYLEFT
+		call 	write_comm_to_LCD     ;//LCD_CLEARDISPLAY);  // clear display, set cursor position to zero
+		call 	delay100us   			; start timout counter 10 ms
+		call 	waitForResponse 		; Z is set if CTC timeout
+
+		ret
+
+		;// Initialize to default text direction (for romance languages)
+		;_displaymode = 0x02     ;//LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT;
+		;// set the entry mode
+;************************************************************************
+
+
+_rowoffset:             defb 0,0x40,20,0x54
+
+;********************************************************************
+setcursor:
+												; row in D, col in E
+		push 	ix
+		ld 		ix,_rowoffset
+		ld 		a,d			; a= row
+		cp 		$03
+		jr		nz,tr2
+		ld		d,(ix+3)
+		jr		sum
+tr2:	cp		$02
+		jr		nz,tr1
+		ld		d,(ix+2)
+		jr		sum
+tr1:	cp		$01
+		jr		nz,tr0
+		ld		d,(ix+1)
+		jr		sum
+tr0:	ld		d,(ix+0)
+sum:	
+		ld		a,e
+		add		a,d					; a is adress
+		or		LCD_SETDDRAMADDR	; LCD_SETDDRAMADDR  command
+		pop		ix
+		jp 		write_comm_to_LCD	; continue writing A to LCD with RS low
+
+
+
+
+;********************************************************************
+	;wait for a response from the CTC timer. 
+		;Response in A&E, use CTC timeout, Z -> no response, NZ -> 376S has responded
+;********************************************************************
+waitForResponse:  
+
+		ei
+		halt    
+
+		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
+
+		ld 		A,(CTCdelayFlag)
+		cp 		CTC_TIMEOUT 			; if A=EE, Z is set, timeout (set by CTC interrupt)
+		ret 	Z						; return with Z -> timeout set
+
+
+		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
+		inc 	A						; => NZ
+		ld 		A,E						; no flags set.
+		ret								; NZ set, 
+		
+		
+
+;****************************************************************
+
+write_char_to_LCD:  
+; 		****	write char to the LCD
+				; indicate rs pin set
+		ld   	D,A		
+		ld 		A,$01 					; set RS
+		out 	(_CE_HD44780_CTRL),A		
+		ld 		A,$09 					; set RS & E
+		out 	(_CE_HD44780_CTRL),A		
+		ld   	A,D
+		out 	(_CE_HD44780_DATA),A		
+		ld 		A,$09 					; set RS & E
+		out 	(_CE_HD44780_CTRL),A		
+		ld 		A,$01 					; set RS & E
+		out 	(_CE_HD44780_CTRL),A		
+		ld 		A,$00						; clear  RS & E
+		out 	(_CE_HD44780_CTRL),A		
+		call 	delay100us   			; start timout counter 10 ms
+		call 	waitForResponse 		; Z is set if CTC timeout
+
+		ret
+
+
+
+;****************************************************************
+
+
+;****************************************************************
+write_comm_to_LCD:   ; A contains value
+		
+		out 	(_CE_HD44780_DATA),A	 ;
+		ld 		A,$08 					; set  E
+		out 	(_CE_HD44780_CTRL),A		
+		ld 		A,$08 					; set  E
+		out 	(_CE_HD44780_CTRL),A		
+		ld 		A,$0						; clear   E
+		out 	(_CE_HD44780_CTRL),A		
+		call 	delay100us   			; start timout counter 10 ms
+		call 	waitForResponse 		; Z is set if CTC timeout
+		ret
+
+write_test:
+	ld 		A,01 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,02 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,03 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,04 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,05 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,0x06 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,0x07 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,0x08 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,0x09 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,0x0A 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,0x0B 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,0x0C 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,13 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,14 					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ld 		A,15					; set  E
+	out 	(_CE_HD44780_CTRL),A		
+	ret
+; ;****************************************************************
+; pulseEnable:     ; pulse the enable pin... (pin 4)
+; 				; a contains data...
+; 		push af        
+; 		push bc 
+
+; 		ld   	HL,HD44780_CTRL
+; 		ld    	A,(HL)
+
+
+; 		out (_CE_HD44780_CTRL),A   ; set pin 4 (enable) LOW
+; 		set 3,a
+; 		out (_CE_HD44780_CTRL),A    ; set pin 4 (enable) HIGH    
+; 		nop
+; 		res 3,a
+; 		out (_CE_HD44780_CTRL),A   ; set pin 4 (enable) LOW
+		
+; 		ld b, $10       ; 20 cyc, 10 µs@2Mhz-> (16X-> 150-160µs)
+; wait_pe:
+; 		nop
+; 		djnz wait_pe
+
+; 		pop BC
+; 		pop af
+; 		ret
+
+;****************************************************************
+
+;****************************************************************
+
+
+.end
+
+
+

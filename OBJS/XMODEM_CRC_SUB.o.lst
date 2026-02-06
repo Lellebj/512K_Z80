@@ -1,5 +1,5 @@
 Sections:
-00: "Functions" (0-2C0)
+00: "Xmodems" (0-22D)
 
 
 Source: "stdin"
@@ -11,908 +11,742 @@ Source: "Z80_Params_.inc"
                         	     1: ;Z80_PLD_PCB_.asm
                         	     2: 
                         	     3: 
-                        	     4: 
-                        	     5: ; ;Function addresses
-                        	     6: ; setcursor		= $3100
-                        	     7: ; writecommand	= $3180
-                        	     8: ; writedata		= $3140
-                        	     9: ; testBusyFlag    = $31B0
-                        	    10: ; HD44780_main_init = $3000
-                        	    11: stacktop: equ	0xFFF0	
-                        	    12: 
-                        	    13: 
-                        	    14: ; PIO addressess...
-                        	    15: ;******************************************
-                        	    16: 	  ; _Z80PIO_Base= $00
-                        	    17: portA_Contr:	equ _Z80PIO_Base + 1
-                        	    18: portB_Contr:	equ _Z80PIO_Base + 3
-                        	    19: portA_Data:		equ _Z80PIO_Base + 0
-                        	    20: portB_Data:		equ _Z80PIO_Base + 2
-                        	    21: 
-                        	    22: 
-                        	    23: gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
-                        	    24: gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
-                        	    25: gpioB:			equ		portB_Data
-                        	    26: 
-                        	    27: ; SIO_0 stuff
-                        	    28: ;******************************************
-                        	    29: SIO_A_D:		equ	_Z80SIO_Base	  ; = $20
-                        	    30: 				;SIO_0 CHANNEL A COMMANDS/STATUS
-                        	    31: SIO_A_C:		equ	_Z80SIO_Base+2
-                        	    32: 				;SIO_0  CHANNEL B DATA
-                        	    33: SIO_B_D:		equ	_Z80SIO_Base+1
-                        	    34: 				;SIO_0 CHANNEL B COMMANDS/STATUS
-                        	    35: SIO_B_C:		equ	_Z80SIO_Base+3
+                        	     4: stacktop: equ	0xFFF0	
+                        	     5: 
+                        	     6: 
+                        	     7: ; PIO addressess...
+                        	     8: ;******************************************
+                        	     9: 	  ; _Z80PIO_Base= $00
+                        	    10: portA_Contr:	equ _Z80PIO_Base + 1
+                        	    11: portB_Contr:	equ _Z80PIO_Base + 3
+                        	    12: portA_Data:		equ _Z80PIO_Base + 0
+                        	    13: portB_Data:		equ _Z80PIO_Base + 2
+                        	    14: 
+                        	    15: 
+                        	    16: gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
+                        	    17: gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
+                        	    18: gpioB:			equ		portB_Data
+                        	    19: 
+                        	    20: ; SIO_0 stuff
+                        	    21: ;******************************************
+                        	    22: SIO_A_D:		equ	_Z80SIO_Base	  ; = $20
+                        	    23: 				;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	    24: SIO_A_C:		equ	_Z80SIO_Base+2
+                        	    25: 				;SIO_0  CHANNEL B DATA
+                        	    26: SIO_B_D:		equ	_Z80SIO_Base+1
+                        	    27: 				;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	    28: SIO_B_C:		equ	_Z80SIO_Base+3
+                        	    29: 
+                        	    30: sio_ac: 		equ 	SIO_A_C
+                        	    31: sio_ad: 		equ 	SIO_A_D
+                        	    32: sio_bc: 		equ 	SIO_B_C
+                        	    33: sio_bd: 		equ 	SIO_B_D
+                        	    34: 
+                        	    35: Interupt_vector		= SIO_Int_Vec
                         	    36: 
-                        	    37: sio_ac: 		equ 	SIO_A_C
-                        	    38: sio_ad: 		equ 	SIO_A_D
-                        	    39: sio_bc: 		equ 	SIO_B_C
-                        	    40: sio_bd: 		equ 	SIO_B_D
-                        	    41: 
-                        	    42: Interupt_vector		= SIO_Int_Vec
-                        	    43: 
-                        	    44: SIO_Int_Vec		EQU     $F400				; interrupt vector 
-                        	    45: SIO_Int_WR_Vec	EQU     SIO_Int_Vec+8		;sio_0 channel A write interrupt vector
-                        	    46: SIO_Int_EXT_Vec	EQU     SIO_Int_Vec+10	;sio_0 channel A external/status ; interrupt vector
-                        	    47: SIO_Int_Read_Vec	EQU     SIO_Int_Vec+12	;sio_0 channel A read interrupt vector
-                        	    48: SIO_Int_Spec_Vec	EQU     SIO_Int_Vec+14	;sio_0 channel A special receive interrupt vector
-                        	    49: 
-                        	    50: 		
-                        	    51: SIO_USB_WR_Vec	EQU     SIO_Int_Vec+0		;sio_0 channel B write interrupt vector
-                        	    52: SIO_USB_EXT_Vec	EQU     SIO_Int_Vec+2		;sio_0 channel B external/status ; interrupt vector
-                        	    53: SIO_USB_Read_Vec	EQU     SIO_Int_Vec+4		;sio_0 channel B read interrupt vector
-                        	    54: SIO_USB_Spec_Vec	EQU     SIO_Int_Vec+6		;sio_0 channel B special receive interrupt vector
-                        	    55: 
-                        	    56: ;Write register 0
-                        	    57: WR0 equ 0
-                        	    58: _Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
-                        	    59: _Ch_Reset		equ 3<<3			; 18
-                        	    60: _EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
-                        	    61: _Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
-                        	    62: _Error_Reset 	equ $30				; (30)	
-                        	    63: _Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
-                        	    64: 
-                        	    65: ;Write register 1
-                        	    66: WR1 equ 1
-                        	    67: _Ext_INT_EN			equ 1
-                        	    68: _Tx_INT_EN 			equ 2
-                        	    69: _Status_Vector		equ 4
-                        	    70: _Rx_INT_Disable		equ 0
-                        	    71: _Rx_INT_First_Char  equ $08
-                        	    72: _INT_All_Rx_Char_P 	equ $10 
-                        	    73: _Int_All_Rx_Char_NP	equ $18
-                        	    74: _WAIT_READY_R_T 	equ $20
-                        	    75: _WAIT_READY_FUNC	equ $40
-                        	    76: _WAIT_READY_EN		equ $80
-                        	    77: 
-                        	    78: WR2 equ 2
-                        	    79: 
-                        	    80: ;Write register 3
-                        	    81: WR3 equ 3
-                        	    82: _Rx_Enable 			equ $01
-                        	    83: _Rx_Disable 		equ $00
-                        	    84: _Auto_Enable		equ $20
-                        	    85: _RX_5_bits			equ $00
-                        	    86: _RX_6_bits			equ $40
-                        	    87: _RX_7_bits			equ $80
-                        	    88: _RX_8_bits			equ $C0
-                        	    89: 
-                        	    90: ;Write register 4
-                        	    91: WR4 equ 4
-                        	    92: _Parity_EN			equ $01
-                        	    93: _Parity_Even		equ $02
-                        	    94: _Stop_1_bit			equ $04
-                        	    95: _Stop_1_2_bit		equ $08
-                        	    96: _Stop_2_bit			equ $0C
-                        	    97: _X1_Clock_mode		equ $00
-                        	    98: _X16_Clock_mode		equ $40
-                        	    99: _X32_Clock_mode		equ $80
-                        	   100: _X64_Clock_mode		equ $C0
-                        	   101: 
-                        	   102: ;Write register 5
-                        	   103: WR5 equ 5
-                        	   104: _RTS_Enable			equ $02
-                        	   105: _Tx_Enable 			equ $08
-                        	   106: _Send_Break			equ $10
-                        	   107: _Tx_5bits_char		equ $00
-                        	   108: _Tx_7bits_char		equ $20
-                        	   109: _Tx_6bits_char		equ $40
-                        	   110: _Tx_8bits_char		equ $60
-                        	   111: _DTR_Enable 		equ $80
-                        	   112: 
-                        	   113: EOT_FOUND			equ $02
-                        	   114: _err01_				equ	$08
-                        	   115: _err02_				equ	$09
-                        	   116: _err03_				equ	$0C
-                        	   117: _err04_				equ	$0D
-                        	   118: _err05_				equ	$0E
-                        	   119: CTCpulse			equ $0A
-                        	   120: CTCtimeout			equ $0B
-                        	   121: 
-                        	   122: 
-                        	   123: ; CTC stuff
-                        	   124: ;******************************************
-                        	   125: CH0		equ 	_Z80CTC_Base	  ; = $10
-                        	   126: CH1		equ 	_Z80CTC_Base+1	
-                        	   127: CH2		equ 	_Z80CTC_Base+2	
-                        	   128: CH3		equ 	_Z80CTC_Base+3	
-                        	   129: 
-                        	   130: _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
-                        	   131: _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
-                        	   132: _Timer 		equ 	$00
-                        	   133: _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
-                        	   134: _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
-                        	   135: _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
-                        	   136: _TC_Follow 	equ 	$04		; D2 - 1 time constant follows
-                        	   137: _Reset 		equ 	$02		; D1 - 1 Software reset
-                        	   138: _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
+                        	    37: SIO_Int_Vec		EQU     $F400				; interrupt vector 
+                        	    38: SIO_Int_WR_Vec	EQU     SIO_Int_Vec+8		;sio_0 channel A write interrupt vector
+                        	    39: SIO_Int_EXT_Vec	EQU     SIO_Int_Vec+10	;sio_0 channel A external/status ; interrupt vector
+                        	    40: SIO_Int_Read_Vec	EQU     SIO_Int_Vec+12	;sio_0 channel A read interrupt vector
+                        	    41: SIO_Int_Spec_Vec	EQU     SIO_Int_Vec+14	;sio_0 channel A special receive interrupt vector
+                        	    42: 
+                        	    43: 		
+                        	    44: SIO_USB_WR_Vec	EQU     SIO_Int_Vec+0		;sio_0 channel B write interrupt vector
+                        	    45: SIO_USB_EXT_Vec	EQU     SIO_Int_Vec+2		;sio_0 channel B external/status ; interrupt vector
+                        	    46: SIO_USB_Read_Vec	EQU     SIO_Int_Vec+4		;sio_0 channel B read interrupt vector
+                        	    47: SIO_USB_Spec_Vec	EQU     SIO_Int_Vec+6		;sio_0 channel B special receive interrupt vector
+                        	    48: 
+                        	    49: ;Write register 0
+                        	    50: WR0 equ 0
+                        	    51: _Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
+                        	    52: _Ch_Reset		equ 3<<3			; 18
+                        	    53: _EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
+                        	    54: _Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
+                        	    55: _Error_Reset 	equ $30				; (30)	
+                        	    56: _Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
+                        	    57: 
+                        	    58: ;Write register 1
+                        	    59: WR1 equ 1
+                        	    60: _Ext_INT_EN			equ 1
+                        	    61: _Tx_INT_EN 			equ 2
+                        	    62: _Status_Vector		equ 4
+                        	    63: _Rx_INT_Disable		equ 0
+                        	    64: _Rx_INT_First_Char  equ $08
+                        	    65: _INT_All_Rx_Char_P 	equ $10 
+                        	    66: _Int_All_Rx_Char_NP	equ $18
+                        	    67: _WAIT_READY_R_T 	equ $20
+                        	    68: _WAIT_READY_FUNC	equ $40
+                        	    69: _WAIT_READY_EN		equ $80
+                        	    70: 
+                        	    71: WR2 equ 2
+                        	    72: 
+                        	    73: ;Write register 3
+                        	    74: WR3 equ 3
+                        	    75: _Rx_Enable 			equ $01
+                        	    76: _Rx_Disable 		equ $00
+                        	    77: _Auto_Enable		equ $20
+                        	    78: _RX_5_bits			equ $00
+                        	    79: _RX_6_bits			equ $40
+                        	    80: _RX_7_bits			equ $80
+                        	    81: _RX_8_bits			equ $C0
+                        	    82: 
+                        	    83: ;Write register 4
+                        	    84: WR4 equ 4
+                        	    85: _Parity_EN			equ $01
+                        	    86: _Parity_Even		equ $02
+                        	    87: _Stop_1_bit			equ $04
+                        	    88: _Stop_1_2_bit		equ $08
+                        	    89: _Stop_2_bit			equ $0C
+                        	    90: _X1_Clock_mode		equ $00
+                        	    91: _X16_Clock_mode		equ $40
+                        	    92: _X32_Clock_mode		equ $80
+                        	    93: _X64_Clock_mode		equ $C0
+                        	    94: 
+                        	    95: ;Write register 5
+                        	    96: WR5 equ 5
+                        	    97: _RTS_Enable			equ $02
+                        	    98: _Tx_Enable 			equ $08
+                        	    99: _Send_Break			equ $10
+                        	   100: _Tx_5bits_char		equ $00
+                        	   101: _Tx_7bits_char		equ $20
+                        	   102: _Tx_6bits_char		equ $40
+                        	   103: _Tx_8bits_char		equ $60
+                        	   104: _DTR_Enable 		equ $80
+                        	   105: 
+                        	   106: EOT_FOUND			equ $02
+                        	   107: _err01_				equ	$08
+                        	   108: _err02_				equ	$09
+                        	   109: _err03_				equ	$0C
+                        	   110: _err04_				equ	$0D
+                        	   111: _err05_				equ	$0E
+                        	   112: CTCpulse			equ $0A
+                        	   113: CTCtimeout			equ $0B
+                        	   114: 
+                        	   115: 
+                        	   116: ; CTC stuff
+                        	   117: ;******************************************
+                        	   118: CH0		equ 	_Z80CTC_Base	  ; = $10, linker script
+                        	   119: CH1		equ 	_Z80CTC_Base+1	
+                        	   120: CH2		equ 	_Z80CTC_Base+2	
+                        	   121: CH3		equ 	_Z80CTC_Base+3	
+                        	   122: CTC_TIMEOUT 	equ $EE			; timeout flag
+                        	   123: 
+                        	   124: _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
+                        	   125: _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
+                        	   126: _Timer 		equ 	$00
+                        	   127: _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
+                        	   128: _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
+                        	   129: _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
+                        	   130: _TC_Follow 	equ 	$04		; D2 - 1 time constant follows
+                        	   131: _Reset 		equ 	$02		; D1 - 1 Software reset
+                        	   132: _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
+                        	   133: 
+                        	   134: ; Interrupt vectors for CTC
+                        	   135: CTC_CH0_I_Vector	EQU     SIO_Int_Vec+$10		;CTC channel 0 interrupt vector 
+                        	   136: CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector 
+                        	   137: CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
+                        	   138: CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
                         	   139: 
-                        	   140: ; Interrupt vectors for CTC
-                        	   141: CTC_CH0_I_Vector	EQU     SIO_Int_Vec+$10		;CTC channel 0 interrupt vector 
-                        	   142: CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector 
-                        	   143: CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
-                        	   144: CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
-                        	   145: 
-                        	   146: ; Data tables  (upper EPROM/FLASH)
-                        	   147: ; stack  				= $FF00
-                        	   148: Heap				= $F000				; space for variable storage
-                        	   149: 
-                        	   150: ; variables  	(upper ram)
-                        	   151: PIO_B_value:		= $F1D0
-                        	   152: Result_NumToHex:	= $F1F0
-                        	   153: 
-                        	   154: 
-                        	   155: ; _RAMSTART		= $8010	
-                        	   156: ; _EETESTPROG		= $100	
-                        	   157: 	
-                        	   158: ; _Z80PIO_Base	= $0
-                        	   159: ; _Z80CTC_Base	= $10
-                        	   160: ; _Z80SIO_Base	= $20
-                        	   161: ; _Z80_BankCS  	= 0x30;		/*	 30 - 3F   */
-                        	   162: ; _8Bitsout 		= $40;		/*	 40 - 4F  */
-                        	   163: ; _CE_RST_BANK 	= 0x50;		/*	 50 - 5F  */
-                        	   164: 
-                        	   165: ;*****	ALIGN command  : 00 removes all align commands
-                        	   166: DOALIGN 	EQU 	00
-                        	   167: 
-                        	   168: EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
-                        	   169: TestChar:		EQU		'A'				;TEST CHARACTER = A
-                        	   170: CRChar:			EQU		0DH				; carrige return
-                        	   171: LFChar:			EQU		0AH				; line feed
-                        	   172: NUL			EQU		00
-                        	   173: SOH			EQU		01
-                        	   174: STX			EQU		02
-                        	   175: ETX			EQU		03
-                        	   176: EOT			EQU		04
-                        	   177: ENQ			EQU		05
-                        	   178: ACK			EQU		06
-                        	   179: BEL			EQU		07
-                        	   180: BS			EQU		08h
-                        	   181: HT			EQU		09h
-                        	   182: LF			EQU		0AH
-                        	   183: VT			EQU		0BH
-                        	   184: FF			EQU		0CH
-                        	   185: CR			EQU		0DH
-                        	   186: SO			EQU		0Eh
-                        	   187: SI			EQU		0Fh
-                        	   188: DLE			EQU		10h
-                        	   189: DC1			EQU		11h
-                        	   190: DC2			EQU		12h
-                        	   191: DC3			EQU		13h
-                        	   192: DC4			EQU		14h
-                        	   193: NAK			EQU		15h
-                        	   194: SYN			EQU		16h
-                        	   195: ETB			EQU		17h
-                        	   196: CAN			EQU		18h
-                        	   197: EM			EQU		19h
-                        	   198: SUB			EQU		1Ah
-                        	   199: ESC			EQU		1Bh
-                        	   200: FS			EQU		1Ch
-                        	   201: GS			EQU		1Dh
-                        	   202: RS			EQU		1Eh
-                        	   203: US			EQU		1Fh
-                        	   204: ITEM		EQU		1Ch
-                        	   205: STEND		EQU		1Dh
-                        	   206: LISTEND		EQU		1Eh
-                        	   207: SP			EQU		20h
-                        	   208: 
-                        	   209: 
-                        	   210: ; 	Variables in SRAM   HEAP TOP  - Moved to load script !
-                        	   211: ;DATA LOCATIONS
-                        	   212: ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
-                        	   213: ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
-                        	   214: ; BufStat:		EQU     0D07H ;The state of the buffer okay (00), error (EE), auto (AA)        (1-byte)
-                        	   215: ; CByteRec:		EQU     0D08H ;Current byte received from SIO_0                                  (1-byte)
-                        	   216: ; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to SIO_0, or by key press FF=auto  (1-byte)
-                        	   217: ; KeyPressed:		EQU     0D0AH ;Key Pressed Flag, 00-False, FF-True                             (1-byte)
-                        	   218: 
-                        	   219: ;BUFFER CONFIGURATION
-                        	   220: ; CBufLoc:		EQU     0B00H ;Location of circular buffer
-                        	   221: ; CBufHead:		EQU     0D0BH ;Pointer to the Head of the Circular buffer                      (1-byte)
-                        	   222: ; CBufTail:		EQU     0D0CH ;Pointer to the Tail of the Circular buffer                      (1-byte)
-                        	   223: 
-                        	   224: ;BUFFER SIZES, change to suit
-                        	   225: ; BUFF16:			EQU     0FH   ;16 bytes
-                        	   226: ; BUFF32:			EQU     1FH   ;32 bytes
-                        	   227: ; BUFF64:			EQU     3FH   ;64 bytes
-                        	   228: ; BUFF128:		EQU     7FH   ;128 bytes
-                        	   229: ; BUFF256:		EQU     0FFH  ;256 bytes
-                        	   230: ; CBufSize:		EQU     BUFF32  ;16 bytes (Change if required)
-                        	   231: 
-                        	   232: 
-                        	   233: ;INTERRUPT VECTOR TABLE SETUP
-                        	   234: ;The interrupt will call one of these service routines depending on the type of interrupt
-                        	   235: ;There are 4 reasons the interrupt will occur:
-                        	   236: ; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
-                        	   237: ; 2. External/Status Change - Indicating a change in the modem line or break condition
-                        	   238: ; 3. Receive Character Available - Indicating that data has been sent to CPU
-                        	   239: ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
-                        	   240: ;
-                        	   241: ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
-                        	   242: ;address is the value in the interrupt register 'I'.  The Low byte of the address is
-                        	   243: ;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
-                        	   244: ;shows what bits are set on the data bus.  This is used to index the vector table:
-                        	   245: ;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
-                        	   246: ;
-                        	   247: ; Channel   D3  D2  D1  Addr  Interrupt type
-                        	   248: ; -------   --  --  --  ----  --------------
-                        	   249: ;    B       0   0   0   00H  Transmit Buffer Empty
-                        	   250: ;    B       0   0   1   02H  External/Status Change
-                        	   251: ;    B       0   1   0   04H  Receive Character Available
-                        	   252: ;    B       0   1   1   06H  Special Receive Condition
-                        	   253: ;    A       1   0   0   08H  Transmit Buffer Empty
-                        	   254: ;    A       1   0   1   0AH  External/Status Change
-                        	   255: ;    A       1   1   0   0CH  Receive Character Available
-                        	   256: ;    A       1   1   1   0EH  Special Receive Condition
-                        	   257: ;
-                        	   258: ; SIO_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
-                        	   259: ; SIO_WriteVector:		EQU		SIO_IntVectors+08H ;Write Interrupt Vector
-                        	   260: ; SIO_ExternalVector:	EQU		SIO_IntVectors+0AH ;External Status Interrupt Vector
-                        	   261: ; SIO_ReadVector:		EQU		SIO_IntVectors+0CH ;Read Interrupt Vector
-                        	   262: ; SIO_SpecialVector:		EQU		SIO_IntVectors+0EH ;Special Receive Interrupt Vector
-                        	   263: 
-                        	   264: 
-                        	   265: 	; SIO_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
-                        	   266: 	; SIO_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
-                        	   267: 	; SIO_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
-                        	   268: 	; SIO_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	   140: ; Data tables  (upper EPROM/FLASH)
+                        	   141: ; stack  				= $FF00
+                        	   142: Heap				= $F000				; space for variable storage
+                        	   143: 
+                        	   144: ; variables  	(upper ram)
+                        	   145: PIO_B_value:		= $F1D0
+                        	   146: Result_NumToHex:	= $F1F0
+                        	   147: 
+                        	   148: 
+                        	   149: ;*****	ALIGN command  : 00 removes all align commands
+                        	   150: DOALIGN 	EQU 	00
+                        	   151: 
+                        	   152: EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
+                        	   153: TestChar:		EQU		'A'				;TEST CHARACTER = A
+                        	   154: CRChar:			EQU		0DH				; carrige return
+                        	   155: LFChar:			EQU		0AH				; line feed
+                        	   156: NUL			EQU		00
+                        	   157: SOH			EQU		01
+                        	   158: STX			EQU		02
+                        	   159: ETX			EQU		03
+                        	   160: EOT			EQU		04
+                        	   161: ENQ			EQU		05
+                        	   162: ACK			EQU		06
+                        	   163: BEL			EQU		07
+                        	   164: BS			EQU		08h
+                        	   165: HT			EQU		09h
+                        	   166: LF			EQU		0AH
+                        	   167: VT			EQU		0BH
+                        	   168: FF			EQU		0CH
+                        	   169: CR			EQU		0DH
+                        	   170: SO			EQU		0Eh
+                        	   171: SI			EQU		0Fh
+                        	   172: DLE			EQU		10h
+                        	   173: DC1			EQU		11h
+                        	   174: DC2			EQU		12h
+                        	   175: DC3			EQU		13h
+                        	   176: DC4			EQU		14h
+                        	   177: NAK			EQU		15h
+                        	   178: SYN			EQU		16h
+                        	   179: ETB			EQU		17h
+                        	   180: CAN			EQU		18h
+                        	   181: EM			EQU		19h
+                        	   182: SUB			EQU		1Ah
+                        	   183: ESC			EQU		1Bh
+                        	   184: FS			EQU		1Ch
+                        	   185: GS			EQU		1Dh
+                        	   186: RS			EQU		1Eh
+                        	   187: US			EQU		1Fh
+                        	   188: ITEM		EQU		1Ch
+                        	   189: STEND		EQU		1Dh
+                        	   190: LISTEND		EQU		1Eh
+                        	   191: SP			EQU		20h
+                        	   192: CDEL		EQU 	0xEE
+                        	   193: 
+                        	   194: ; 	Variables in SRAM   HEAP TOP  - Moved to load script !
+                        	   195: ;DATA LOCATIONS
+                        	   196: ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
+                        	   197: ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
+                        	   198: ; BufStat:		EQU     0D07H ;The state of the buffer okay (00), error (EE), auto (AA)        (1-byte)
+                        	   199: ; CByteRec:		EQU     0D08H ;Current byte received from SIO_0                                  (1-byte)
+                        	   200: ; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to SIO_0, or by key press FF=auto  (1-byte)
+                        	   201: ; KeyPressed:		EQU     0D0AH ;Key Pressed Flag, 00-False, FF-True                             (1-byte)
+                        	   202: 
+                        	   203: ;BUFFER CONFIGURATION
+                        	   204: ; CBufLoc:		EQU     0B00H ;Location of circular buffer
+                        	   205: ; CBufHead:		EQU     0D0BH ;Pointer to the Head of the Circular buffer                      (1-byte)
+                        	   206: ; CBufTail:		EQU     0D0CH ;Pointer to the Tail of the Circular buffer                      (1-byte)
+                        	   207: 
+                        	   208: ;BUFFER SIZES, change to suit
+                        	   209: ; BUFF16:			EQU     0FH   ;16 bytes
+                        	   210: ; BUFF32:			EQU     1FH   ;32 bytes
+                        	   211: ; BUFF64:			EQU     3FH   ;64 bytes
+                        	   212: ; BUFF128:		EQU     7FH   ;128 bytes
+                        	   213: ; BUFF256:		EQU     0FFH  ;256 bytes
+                        	   214: ; CBufSize:		EQU     BUFF32  ;16 bytes (Change if required)
+                        	   215: 
+                        	   216: 
+                        	   217: ;INTERRUPT VECTOR TABLE SETUP
+                        	   218: ;The interrupt will call one of these service routines depending on the type of interrupt
+                        	   219: ;There are 4 reasons the interrupt will occur:
+                        	   220: ; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
+                        	   221: ; 2. External/Status Change - Indicating a change in the modem line or break condition
+                        	   222: ; 3. Receive Character Available - Indicating that data has been sent to CPU
+                        	   223: ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
+                        	   224: ;
+                        	   225: ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
+                        	   226: ;address is the value in the interrupt register 'I'.  The Low byte of the address is
+                        	   227: ;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
+                        	   228: ;shows what bits are set on the data bus.  This is used to index the vector table:
+                        	   229: ;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
+                        	   230: ;
+                        	   231: ; Channel   D3  D2  D1  Addr  Interrupt type
+                        	   232: ; -------   --  --  --  ----  --------------
+                        	   233: ;    B       0   0   0   00H  Transmit Buffer Empty
+                        	   234: ;    B       0   0   1   02H  External/Status Change
+                        	   235: ;    B       0   1   0   04H  Receive Character Available
+                        	   236: ;    B       0   1   1   06H  Special Receive Condition
+                        	   237: ;    A       1   0   0   08H  Transmit Buffer Empty
+                        	   238: ;    A       1   0   1   0AH  External/Status Change
+                        	   239: ;    A       1   1   0   0CH  Receive Character Available
+                        	   240: ;    A       1   1   1   0EH  Special Receive Condition
+                        	   241: ;
+                        	   242: ; SIO_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
+                        	   243: ; SIO_WriteVector:		EQU		SIO_IntVectors+08H ;Write Interrupt Vector
+                        	   244: ; SIO_ExternalVector:	EQU		SIO_IntVectors+0AH ;External Status Interrupt Vector
+                        	   245: ; SIO_ReadVector:		EQU		SIO_IntVectors+0CH ;Read Interrupt Vector
+                        	   246: ; SIO_SpecialVector:		EQU		SIO_IntVectors+0EH ;Special Receive Interrupt Vector
+                        	   247: 
+                        	   248: 
+                        	   249: 	; SIO_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+                        	   250: 	; SIO_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+                        	   251: 	; SIO_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	   252: 	; SIO_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	   253: 
+                        	   254: ;****************************************************************************
+                        	   255: 
+                        	   256: 
+                        	   257: 
+                        	   258: 
+                        	   259: ; Define the memory size to be used for the CP/M configuration
+                        	   260: ; MEM:    equ 60
+                        	   261: 
+                        	   262: ; The CPM origin will be at: (MEM-7)*1024
+                        	   263: ; This screwy convention is due to the way that that the CP/M origin is defined.
+                        	   264: ; CPM_BASE:	equ	(MEM-7)*1024
+                        	   265: 
+                        	   266: ; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
+                        	   267: 
+                        	   268: 
                         	   269: 
-                        	   270: ;****************************************************************************
-                        	   271: 
-                        	   272: 
-                        	   273: 
-                        	   274: 
-                        	   275: ; Define the memory size to be used for the CP/M configuration
-                        	   276: ; MEM:    equ 60
-                        	   277: 
-                        	   278: ; The CPM origin will be at: (MEM-7)*1024
-                        	   279: ; This screwy convention is due to the way that that the CP/M origin is defined.
-                        	   280: ; CPM_BASE:	equ	(MEM-7)*1024
-                        	   281: 
-                        	   282: ; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
-                        	   283: 
-                        	   284: 
-                        	   285: 
 
 Source: "stdin"
                         	     4:  
-                        	     5: 		xref 	PLD_PCB_Start
-                        	     6: 		xdef 	RAM_Start,SetupXMODEM_TXandRX,purgeRXA,purgeRXB,TX_EMP,TX_NAK,TX_ACK,SIO_A_DI,SIO_A_EI,SIO_A_RESET
-                        	     7: 		xdef 	A_RTS_OFF,A_RTS_ON,SIO_A_TXRX_INToff,SIO_A_TXon,SIO_A_RXon,SIO_A_TXRX_INTon,TX_C,TX_X
-                        	     8: 		xdef 	doImportXMODEM,CRC16
-                        	     9: ;********************************************************		
-                        	    10: ;		Routines in order to read data via XMODEM on SIO_0 chA
-                        	    11: ;********************************************************		
-                        	    12: 
-                        	    13: 		section Functions
-                        	    14: RAM_Start:
-00:0000 C30000          	    15: 		jp 		PLD_PCB_Start
-                        	    16: 
+                        	     5: 		xdef 	RAM_Start,SetupXMODEM_TXandRX,purgeRXA,purgeRXB,TX_EMP,TX_NAK,TX_ACK,SIO_A_DI,SIO_A_EI,SIO_A_RESET
+                        	     6: 		xdef 	SIO_A_RTS_OFF,SIO_A_RTS_ON,SIO_A_TXRX_INToff,SIO_A_TXon,SIO_A_RXon,SIO_A_TXRX_INTon,TX_C,TX_X
+                        	     7: 		xdef 	doImportXMODEM,CRC16
+                        	     8: ;********************************************************		
+                        	     9: ;		Routines in order to read data via XMODEM on SIO_0 chA
+                        	    10: ;********************************************************		
+                        	    11: 
+                        	    12: 		section Xmodems
+                        	    13: RAM_Start:
+                        	    14: 		; jp 		MONITOR_Start
+                        	    15: 
+                        	    16: ;********************************************************************************************
                         	    17: ;********************************************************************************************
                         	    18: ;********************************************************************************************
-                        	    19: ;********************************************************************************************
+                        	    19: 
                         	    20: 
-                        	    21: SIO_A_EI:
-                        	    22: 		;enable SIO_0 channel A RX
-00:0003 3E03            	    23: 		ld		a,003h			;write into WR0: select WR3
-00:0005 D302            	    24: 		out		(SIO_A_C),A
-00:0007 3EC1            	    25: 		ld		a,0C1h			;RX 8bit, auto enable off, RX on
-00:0009 D302            	    26: 		out		(SIO_A_C),A	Channel A RX active
-00:000B C9              	    27: 		RET
-                        	    28: 
-                        	    29: SIO_A_TXRX_INTon:
-                        	    30: 		;enable SIO_0 channel A RX
-00:000C 3E01            	    31: 		ld		A,WR1							;write into WR0: select WR1
-00:000E D302            	    32: 		out		(SIO_A_C),A
-00:0010 3E1A            	    33: 		ld		A,_Tx_INT_EN|_Int_All_Rx_Char_NP		 			;RX and TX interrupt on
-00:0012 D302            	    34: 		out		(SIO_A_C),A	Channel A RX active
-00:0014 C9              	    35: 		RET
-                        	    36: 
+                        	    21: RX_CR:
+                        	    22: 		;do something on carriage return reception here
+00:0000 C30600          	    23: 		jp		EO_CH_AV
+                        	    24: 
+                        	    25: RX_BS:
+                        	    26: 		;do something on backspace reception here
+00:0003 C30600          	    27: 		jp		EO_CH_AV
+                        	    28: EO_CH_AV:
+00:0006 FB              	    29: 		ei						;see comments below
+00:0007 CD0000          	    30: 		call	SIO_A_RTS_ON		;see comments below
+00:000A F1              	    31: 		pop		AF				;restore AF
+00:000B ED4D            	    32: 		Reti
+                        	    33: 	
+                        	    34: 
+                        	    35: SPEC_RX_CONDITON:
+00:000D C30000          	    36: 		jp		0000h
                         	    37: 
-                        	    38: 
-                        	    39: SIO_A_TXRX_INToff:
-                        	    40: 		;enable SIO_0 channel A RX
-00:0015 3E01            	    41: 		ld		A,WR1			;write into WR0: select WR1
-00:0017 D302            	    42: 		out		(SIO_A_C),A
-00:0019 3E00            	    43: 		ld		A,00h			;RX and TX interrupt off
-00:001B D302            	    44: 		out		(SIO_A_C),A	Channel A RX 
-00:001D C9              	    45: 		RET
-                        	    46: 
-                        	    47: SIO_A_TX_INTon:
-                        	    48: 		;enable SIO_0 channel A RX
-00:001E 3E01            	    49: 		ld		A,WR1							;write into WR0: select WR1
-00:0020 D302            	    50: 		out		(SIO_A_C),A
-00:0022 3E02            	    51: 		ld		A,_Tx_INT_EN		 			;TX interrupt on
-00:0024 D302            	    52: 		out		(SIO_A_C),A	Channel A RX active
-00:0026 C9              	    53: 		RET
-                        	    54: 
-                        	    55: SIO_A_RX_INTon:
-                        	    56: 		;enable SIO_0 channel A RX
-00:0027 3E01            	    57: 		ld		A,WR1							;write into WR0: select WR1
-00:0029 D302            	    58: 		out		(SIO_A_C),A
-00:002B 3E18            	    59: 		ld		A,_Int_All_Rx_Char_NP		 			;TX interrupt on
-00:002D D302            	    60: 		out		(SIO_A_C),A	Channel A RX active
-00:002F C9              	    61: 		RET
+                        	    38: ;**************************************************************************
+                        	    39: ;**				SetupXMODEM_TX and RX:									**
+                        	    40: ;**************************************************************************
+                        	    41: 
+                        	    42: 
+                        	    43: 
+                        	    44: doImportXMODEM: 
+00:0010 CD0000          	    45: 		call 	writeSTRBelow
+00:0013 00              	    46: 		DB 		0,"Wait for XMODEM start... ",CR,LF,00
+00:0014 5761697420666F72
+00:001C 20584D4F44454D20
+00:0024 73746172742E2E2E
+00:002C 20
+00:002D 0D
+00:002E 0A
+00:002F 00
+00:0030 AF              	    47: 		xor 	A
+00:0031 320000          	    48: 		ld 		(TempVar1),A				; reset badblock counter
+                        	    49: 		;------------INIT CTC (2 sec timing for 'C'/NAK process----------------
+                        	    50: 		;init CH 0 and 1
+00:0034 3E57            	    51: 		ld 	 	A,_Counter|_Rising|_TC_Follow|_Reset|_CW
+00:0036 D300            	    52: 		out		(CH0),A 		; CH0 is on hold now
+00:0038 3E42            	    53: 		ld		A,$42			; time constant (prescaler; $42;$DA; 14390,625 khz -> 2, sec peroid;  
+00:003A D300            	    54: 		out		(CH0),A			; and loaded into channel 0
+                        	    55: 		
+00:003C 3ED7            	    56: 		ld		A,_INT_EN|_Counter|_Rising|_TC_Follow|_Reset|_CW	
+00:003E D301            	    57: 		out		(CH1),A			; CH1 counter
+00:0040 3EDA            	    58: 		ld		A,$DA			; time constant 
+00:0042 D301            	    59: 		out		(CH1),A			; and loaded into channel 2
+                        	    60: 
+                        	    61: 		;------------INIT SIO----------------------------------------
                         	    62: 
-                        	    63: A_RTS_OFF:
-                        	    64: 		;signaling the host go or nogo for reception
-00:0030 3E05            	    65: 		ld		a,005h			;write into WR0: select WR5
-00:0032 D302            	    66: 		out		(SIO_A_C),A
-00:0034 3E68            	    67: 		ld		a,_Tx_8bits_char|_Tx_Enable 				;TX 8bit, BREAK off, TX on, RTS inactive
-00:0036 3EE8            	    68: 		ld		a,0E8h			
-00:0038 D302            	    69: 		out		(SIO_A_C),A 
-00:003A C9              	    70: 		ret 
-                        	    71: 		
-                        	    72: 		
-                        	    73: A_RTS_ON:
-                        	    74: 		; signaling the host go or nogo for reception
-00:003B 3E05            	    75: 		ld		a,005h			;write into WR0: select WR5
-00:003D D302            	    76: 		out		(SIO_A_C),A
-                        	    77: 		; ld		a,_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
-00:003F 3EEA            	    78: 		ld		a,0EAh	
-00:0041 D302            	    79: 		out		(SIO_A_C),A 
-00:0043 C9              	    80: 		ret 
-                        	    81: 		
-                        	    82: 	
-                        	    83: 	
-                        	    84: SIO_A_DI:
-                        	    85: 		;disable SIO_0 channel A RX
-00:0044 3E03            	    86: 		ld		a,WR3			;write into WR0: select WR3
-00:0046 D302            	    87: 		out		(SIO_A_C),A
-00:0048 3EC0            	    88: 		ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
-00:004A D302            	    89: 		out		(SIO_A_C),A
-                        	    90: 		;Channel A RX inactive
-00:004C C9              	    91: 		ret
-                        	    92: 
-                        	    93: RX_CR:
-                        	    94: 		;do something on carriage return reception here
-00:004D C35300          	    95: 		jp		EO_CH_AV
+00:0044 21AF00          	    63: 		ld		HL,receiveBlockIn       	; ON INTERRUPT SIO_0 channel A
+00:0047 220CF4          	    64: 		ld		(SIO_Int_Read_Vec),HL		;STORE READ VECTOR
+                        	    65: 
+00:004A 3E10            	    66: 		ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
+00:004C 3E21            	    67: 		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+00:004E D302            	    68: 		out		(SIO_A_C),A
+00:0050 3E08            	    69: 		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
+                        	    70: 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+00:0052 D302            	    71: 		out		(SIO_A_C),A		;buffer overrun is a spec RX condition
+                        	    72: 
+00:0054 CD0000          	    73: 		call  	purgeRXA
+                        	    74: 
+00:0057 2110B0          	    75: 		ld 		HL,$B010
+00:005A 0E01            	    76: 		ld 		C,1					; block number
+                        	    77: 
+                        	    78: 
+                        	    79: 
+                        	    80: ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+                        	    81: ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+                        	    82: 
+                        	    83: nextC:		
+00:005C FB              	    84: 		ei
+                        	    85: 
+                        	    86: nextBlock:
+00:005D 3E21            	    87: 		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+00:005F D302            	    88: 		out		(SIO_A_C),A
+00:0061 3E08            	    89: 		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
+                        	    90: 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+00:0063 D302            	    91: 		out		(SIO_A_C),A		;buffer overrun is a spec RX condition
+00:0065 FB              	    92: 		ei
+                        	    93: 
+                        	    94: 
+00:0066 CD0000          	    95: 		call 	SIO_A_RTS_ON
                         	    96: 
-                        	    97: RX_BS:
-                        	    98: 		;do something on backspace reception here
-00:0050 C35300          	    99: 		jp		EO_CH_AV
-                        	   100: EO_CH_AV:
-00:0053 FB              	   101: 		ei						;see comments below
-00:0054 CD3B00          	   102: 		call	A_RTS_ON		;see comments below
-00:0057 F1              	   103: 		pop		AF				;restore AF
-00:0058 ED4D            	   104: 		Reti
-                        	   105: 	
+00:0069 76              	    97: 		halt						;await first rx char
+                        	    98: 
+00:006A CD0000          	    99: 		call 	SIO_A_RTS_OFF
+                        	   100: 
+                        	   101: 		; ***	wait function inactive
+00:006D 3E01            	   102: 		ld		a,WR1			;write into WR0: select WR1
+00:006F D302            	   103: 		out		(SIO_A_C),A
+00:0071 3E28            	   104: 		ld		a,_WAIT_READY_R_T|_Rx_INT_First_Char		;wait function inactive
+00:0073 D302            	   105: 		out		(SIO_A_C),A
                         	   106: 
-                        	   107: SPEC_RX_CONDITON:
-00:005A C30000          	   108: 		jp		0000h
-                        	   109: 
-                        	   110: purgeRXA:
-                        	   111: 		; flushing the receive buffer
-                        	   112: 		;check for RX buffer empty
-                        	   113: 		;modifies A
-00:005D 97              	   114: 		sub		a				;clear a, write into WR0: select RR0
-00:005E D302            	   115: 		out		(SIO_A_C),A
-00:0060 DB02            	   116: 		in		A,(SIO_A_C)		;read RRx
-00:0062 CB47            	   117: 		bit		0,A
-00:0064 C8              	   118: 		ret		z				;if any rx char left in rx buffer
+                        	   107: 		;check return code of block reception (e holds return code)
+00:0075 7B              	   108: 		ld 		A,E
+00:0076 D302            	   109: 		out 	(portB_Data),A
+00:0078 3200B0          	   110: 		ld 		($B000),A
+00:007B FE0B            	   111: 		cp		CTCtimeout					; timeout error ; no file transfer started
+00:007D CA6701          	   112: 		jp		Z,timeOutErr		
+                        	   113: 
+00:0080 FE0A            	   114: 		cp 		CTCpulse 					; ret from CTC
+00:0082 28D8            	   115: 		jr 		Z,nextC 					; one more 'C' -> goto .nextC
+                        	   116: 
+00:0084 FE00            	   117: 		cp		NUL							;block finished, no error
+00:0086 CAA500          	   118: 		jp		Z,blockFinished
                         	   119: 
-00:0065 DB00            	   120: 		in		A,(SIO_A_D)		;read that char
-00:0067 C35D00          	   121: 		jp		purgeRXA		
+00:0089 FE02            	   120: 		cp		EOT_FOUND					;eot found (end of transmission)
+00:008B CA4001          	   121: 		jp		Z,exitRecBlock
                         	   122: 
-                        	   123: 
-                        	   124: purgeRXB:
-                        	   125: 		; flushing the receive buffer, check for RX(B) buffer empty
-                        	   126: 		;modifies A
-00:006A 97              	   127: 		sub		a				;clear a, write into WR0: select RR0
-00:006B D303            	   128: 		out		(sio_bc),A
-00:006D DB03            	   129: 		in		A,(sio_bc)		;read RRx
-00:006F CB47            	   130: 		bit		0,A
-00:0071 C8              	   131: 		ret		z				;if any rx char left in rx buffer
-                        	   132: 
-00:0072 DB01            	   133: 		in		A,(sio_bd)		;read that char
-00:0074 C35D00          	   134: 		jp		purgeRXA		
-                        	   135: 
-                        	   136: TX_EMP:
-                        	   137: 		; ransmitting a character to host
-                        	   138: 		; check for TX buffer empty
-00:0077 97              	   139: 		sub		a				;clear a, write into WR0: select RR0
-00:0078 3C              	   140: 		inc		a				;select RR1
-00:0079 D302            	   141: 		out		(SIO_A_C),A
-00:007B DB02            	   142: 		in		A,(SIO_A_C)	;read TRx, all sent
-00:007D CB47            	   143: 		bit		0,A
-00:007F CA7700          	   144: 		jp		z,TX_EMP
-00:0082 C9              	   145: 		ret
-                        	   146: 
+00:008E FE08            	   123: 		cp		_err01_						;Byte 1 not recognized (08)
+00:0090 CA8E01          	   124: 		jp		Z,blockErrors1_3
+                        	   125: 
+00:0093 FE09            	   126: 		cp		_err02_						;wrong block number (09)
+00:0095 CA8E01          	   127: 		jp		Z,blockErrors1_3
+                        	   128: 
+00:0098 FE0C            	   129: 		cp		_err03_						;wrong complement block number  (0C)
+00:009A CA8E01          	   130: 		jp		Z,blockErrors1_3
+                        	   131: 
+00:009D FE0D            	   132: 		cp		_err04_						;chk sum error  (0D)
+00:009F CAF001          	   133: 		jp		Z,checkSumErr
+                        	   134: 
+00:00A2 C38E01          	   135: 		jp		blockErrors1_3
+                        	   136: 		
+                        	   137: 
+                        	   138: blockFinished:
+00:00A5 CD0000          	   139: 		call	TX_ACK					;when no error
+00:00A8 0C              	   140: 		inc		C						;prepare next block to receive
+00:00A9 97              	   141: 		sub		A
+00:00AA 320000          	   142: 		ld		(TempVar2),A			;clear bad block counter
+00:00AD 18AD            	   143: 		jr 		nextC
+                        	   144: 
+                        	   145: ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+                        	   146: ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
                         	   147: 
-                        	   148: ;**************************************************************************
-                        	   149: ;**				SetupXMODEM_TX and RX:									**
-                        	   150: ;**************************************************************************
-                        	   151: 
-                        	   152: 
+                        	   148: 
+                        	   149: receiveBlockIn:
+                        	   150: 
+                        	   151: 		; CH1 counter not send any interrupts
+00:00AF CD0000          	   152: 		call 	CTC1_INT_OFF			; CH1 counter not send any interrupts
                         	   153: 
-                        	   154: doImportXMODEM: 
-00:0083 CD0000          	   155: 		call 	writeSTRBelow
-00:0086 00              	   156: 		DB 		0,"Wait for XMODEM start... ",CR,LF,00
-00:0087 5761697420666F72
-00:008F 20584D4F44454D20
-00:0097 73746172742E2E2E
-00:009F 20
-00:00A0 0D
-00:00A1 0A
-00:00A2 00
-00:00A3 AF              	   157: 		xor 	A
-00:00A4 320000          	   158: 		ld 		(TempVar1),A				; reset badblock counter
-                        	   159: 		;------------INIT CTC (2 sec timing for 'C'/NAK process----------------
-                        	   160: 		;init CH 0 and 1
-00:00A7 3E57            	   161: 		ld 	 	A,_Counter|_Rising|_TC_Follow|_Reset|_CW
-00:00A9 D300            	   162: 		out		(CH0),A 		; CH0 is on hold now
-00:00AB 3E42            	   163: 		ld		A,$42			; time constant (prescaler; $42;$DA; 14390,625 khz -> 2, sec peroid;  
-00:00AD D300            	   164: 		out		(CH0),A			; and loaded into channel 0
-                        	   165: 		
-00:00AF 3ED7            	   166: 		ld		A,_INT_EN|_Counter|_Rising|_TC_Follow|_Reset|_CW	
-00:00B1 D301            	   167: 		out		(CH1),A			; CH1 counter
-00:00B3 3EDA            	   168: 		ld		A,$DA			; time constant 
-00:00B5 D301            	   169: 		out		(CH1),A			; and loaded into channel 2
-                        	   170: 
-                        	   171: 		;------------INIT SIO----------------------------------------
-                        	   172: 
-00:00B7 212201          	   173: 		ld		HL,receiveBlockIn       	; ON INTERRUPT SIO_0 channel A
-00:00BA 220CF4          	   174: 		ld		(SIO_Int_Read_Vec),HL		;STORE READ VECTOR
-                        	   175: 
-00:00BD 3E10            	   176: 		ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
-00:00BF 3E21            	   177: 		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
-00:00C1 D302            	   178: 		out		(SIO_A_C),A
-00:00C3 3E08            	   179: 		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
-                        	   180: 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
-00:00C5 D302            	   181: 		out		(SIO_A_C),A		;buffer overrun is a spec RX condition
-                        	   182: 
-00:00C7 CD5D00          	   183: 		call  	purgeRXA
-                        	   184: 
-00:00CA 2110B0          	   185: 		ld 		HL,$B010
-00:00CD 0E01            	   186: 		ld 		C,1					; block number
-                        	   187: 
-                        	   188: 
+00:00B2 3E01            	   154: 		ld		A,WR1								;write into WR0 cmd4 and select WR1 
+00:00B4 D302            	   155: 		out		(SIO_A_C),A
+00:00B6 3EA0            	   156: 		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T	;wait active, 
+00:00B8 D302            	   157: 		out		(SIO_A_C),A						;buffer overrun is a spec RX condition
+                        	   158: 		; ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+                        	   159: 		; out		(SIO_A_C),A
+                        	   160: 		; ; ld		A,_Rx_INT_First_Char			;wait active, interrupt on first RX character
+                        	   161: 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+                        	   162: 		; out		(SIO_A_C),A					;buffer overrun is a spec RX condition
+                        	   163: 
+00:00BA 220000          	   164: 		ld 		(XBAddr),HL						; save actual block start address 
+                        	   165: 
+00:00BD DB00            	   166: 		in		A,(SIO_A_D)			;read RX byte into A
+00:00BF 3208B0          	   167: 		ld 		($B008),A
+                        	   168: checkByte01:
+00:00C2 FE01            	   169: 		cp		SOH					;check for SOH
+00:00C4 CAE000          	   170: 		jp		z,checkBlockNum
+00:00C7 FE04            	   171: 		cp		EOT					;check for EOT
+00:00C9 C2D000          	   172: 		jp		nz,Er01_
+00:00CC 1E02            	   173: 		ld		e,EOT_FOUND			;eot found (end of transmission)
+00:00CE ED4D            	   174: 		reti
+                        	   175: 		
+                        	   176: 		
+                        	   177: 		; jr		.nextC
+                        	   178: 
+                        	   179: 		; jr		.nextC
+                        	   180: 
+                        	   181: 
+                        	   182: Er01_:	; Byte 1 not recognized
+00:00D0 1E08            	   183: 		ld		E,_err01_
+00:00D2 ED4D            	   184: 		RETI
+                        	   185: 
+                        	   186: Er02_:	; wrong block number
+00:00D4 1E09            	   187: 		ld		E,_err02_
+00:00D6 ED4D            	   188: 		RETI
                         	   189: 
-                        	   190: ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-                        	   191: ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-                        	   192: 
-                        	   193: nextC:		
-00:00CF FB              	   194: 		ei
-                        	   195: 
-                        	   196: nextBlock:
-00:00D0 3E21            	   197: 		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
-00:00D2 D302            	   198: 		out		(SIO_A_C),A
-00:00D4 3E08            	   199: 		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
-                        	   200: 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
-00:00D6 D302            	   201: 		out		(SIO_A_C),A		;buffer overrun is a spec RX condition
-00:00D8 FB              	   202: 		ei
-                        	   203: 
+                        	   190: Er03_:	; wrong complement block number
+00:00D8 1E0C            	   191: 		ld		E,_err03_
+00:00DA ED4D            	   192: 		RETI
+                        	   193: 
+                        	   194: Er04_:
+00:00DC 1E0D            	   195: 		ld		E,_err04_
+00:00DE ED4D            	   196: 		RETI
+                        	   197: 
+                        	   198: 		;check block number
+                        	   199: checkBlockNum:
+00:00E0 DB00            	   200: 		in		A,(SIO_A_D)		;read RX byte into A	
+00:00E2 3209B0          	   201: 		ld 		($B009),A
+00:00E5 B9              	   202: 		cp		C					;check for match of block nr
+00:00E6 C2D400          	   203: 		jp		nz,Er02_			; wrong block number (09)
                         	   204: 
-00:00D9 CD3B00          	   205: 		call 	A_RTS_ON
-                        	   206: 
-00:00DC 76              	   207: 		halt						;await first rx char
-                        	   208: 
-00:00DD CD3000          	   209: 		call 	A_RTS_OFF
-                        	   210: 
-                        	   211: 		; ***	wait function inactive
-00:00E0 3E01            	   212: 		ld		a,WR1			;write into WR0: select WR1
-00:00E2 D302            	   213: 		out		(SIO_A_C),A
-00:00E4 3E28            	   214: 		ld		a,_WAIT_READY_R_T|_Rx_INT_First_Char		;wait function inactive
-00:00E6 D302            	   215: 		out		(SIO_A_C),A
-                        	   216: 
-                        	   217: 		;check return code of block reception (e holds return code)
-00:00E8 7B              	   218: 		ld 		A,E
-00:00E9 D302            	   219: 		out 	(portB_Data),A
-00:00EB 3200B0          	   220: 		ld 		($B000),A
-00:00EE FE0B            	   221: 		cp		CTCtimeout					; timeout error ; no file transfer started
-00:00F0 CADA01          	   222: 		jp		Z,timeOutErr		
-                        	   223: 
-00:00F3 FE0A            	   224: 		cp 		CTCpulse 					; ret from CTC
-00:00F5 28D8            	   225: 		jr 		Z,nextC 					; one more 'C' -> goto .nextC
-                        	   226: 
-00:00F7 FE00            	   227: 		cp		NUL							;block finished, no error
-00:00F9 CA1801          	   228: 		jp		Z,blockFinished
+                        	   205: 		;get complement of block number
+00:00E9 79              	   206: 		ld		A,C					;copy block nr to expect into A
+00:00EA 2F              	   207: 		CPL							;and cpl A	
+00:00EB 5F              	   208: 		ld		E,A					;E holds cpl of block nr to expect
+                        	   209: 
+                        	   210: checkComplBlockNum:
+00:00EC DB00            	   211: 		in		A,(SIO_A_D)		;read RX byte into A
+00:00EE 320AB0          	   212: 		ld 		($B00A),A
+00:00F1 BB              	   213: 		cp		E					;check for cpl of block nr
+00:00F2 C2D800          	   214: 		jp		nz,Er03_			; wrong complement block number
+                        	   215: 
+                        	   216: 		;get data block
+00:00F5 1600            	   217: 		ld		D,0h				;start value of checksum
+00:00F7 0680            	   218: 		ld		B,80h				;defines block size 128byte
+                        	   219: 
+                        	   220: getBlockData:
+00:00F9 DB00            	   221: 		in		A,(SIO_A_D)		;read RX byte into A
+00:00FB 77              	   222: 		ld		(HL),A				;update
+00:00FC 82              	   223: 		add		A,D
+00:00FD 57              	   224: 		ld		D,A					;checksum in D
+00:00FE 23              	   225: 		inc		HL					;dest address +1
+00:00FF 78              	   226: 		ld 		A,B
+00:0100 3202B0          	   227: 		ld 		($B002),A
+00:0103 10F4            	   228: 		djnz	getBlockData		;loop until block finished
                         	   229: 
-00:00FC FE02            	   230: 		cp		EOT_FOUND					;eot found (end of transmission)
-00:00FE CAB301          	   231: 		jp		Z,exitRecBlock
+                        	   230: 
+                        	   231: checkBlockChecksum:
                         	   232: 
-00:0101 FE08            	   233: 		cp		_err01_						;Byte 1 not recognized (08)
-00:0103 CA0102          	   234: 		jp		Z,blockErrors1_3
-                        	   235: 
-00:0106 FE09            	   236: 		cp		_err02_						;wrong block number (09)
-00:0108 CA0102          	   237: 		jp		Z,blockErrors1_3
-                        	   238: 
-00:010B FE0C            	   239: 		cp		_err03_						;wrong complement block number  (0C)
-00:010D CA0102          	   240: 		jp		Z,blockErrors1_3
-                        	   241: 
-00:0110 FE0D            	   242: 		cp		_err04_						;chk sum error  (0D)
-00:0112 CA6302          	   243: 		jp		Z,checkSumErr
+00:0105 DB00            	   233: 		in		A,(SIO_A_D)		;read RX hi byte into A
+00:0107 57              	   234: 		ld 		D,A
+00:0108 DB00            	   235: 		in		A,(SIO_A_D)		;read RX low byte into A
+00:010A 5F              	   236: 		ld 		E,A					; DE = checksum in file
+00:010B ED530000        	   237: 		ld 		(XMChkSum),DE
+                        	   238: 		; ***	Calculate CRC16
+                        	   239: 
+00:010F C5              	   240: 		push 	BC
+00:0110 E5              	   241: 		push 	HL
+00:0111 2A0000          	   242: 		ld 		HL,(XBAddr)			; get the block start address
+00:0114 018000          	   243: 		ld 		BC,$80
                         	   244: 
-00:0115 C30102          	   245: 		jp		blockErrors1_3
-                        	   246: 		
-                        	   247: 
-                        	   248: blockFinished:
-00:0118 CD8402          	   249: 		call	TX_ACK					;when no error
-00:011B 0C              	   250: 		inc		C						;prepare next block to receive
-00:011C 97              	   251: 		sub		A
-00:011D 320000          	   252: 		ld		(TempVar2),A			;clear bad block counter
-00:0120 18AD            	   253: 		jr 		nextC
+00:0117 CD0902          	   245: 		call	CRC16				; result CRC in DE
+00:011A ED53ACF1        	   246: 		ld 		($F1AC),DE
+00:011E 2A0000          	   247: 		ld 		HL,(XMChkSum)		; get the file checksum in HL
+00:0121 B7              	   248: 		or 		A 					; clear carry
+00:0122 ED52            	   249: 		sbc 	HL,DE				; calc the differnce
+                        	   250: 		; ***	if checksum OK the Z is set
+00:0124 E1              	   251: 		pop 	HL					
+00:0125 C1              	   252: 		pop  	BC					; restore  HL and BC
+                        	   253: 
                         	   254: 
-                        	   255: ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-                        	   256: ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-                        	   257: 
-                        	   258: 
-                        	   259: receiveBlockIn:
-                        	   260: 
-                        	   261: 		; CH1 counter not send any interrupts
-00:0122 CD0000          	   262: 		call 	CTC1_INT_OFF			; CH1 counter not send any interrupts
-                        	   263: 
-00:0125 3E01            	   264: 		ld		A,WR1								;write into WR0 cmd4 and select WR1 
-00:0127 D302            	   265: 		out		(SIO_A_C),A
-00:0129 3EA0            	   266: 		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T	;wait active, 
-00:012B D302            	   267: 		out		(SIO_A_C),A						;buffer overrun is a spec RX condition
-                        	   268: 		; ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
-                        	   269: 		; out		(SIO_A_C),A
-                        	   270: 		; ; ld		A,_Rx_INT_First_Char			;wait active, interrupt on first RX character
-                        	   271: 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
-                        	   272: 		; out		(SIO_A_C),A					;buffer overrun is a spec RX condition
+00:0126 2804            	   255: 		jr		z,retBlockComplete
+00:0128 1E0D            	   256: 		ld		e,_err04_
+00:012A ED4D            	   257: 		reti						;return with checksum error
+                        	   258: retBlockComplete: 
+00:012C 1E00            	   259: 		ld		E,0h
+00:012E ED4D            	   260: 		reti						;return when block received completely
+                        	   261: 
+                        	   262: restoreSIO_0IO:
+00:0130 F3              	   263: 		di
+00:0131 3E53            	   264: 		ld		A,_Counter|_Rising|_Reset|_CW	
+00:0133 D301            	   265: 		out		(CH1),A				; CH1 counter - disable interrupt
+                        	   266: 
+00:0135 CD0000          	   267: 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+                        	   268: 
+00:0138 CD0000          	   269: 		call 	SIO_A_TXRX_INTon
+00:013B CD0000          	   270: 		call 	SIO_A_RTS_ON
+00:013E FB              	   271: 		ei
+00:013F C9              	   272: 		ret
                         	   273: 
-00:012D 220000          	   274: 		ld 		(XBAddr),HL						; save actual block start address 
-                        	   275: 
-00:0130 DB00            	   276: 		in		A,(SIO_A_D)			;read RX byte into A
-00:0132 3208B0          	   277: 		ld 		($B008),A
-                        	   278: checkByte01:
-00:0135 FE01            	   279: 		cp		SOH					;check for SOH
-00:0137 CA5301          	   280: 		jp		z,checkBlockNum
-00:013A FE04            	   281: 		cp		EOT					;check for EOT
-00:013C C24301          	   282: 		jp		nz,Er01_
-00:013F 1E02            	   283: 		ld		e,EOT_FOUND			;eot found (end of transmission)
-00:0141 ED4D            	   284: 		reti
-                        	   285: 		
-                        	   286: 		
-                        	   287: 		; jr		.nextC
-                        	   288: 
-                        	   289: 		; jr		.nextC
+                        	   274: exitRecBlock:
+                        	   275: 		; ***	File transfer OK
+00:0140 CD0000          	   276: 		call 	TX_ACK
+00:0143 CD3001          	   277: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+00:0146 CD0000          	   278: 		call 	writeSTRBelow_CRLF
+00:0149 000D0A          	   279: 		defb    "\0\r\n"
+00:014C 584D4F44454D2066	   280: 		defb	"XMODEM file transfer OK !",00
+00:0154 696C65207472616E
+00:015C 73666572204F4B20
+00:0164 21
+00:0165 00
+00:0166 C9              	   281: 		ret
+                        	   282: 
+                        	   283: 
+                        	   284: timeOutErr:
+00:0167 CD3001          	   285: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+00:016A CD0000          	   286: 		call 	writeSTRBelow_CRLF
+00:016D 000D0A          	   287: 		defb    "\0\r\n"
+00:0170 412074696D6F7574	   288: 		defb	"A timout on XMODEM occured !",00
+00:0178 206F6E20584D4F44
+00:0180 454D206F63637572
+00:0188 65642021
+00:018C 00
+00:018D C9              	   289: 		ret
                         	   290: 
-                        	   291: 
-                        	   292: Er01_:	; Byte 1 not recognized
-00:0143 1E08            	   293: 		ld		E,_err01_
-00:0145 ED4D            	   294: 		RETI
-                        	   295: 
-                        	   296: Er02_:	; wrong block number
-00:0147 1E09            	   297: 		ld		E,_err02_
-00:0149 ED4D            	   298: 		RETI
-                        	   299: 
-                        	   300: Er03_:	; wrong complement block number
-00:014B 1E0C            	   301: 		ld		E,_err03_
-00:014D ED4D            	   302: 		RETI
-                        	   303: 
-                        	   304: Er04_:
-00:014F 1E0D            	   305: 		ld		E,_err04_
-00:0151 ED4D            	   306: 		RETI
-                        	   307: 
-                        	   308: 		;check block number
-                        	   309: checkBlockNum:
-00:0153 DB00            	   310: 		in		A,(SIO_A_D)		;read RX byte into A	
-00:0155 3209B0          	   311: 		ld 		($B009),A
-00:0158 B9              	   312: 		cp		C					;check for match of block nr
-00:0159 C24701          	   313: 		jp		nz,Er02_			; wrong block number (09)
-                        	   314: 
-                        	   315: 		;get complement of block number
-00:015C 79              	   316: 		ld		A,C					;copy block nr to expect into A
-00:015D 2F              	   317: 		CPL							;and cpl A	
-00:015E 5F              	   318: 		ld		E,A					;E holds cpl of block nr to expect
-                        	   319: 
-                        	   320: checkComplBlockNum:
-00:015F DB00            	   321: 		in		A,(SIO_A_D)		;read RX byte into A
-00:0161 320AB0          	   322: 		ld 		($B00A),A
-00:0164 BB              	   323: 		cp		E					;check for cpl of block nr
-00:0165 C24B01          	   324: 		jp		nz,Er03_			; wrong complement block number
-                        	   325: 
-                        	   326: 		;get data block
-00:0168 1600            	   327: 		ld		D,0h				;start value of checksum
-00:016A 0680            	   328: 		ld		B,80h				;defines block size 128byte
-                        	   329: 
-                        	   330: getBlockData:
-00:016C DB00            	   331: 		in		A,(SIO_A_D)		;read RX byte into A
-00:016E 77              	   332: 		ld		(HL),A				;update
-00:016F 82              	   333: 		add		A,D
-00:0170 57              	   334: 		ld		D,A					;checksum in D
-00:0171 23              	   335: 		inc		HL					;dest address +1
-00:0172 78              	   336: 		ld 		A,B
-00:0173 3202B0          	   337: 		ld 		($B002),A
-00:0176 10F4            	   338: 		djnz	getBlockData		;loop until block finished
-                        	   339: 
-                        	   340: 
-                        	   341: checkBlockChecksum:
-                        	   342: 
-00:0178 DB00            	   343: 		in		A,(SIO_A_D)		;read RX hi byte into A
-00:017A 57              	   344: 		ld 		D,A
-00:017B DB00            	   345: 		in		A,(SIO_A_D)		;read RX low byte into A
-00:017D 5F              	   346: 		ld 		E,A					; DE = checksum in file
-00:017E ED530000        	   347: 		ld 		(XMChkSum),DE
-                        	   348: 		; ***	Calculate CRC16
-                        	   349: 
-00:0182 C5              	   350: 		push 	BC
-00:0183 E5              	   351: 		push 	HL
-00:0184 2A0000          	   352: 		ld 		HL,(XBAddr)			; get the block start address
-00:0187 018000          	   353: 		ld 		BC,$80
-                        	   354: 
-00:018A CD9C02          	   355: 		call	CRC16				; result CRC in DE
-00:018D ED53ACF1        	   356: 		ld 		($F1AC),DE
-00:0191 2A0000          	   357: 		ld 		HL,(XMChkSum)		; get the file checksum in HL
-00:0194 B7              	   358: 		or 		A 					; clear carry
-00:0195 ED52            	   359: 		sbc 	HL,DE				; calc the differnce
-                        	   360: 		; ***	if checksum OK the Z is set
-00:0197 E1              	   361: 		pop 	HL					
-00:0198 C1              	   362: 		pop  	BC					; restore  HL and BC
-                        	   363: 
-                        	   364: 
-00:0199 2804            	   365: 		jr		z,retBlockComplete
-00:019B 1E0D            	   366: 		ld		e,_err04_
-00:019D ED4D            	   367: 		reti						;return with checksum error
-                        	   368: retBlockComplete: 
-00:019F 1E00            	   369: 		ld		E,0h
-00:01A1 ED4D            	   370: 		reti						;return when block received completely
-                        	   371: 
-                        	   372: restoreSIO_0IO:
-00:01A3 F3              	   373: 		di
-00:01A4 3E53            	   374: 		ld		A,_Counter|_Rising|_Reset|_CW	
-00:01A6 D301            	   375: 		out		(CH1),A				; CH1 counter - disable interrupt
+                        	   291: blockErrors1_3:
+00:018E CD3001          	   292: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+00:0191 CD0000          	   293: 		call 	writeSTRBelow_CRLF
+00:0194 000D0A          	   294: 		defb    "\0\r\n"
+00:0197 46696C6520747261	   295: 		defb	"File transfer error: Format, Block ID, ... !",00
+00:019F 6E73666572206572
+00:01A7 726F723A20466F72
+00:01AF 6D61742C20426C6F
+00:01B7 636B2049442C202E
+00:01BF 2E2E2021
+00:01C3 00
+00:01C4 C9              	   296: 		ret
+                        	   297: 
+                        	   298: retry9Err:
+00:01C5 CD3001          	   299: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+00:01C8 CD0000          	   300: 		call 	writeSTRBelow_CRLF
+00:01CB 000D0A          	   301: 		defb    "\0\r\n"
+00:01CE 584D4F44454D3A20	   302: 		defb	"XMODEM: Block retry 9 times... !",00
+00:01D6 426C6F636B207265
+00:01DE 7472792039207469
+00:01E6 6D65732E2E2E2021
+00:01EE 00
+00:01EF C9              	   303: 		ret
+                        	   304: 
+                        	   305: 
+                        	   306: 
+                        	   307: ;************
+                        	   308: 
+                        	   309: checkSumErr: 
+00:01F0 CD0000          	   310: 		call 	TX_NAK 			;on chk sum error
+00:01F3 37              	   311: 		scf
+00:01F4 3F              	   312: 		ccf						;clear carry flag
+00:01F5 118000          	   313: 		ld		DE,0080h		;subtract 80h
+00:01F8 ED52            	   314: 		sbc 	HL,DE 			;from HL, so HL is reset to block start address
+                        	   315: 
+00:01FA 3A0000          	   316: 		ld		A,(TempVar2)		;count bad blocks in TempVar2
+00:01FD 3C              	   317: 		inc		A
+00:01FE 320000          	   318: 		ld		(TempVar2),A
+00:0201 FE09            	   319: 		cp		09h
+00:0203 CAC501          	   320: 		jp		z,retry9Err		;abort download after 9 attempts to transfer a block
+00:0206 C35D00          	   321: 		jp 		nextBlock		;repeat block reception
+                        	   322: 
+                        	   323: 
+                        	   324: ; Calculating XMODEM CRC-16 in Z80
+                        	   325: ; ================================
+                        	   326: 
+                        	   327: ; Calculate an XMODEM 16-bit CRC from data in memory. This code is as
+                        	   328: ; tight and as fast as it can be, moving as much code out of inner
+                        	   329: ; loops as possible. Can be made shorter, but slower, by replacing
+                        	   330: ; JP with JR.
+                        	   331: 
+                        	   332: ; On entry, crc..crc+1   =  incoming CRC
+                        	   333: ;           addr..addr+1 => start address of data
+                        	   334: ;           num..num+1   =  number of bytes
+                        	   335: ; On exit,  crc..crc+1   =  updated CRC
+                        	   336: ;           addr..addr+1 => undefined
+                        	   337: ;           num..num+1   =  undefined
+                        	   338: 
+                        	   339: ; Multiple passes over data in memory can be made to update the CRC.
+                        	   340: ; For XMODEM, initial CRC must be 0. Result in DE..
+                        	   341: 
+                        	   342: CRC16:
+00:0209 110000          	   343: 		ld 		DE,$00					; Incoming CRC
+                        	   344: 		; Enter here with HL=>data, BC=count, DE=incoming CRC
+                        	   345: bytelp:
+00:020C C5              	   346: 		push 	BC					; Save count
+00:020D 7E              	   347: 		ld 		A,(HL)				; Fetch byte from memory
+                        	   348: ;		 The following code updates the CRC with the byte in A -----+
+00:020E AA              	   349: 		xor 	D					; XOR byte into CRC top byte		|
+00:020F 0608            	   350: 		ld 		B,8					; Prepare to rotate 8 bits			|
+                        	   351: rotlp:                    ;											|
+00:0211 CB23            	   352: 		sla 	E
+00:0213 8F              	   353: 		adc 	A,A					; Rotate CRC						|
+00:0214 D21F02          	   354: 		jp 		NC,clear			; b15 was zero						|
+00:0217 57              	   355: 		ld 		D,A					; Put CRC high byte back into D		|
+00:0218 7B              	   356: 		ld 		A,E
+00:0219 EE21            	   357: 		xor 	$21
+00:021B 5F              	   358: 		ld 		E,A					; CRC=CRC XOR $1021, XMODEM polynomic	|
+00:021C 7A              	   359: 		ld 		A,D
+00:021D EE10            	   360: 		xor 	$10					; And get CRC top byte back into A	|
+                        	   361: clear:                    ;											|
+00:021F 05              	   362: 		dec 	B	
+00:0220 C21102          	   363: 		jp 		NZ,rotlp				; Loop for 8 bits					|
+00:0223 57              	   364: 		ld 		D,A					; Put CRC top byte back into D		|
+                        	   365: ;		 -----------------------------------------------------------+
+                        	   366: 
+00:0224 23              	   367: 		inc		HL					; Step to next byte
+00:0225 C1              	   368: 		pop 	BC
+00:0226 0B              	   369: 		dec 	BC					; num=num-1
+00:0227 78              	   370: 		ld 		A,B
+00:0228 B1              	   371: 		or 		C
+00:0229 C20C02          	   372: 		jp 		NZ,bytelp			; Loop until num=0
+                        	   373: 
+00:022C C9              	   374: 		ret
+                        	   375: 
                         	   376: 
-00:01A8 CD0000          	   377: 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-                        	   378: 
-00:01AB CD0C00          	   379: 		call 	SIO_A_TXRX_INTon
-00:01AE CD3B00          	   380: 		call 	A_RTS_ON
-00:01B1 FB              	   381: 		ei
-00:01B2 C9              	   382: 		ret
+                        	   377: 
+                        	   378: 	;***************************************************************
+                        	   379: 	;SAMPLE EXECUTION:
+                        	   380: 	;***************************************************************
+                        	   381: 
+                        	   382: 
                         	   383: 
-                        	   384: exitRecBlock:
-                        	   385: 		; ***	File transfer OK
-00:01B3 CD8402          	   386: 		call 	TX_ACK
-00:01B6 CDA301          	   387: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
-00:01B9 CD0000          	   388: 		call 	writeSTRBelow_CRLF
-00:01BC 000D0A          	   389: 		defb    "\0\r\n"
-00:01BF 584D4F44454D2066	   390: 		defb	"XMODEM file transfer OK !",00
-00:01C7 696C65207472616E
-00:01CF 73666572204F4B20
-00:01D7 21
-00:01D8 00
-00:01D9 C9              	   391: 		ret
-                        	   392: 
-                        	   393: 
-                        	   394: timeOutErr:
-00:01DA CDA301          	   395: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
-00:01DD CD0000          	   396: 		call 	writeSTRBelow_CRLF
-00:01E0 000D0A          	   397: 		defb    "\0\r\n"
-00:01E3 412074696D6F7574	   398: 		defb	"A timout on XMODEM occured !",00
-00:01EB 206F6E20584D4F44
-00:01F3 454D206F63637572
-00:01FB 65642021
-00:01FF 00
-00:0200 C9              	   399: 		ret
-                        	   400: 
-                        	   401: blockErrors1_3:
-00:0201 CDA301          	   402: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
-00:0204 CD0000          	   403: 		call 	writeSTRBelow_CRLF
-00:0207 000D0A          	   404: 		defb    "\0\r\n"
-00:020A 46696C6520747261	   405: 		defb	"File transfer error: Format, Block ID, ... !",00
-00:0212 6E73666572206572
-00:021A 726F723A20466F72
-00:0222 6D61742C20426C6F
-00:022A 636B2049442C202E
-00:0232 2E2E2021
-00:0236 00
-00:0237 C9              	   406: 		ret
-                        	   407: 
-                        	   408: retry9Err:
-00:0238 CDA301          	   409: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
-00:023B CD0000          	   410: 		call 	writeSTRBelow_CRLF
-00:023E 000D0A          	   411: 		defb    "\0\r\n"
-00:0241 584D4F44454D3A20	   412: 		defb	"XMODEM: Block retry 9 times... !",00
-00:0249 426C6F636B207265
-00:0251 7472792039207469
-00:0259 6D65732E2E2E2021
-00:0261 00
-00:0262 C9              	   413: 		ret
-                        	   414: 
-                        	   415: 
-                        	   416: 
-                        	   417: ;************
-                        	   418: 
-                        	   419: checkSumErr: 
-00:0263 CD7C02          	   420: 		call 	TX_NAK 			;on chk sum error
-00:0266 37              	   421: 		scf
-00:0267 3F              	   422: 		ccf						;clear carry flag
-00:0268 118000          	   423: 		ld		DE,0080h		;subtract 80h
-00:026B ED52            	   424: 		sbc 	HL,DE 			;from HL, so HL is reset to block start address
-                        	   425: 
-00:026D 3A0000          	   426: 		ld		A,(TempVar2)		;count bad blocks in TempVar2
-00:0270 3C              	   427: 		inc		A
-00:0271 320000          	   428: 		ld		(TempVar2),A
-00:0274 FE09            	   429: 		cp		09h
-00:0276 CA3802          	   430: 		jp		z,retry9Err		;abort download after 9 attempts to transfer a block
-00:0279 C3D000          	   431: 		jp 		nextBlock		;repeat block reception
-                        	   432: 
-                        	   433: 
-                        	   434: 			
-                        	   435: TX_NAK:
-00:027C 3E15            	   436: 		ld 		a,NAK				;send NAK 15h to host
-00:027E D300            	   437: 		out		(SIO_A_D),A
-00:0280 CD7700          	   438: 		call	TX_EMP
-00:0283 C9              	   439: 		RET
-                        	   440: 
-                        	   441: 
-                        	   442: 
-                        	   443: TX_ACK:
-00:0284 3E06            	   444: 		ld		 A,ACK				;send AK to host
-00:0286 D300            	   445: 		out		(SIO_A_D),A
-00:0288 CD7700          	   446: 		call	TX_EMP
-00:028B C9              	   447: 		ret
-                        	   448: 
-                        	   449: 
-                        	   450: TX_C:
-00:028C 3E43            	   451: 		ld		 A,'C'				;send 'C' to host
-00:028E D300            	   452: 		out		(SIO_A_D),A
-00:0290 CD7700          	   453: 		call	TX_EMP
-00:0293 C9              	   454: 		RET
-                        	   455: 
-                        	   456: TX_X:
-00:0294 3E58            	   457: 		ld		 a,'X'				;send 'C' to host
-00:0296 D300            	   458: 		out		(SIO_A_D),A
-00:0298 CD7700          	   459: 		call	TX_EMP
-00:029B C9              	   460: 		RET
-                        	   461: 
-                        	   462: ; Calculating XMODEM CRC-16 in Z80
-                        	   463: ; ================================
-                        	   464: 
-                        	   465: ; Calculate an XMODEM 16-bit CRC from data in memory. This code is as
-                        	   466: ; tight and as fast as it can be, moving as much code out of inner
-                        	   467: ; loops as possible. Can be made shorter, but slower, by replacing
-                        	   468: ; JP with JR.
-                        	   469: 
-                        	   470: ; On entry, crc..crc+1   =  incoming CRC
-                        	   471: ;           addr..addr+1 => start address of data
-                        	   472: ;           num..num+1   =  number of bytes
-                        	   473: ; On exit,  crc..crc+1   =  updated CRC
-                        	   474: ;           addr..addr+1 => undefined
-                        	   475: ;           num..num+1   =  undefined
-                        	   476: 
-                        	   477: ; Multiple passes over data in memory can be made to update the CRC.
-                        	   478: ; For XMODEM, initial CRC must be 0. Result in DE..
-                        	   479: 
-                        	   480: CRC16:
-00:029C 110000          	   481: 		ld 		DE,$00					; Incoming CRC
-                        	   482: 		; Enter here with HL=>data, BC=count, DE=incoming CRC
-                        	   483: bytelp:
-00:029F C5              	   484: 		push 	BC					; Save count
-00:02A0 7E              	   485: 		ld 		A,(HL)				; Fetch byte from memory
-                        	   486: ;		 The following code updates the CRC with the byte in A -----+
-00:02A1 AA              	   487: 		xor 	D					; XOR byte into CRC top byte		|
-00:02A2 0608            	   488: 		ld 		B,8					; Prepare to rotate 8 bits			|
-                        	   489: rotlp:                    ;											|
-00:02A4 CB23            	   490: 		sla 	E
-00:02A6 8F              	   491: 		adc 	A,A					; Rotate CRC						|
-00:02A7 D2B202          	   492: 		jp 		NC,clear			; b15 was zero						|
-00:02AA 57              	   493: 		ld 		D,A					; Put CRC high byte back into D		|
-00:02AB 7B              	   494: 		ld 		A,E
-00:02AC EE21            	   495: 		xor 	$21
-00:02AE 5F              	   496: 		ld 		E,A					; CRC=CRC XOR $1021, XMODEM polynomic	|
-00:02AF 7A              	   497: 		ld 		A,D
-00:02B0 EE10            	   498: 		xor 	$10					; And get CRC top byte back into A	|
-                        	   499: clear:                    ;											|
-00:02B2 05              	   500: 		dec 	B	
-00:02B3 C2A402          	   501: 		jp 		NZ,rotlp				; Loop for 8 bits					|
-00:02B6 57              	   502: 		ld 		D,A					; Put CRC top byte back into D		|
-                        	   503: ;		 -----------------------------------------------------------+
-                        	   504: 
-00:02B7 23              	   505: 		inc		HL					; Step to next byte
-00:02B8 C1              	   506: 		pop 	BC
-00:02B9 0B              	   507: 		dec 	BC					; num=num-1
-00:02BA 78              	   508: 		ld 		A,B
-00:02BB B1              	   509: 		or 		C
-00:02BC C29F02          	   510: 		jp 		NZ,bytelp			; Loop until num=0
-                        	   511: 
-00:02BF C9              	   512: 		ret
-                        	   513: 
-                        	   514: 
-                        	   515: 
-                        	   516: 	;***************************************************************
-                        	   517: 	;SAMPLE EXECUTION:
-                        	   518: 	;***************************************************************
-                        	   519: 
-                        	   520: 
-                        	   521: 
-                        	   522: 
+                        	   384: 
 
 
 Symbols by name:
-ACK                              E:0006
-A_RTS_OFF                       00:0030 EXP
-A_RTS_ON                        00:003B EXP
 CH0                             external
 CH1                             external
 CH2                             external
 CH3                             external
 CR                               E:000D
-CRC16                           00:029C EXP
+CRC16                           00:0209 EXP
 CTC1_INT_OFF                    external
 CTCpulse                         E:000A
 CTCtimeout                       E:000B
 EOT                              E:0004
 EOT_FOUND                        E:0002
-EO_CH_AV                        00:0053
-Er01_                           00:0143
-Er02_                           00:0147
-Er03_                           00:014B
-Er04_                           00:014F
+EO_CH_AV                        00:0006
+Er01_                           00:00D0
+Er02_                           00:00D4
+Er03_                           00:00D8
+Er04_                           00:00DC
 InitBuffers                     external
 LF                               E:000A
-NAK                              E:0015
 NUL                              E:0000
-PLD_PCB_Start                   external EXP
 RAM_Start                       00:0000 EXP
-RX_BS                           00:0050
-RX_CR                           00:004D
+RX_BS                           00:0003
+RX_CR                           00:0000
 SIO_A_C                         external
 SIO_A_D                         external
-SIO_A_DI                        00:0044 EXP
-SIO_A_EI                        00:0003 EXP
+SIO_A_DI                        external EXP
+SIO_A_EI                        external EXP
 SIO_A_RESET                     external EXP
-SIO_A_RX_INTon                  00:0027
+SIO_A_RTS_OFF                   external EXP
+SIO_A_RTS_ON                    external EXP
 SIO_A_RXon                      external EXP
-SIO_A_TXRX_INToff               00:0015 EXP
-SIO_A_TXRX_INTon                00:000C EXP
-SIO_A_TX_INTon                  00:001E
+SIO_A_TXRX_INToff               external EXP
+SIO_A_TXRX_INTon                external EXP
 SIO_A_TXon                      external EXP
 SIO_B_C                         external
 SIO_B_D                         external
 SIO_Int_Read_Vec                 E:F40C
 SIO_Int_Vec                      E:F400
 SOH                              E:0001
-SPEC_RX_CONDITON                00:005A
+SPEC_RX_CONDITON                00:000D
 SetupXMODEM_TXandRX             external EXP
-TX_ACK                          00:0284 EXP
-TX_C                            00:028C EXP
-TX_EMP                          00:0077 EXP
-TX_NAK                          00:027C EXP
-TX_X                            00:0294 EXP
+TX_ACK                          external EXP
+TX_C                            external EXP
+TX_EMP                          external EXP
+TX_NAK                          external EXP
+TX_X                            external EXP
 TempVar1                        external
 TempVar2                        external
 WR1                              E:0001
-WR3                              E:0003
 XBAddr                          external
 XMChkSum                        external
 _CW                              E:0001
 _Counter                         E:0040
 _EN_INT_Nx_Char                  E:0020
 _INT_EN                          E:0080
-_Int_All_Rx_Char_NP              E:0018
-_RX_8_bits                       E:00C0
 _Reset                           E:0002
 _Reset_STAT_INT                  E:0010
 _Rising                          E:0010
-_Rx_Disable                      E:0000
 _Rx_INT_First_Char               E:0008
 _TC_Follow                       E:0004
-_Tx_8bits_char                   E:0060
-_Tx_Enable                       E:0008
-_Tx_INT_EN                       E:0002
 _WAIT_READY_EN                   E:0080
 _WAIT_READY_R_T                  E:0020
 _Z80CTC_Base                    external
@@ -922,120 +756,96 @@ _err01_                          E:0008
 _err02_                          E:0009
 _err03_                          E:000C
 _err04_                          E:000D
-blockErrors1_3                  00:0201
-blockFinished                   00:0118
-bytelp                          00:029F
-checkBlockChecksum              00:0178
-checkBlockNum                   00:0153
-checkByte01                     00:0135
-checkComplBlockNum              00:015F
-checkSumErr                     00:0263
-clear                           00:02B2
-doImportXMODEM                  00:0083 EXP
-exitRecBlock                    00:01B3
-getBlockData                    00:016C
+blockErrors1_3                  00:018E
+blockFinished                   00:00A5
+bytelp                          00:020C
+checkBlockChecksum              00:0105
+checkBlockNum                   00:00E0
+checkByte01                     00:00C2
+checkComplBlockNum              00:00EC
+checkSumErr                     00:01F0
+clear                           00:021F
+doImportXMODEM                  00:0010 EXP
+exitRecBlock                    00:0140
+getBlockData                    00:00F9
 gpioB                           external
 gpio_in                         external
 gpio_out                        external
-nextBlock                       00:00D0
-nextC                           00:00CF
+nextBlock                       00:005D
+nextC                           00:005C
 portA_Contr                     external
 portA_Data                      external
 portB_Contr                     external
 portB_Data                      external
-purgeRXA                        00:005D EXP
-purgeRXB                        00:006A EXP
-receiveBlockIn                  00:0122
-restoreSIO_0IO                  00:01A3
-retBlockComplete                00:019F
-retry9Err                       00:0238
-rotlp                           00:02A4
+purgeRXA                        external EXP
+purgeRXB                        external EXP
+receiveBlockIn                  00:00AF
+restoreSIO_0IO                  00:0130
+retBlockComplete                00:012C
+retry9Err                       00:01C5
+rotlp                           00:0211
 sio_ac                          external
 sio_ad                          external
 sio_bc                          external
 sio_bd                          external
-timeOutErr                      00:01DA
+timeOutErr                      00:0167
 writeSTRBelow                   external
 writeSTRBelow_CRLF              external
 
 Symbols by value:
 0000 NUL
 0000 RAM_Start
-0000 _Rx_Disable
+0000 RX_CR
 0001 SOH
 0001 WR1
 0001 _CW
 0002 EOT_FOUND
 0002 _Reset
-0002 _Tx_INT_EN
-0003 SIO_A_EI
-0003 WR3
+0003 RX_BS
 0004 EOT
 0004 _TC_Follow
-0006 ACK
+0006 EO_CH_AV
 0008 _Rx_INT_First_Char
-0008 _Tx_Enable
 0008 _err01_
 0009 _err02_
 000A CTCpulse
 000A LF
 000B CTCtimeout
-000C SIO_A_TXRX_INTon
 000C _err03_
 000D CR
+000D SPEC_RX_CONDITON
 000D _err04_
 0010 _Reset_STAT_INT
 0010 _Rising
-0015 NAK
-0015 SIO_A_TXRX_INToff
-0018 _Int_All_Rx_Char_NP
-001E SIO_A_TX_INTon
+0010 doImportXMODEM
 0020 _EN_INT_Nx_Char
 0020 _WAIT_READY_R_T
-0027 SIO_A_RX_INTon
-0030 A_RTS_OFF
-003B A_RTS_ON
 0040 _Counter
-0044 SIO_A_DI
-004D RX_CR
-0050 RX_BS
-0053 EO_CH_AV
-005A SPEC_RX_CONDITON
-005D purgeRXA
-0060 _Tx_8bits_char
-006A purgeRXB
-0077 TX_EMP
+005C nextC
+005D nextBlock
 0080 _INT_EN
 0080 _WAIT_READY_EN
-0083 doImportXMODEM
-00C0 _RX_8_bits
-00CF nextC
-00D0 nextBlock
-0118 blockFinished
-0122 receiveBlockIn
-0135 checkByte01
-0143 Er01_
-0147 Er02_
-014B Er03_
-014F Er04_
-0153 checkBlockNum
-015F checkComplBlockNum
-016C getBlockData
-0178 checkBlockChecksum
-019F retBlockComplete
-01A3 restoreSIO_0IO
-01B3 exitRecBlock
-01DA timeOutErr
-0201 blockErrors1_3
-0238 retry9Err
-0263 checkSumErr
-027C TX_NAK
-0284 TX_ACK
-028C TX_C
-0294 TX_X
-029C CRC16
-029F bytelp
-02A4 rotlp
-02B2 clear
+00A5 blockFinished
+00AF receiveBlockIn
+00C2 checkByte01
+00D0 Er01_
+00D4 Er02_
+00D8 Er03_
+00DC Er04_
+00E0 checkBlockNum
+00EC checkComplBlockNum
+00F9 getBlockData
+0105 checkBlockChecksum
+012C retBlockComplete
+0130 restoreSIO_0IO
+0140 exitRecBlock
+0167 timeOutErr
+018E blockErrors1_3
+01C5 retry9Err
+01F0 checkSumErr
+0209 CRC16
+020C bytelp
+0211 rotlp
+021F clear
 F400 SIO_Int_Vec
 F40C SIO_Int_Read_Vec

@@ -1,0 +1,973 @@
+Sections:
+00: "LCD_DRIVER" (0-226)
+
+
+Source: "stdin"
+                        	     1: 	; ***********************************************************
+                        	     2: 	;  Support file for Hitachi HD4480 4 line display
+                        	     3: 	; ***********************************************************
+                        	     4: 	; *CE_TMP1 register HC374.  D0-D7  in/out adress $60-6F
+                        	     5: 	; *CE_TMP2 register HC1765  D0-D3  in/out adress $70-7F
+                        	     6: 	;		D0	RS		Register select
+                        	     7: 	; 		D1	R/W		Read/ *Write    [Always kept LOW, no read function]
+                        	     8: 	; 		D3	Enable	Enable read/write
+                        	     9: 	;	PROVIDE(_CE_HD44780_DATA = 0x60);		/*	 50 - 5F  */
+                        	    10: 	;	PROVIDE(_CE_HD44780_CTRL = 0x70);		/*	 50 - 5F  */
+                        	    11: 
+                        	    12: 	;* LCD VSS & K (blue, brown) pin to ground
+                        	    13: 	;* LCD VCC & A (green, red) pin to 5V
+                        	    14: 	;* 10K resistor:
+                        	    15: 	;* ends to +5V and ground
+                        	    16: 	;* wiper to LCD VO pin (pin 3) 
+                        	    17: 	;
+                        	    18: 
+                        	    19: 		section   	LCD_DRIVER
+                        	    20: 
+                        	    21: HD44780_command			equ $70
+                        	    22: HD44780_data			equ $60
+                        	    23: 
+                        	    24: 		include "Z80_Params_.inc"
+
+Source: "Z80_Params_.inc"
+                        	     1: ;Z80_PLD_PCB_.asm
+                        	     2: 
+                        	     3: 
+                        	     4: stacktop: equ	0xFFF0	
+                        	     5: 
+                        	     6: 
+                        	     7: ; PIO addressess...
+                        	     8: ;******************************************
+                        	     9: 	  ; _Z80PIO_Base= $00
+                        	    10: portA_Contr:	equ _Z80PIO_Base + 1
+                        	    11: portB_Contr:	equ _Z80PIO_Base + 3
+                        	    12: portA_Data:		equ _Z80PIO_Base + 0
+                        	    13: portB_Data:		equ _Z80PIO_Base + 2
+                        	    14: 
+                        	    15: 
+                        	    16: gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
+                        	    17: gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
+                        	    18: gpioB:			equ		portB_Data
+                        	    19: 
+                        	    20: ; SIO_0 stuff
+                        	    21: ;******************************************
+                        	    22: SIO_A_D:		equ	_Z80SIO_Base	  ; = $20
+                        	    23: 				;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	    24: SIO_A_C:		equ	_Z80SIO_Base+2
+                        	    25: 				;SIO_0  CHANNEL B DATA
+                        	    26: SIO_B_D:		equ	_Z80SIO_Base+1
+                        	    27: 				;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	    28: SIO_B_C:		equ	_Z80SIO_Base+3
+                        	    29: 
+                        	    30: sio_ac: 		equ 	SIO_A_C
+                        	    31: sio_ad: 		equ 	SIO_A_D
+                        	    32: sio_bc: 		equ 	SIO_B_C
+                        	    33: sio_bd: 		equ 	SIO_B_D
+                        	    34: 
+                        	    35: Interupt_vector		= SIO_Int_Vec
+                        	    36: 
+                        	    37: SIO_Int_Vec		EQU     $F400				; interrupt vector 
+                        	    38: SIO_Int_WR_Vec	EQU     SIO_Int_Vec+8		;sio_0 channel A write interrupt vector
+                        	    39: SIO_Int_EXT_Vec	EQU     SIO_Int_Vec+10	;sio_0 channel A external/status ; interrupt vector
+                        	    40: SIO_Int_Read_Vec	EQU     SIO_Int_Vec+12	;sio_0 channel A read interrupt vector
+                        	    41: SIO_Int_Spec_Vec	EQU     SIO_Int_Vec+14	;sio_0 channel A special receive interrupt vector
+                        	    42: 
+                        	    43: 		
+                        	    44: SIO_USB_WR_Vec	EQU     SIO_Int_Vec+0		;sio_0 channel B write interrupt vector
+                        	    45: SIO_USB_EXT_Vec	EQU     SIO_Int_Vec+2		;sio_0 channel B external/status ; interrupt vector
+                        	    46: SIO_USB_Read_Vec	EQU     SIO_Int_Vec+4		;sio_0 channel B read interrupt vector
+                        	    47: SIO_USB_Spec_Vec	EQU     SIO_Int_Vec+6		;sio_0 channel B special receive interrupt vector
+                        	    48: 
+                        	    49: ;Write register 0
+                        	    50: WR0 equ 0
+                        	    51: _Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
+                        	    52: _Ch_Reset		equ 3<<3			; 18
+                        	    53: _EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
+                        	    54: _Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
+                        	    55: _Error_Reset 	equ $30				; (30)	
+                        	    56: _Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
+                        	    57: 
+                        	    58: ;Write register 1
+                        	    59: WR1 equ 1
+                        	    60: _Ext_INT_EN			equ 1
+                        	    61: _Tx_INT_EN 			equ 2
+                        	    62: _Status_Vector		equ 4
+                        	    63: _Rx_INT_Disable		equ 0
+                        	    64: _Rx_INT_First_Char  equ $08
+                        	    65: _INT_All_Rx_Char_P 	equ $10 
+                        	    66: _Int_All_Rx_Char_NP	equ $18
+                        	    67: _WAIT_READY_R_T 	equ $20
+                        	    68: _WAIT_READY_FUNC	equ $40
+                        	    69: _WAIT_READY_EN		equ $80
+                        	    70: 
+                        	    71: WR2 equ 2
+                        	    72: 
+                        	    73: ;Write register 3
+                        	    74: WR3 equ 3
+                        	    75: _Rx_Enable 			equ $01
+                        	    76: _Rx_Disable 		equ $00
+                        	    77: _Auto_Enable		equ $20
+                        	    78: _RX_5_bits			equ $00
+                        	    79: _RX_6_bits			equ $40
+                        	    80: _RX_7_bits			equ $80
+                        	    81: _RX_8_bits			equ $C0
+                        	    82: 
+                        	    83: ;Write register 4
+                        	    84: WR4 equ 4
+                        	    85: _Parity_EN			equ $01
+                        	    86: _Parity_Even		equ $02
+                        	    87: _Stop_1_bit			equ $04
+                        	    88: _Stop_1_2_bit		equ $08
+                        	    89: _Stop_2_bit			equ $0C
+                        	    90: _X1_Clock_mode		equ $00
+                        	    91: _X16_Clock_mode		equ $40
+                        	    92: _X32_Clock_mode		equ $80
+                        	    93: _X64_Clock_mode		equ $C0
+                        	    94: 
+                        	    95: ;Write register 5
+                        	    96: WR5 equ 5
+                        	    97: _RTS_Enable			equ $02
+                        	    98: _Tx_Enable 			equ $08
+                        	    99: _Send_Break			equ $10
+                        	   100: _Tx_5bits_char		equ $00
+                        	   101: _Tx_7bits_char		equ $20
+                        	   102: _Tx_6bits_char		equ $40
+                        	   103: _Tx_8bits_char		equ $60
+                        	   104: _DTR_Enable 		equ $80
+                        	   105: 
+                        	   106: EOT_FOUND			equ $02
+                        	   107: _err01_				equ	$08
+                        	   108: _err02_				equ	$09
+                        	   109: _err03_				equ	$0C
+                        	   110: _err04_				equ	$0D
+                        	   111: _err05_				equ	$0E
+                        	   112: CTCpulse			equ $0A
+                        	   113: CTCtimeout			equ $0B
+                        	   114: 
+                        	   115: 
+                        	   116: ; CTC stuff
+                        	   117: ;******************************************
+                        	   118: CH0		equ 	_Z80CTC_Base	  ; = $10, linker script
+                        	   119: CH1		equ 	_Z80CTC_Base+1	
+                        	   120: CH2		equ 	_Z80CTC_Base+2	
+                        	   121: CH3		equ 	_Z80CTC_Base+3	
+                        	   122: CTC_TIMEOUT 	equ $EE			; timeout flag
+                        	   123: 
+                        	   124: _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
+                        	   125: _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
+                        	   126: _Timer 		equ 	$00
+                        	   127: _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
+                        	   128: _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
+                        	   129: _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
+                        	   130: _TC_Follow 	equ 	$04		; D2 - 1 time constant follows
+                        	   131: _Reset 		equ 	$02		; D1 - 1 Software reset
+                        	   132: _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
+                        	   133: 
+                        	   134: ; Interrupt vectors for CTC
+                        	   135: CTC_CH0_I_Vector	EQU     SIO_Int_Vec+$10		;CTC channel 0 interrupt vector 
+                        	   136: CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector 
+                        	   137: CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
+                        	   138: CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
+                        	   139: 
+                        	   140: ; Data tables  (upper EPROM/FLASH)
+                        	   141: ; stack  				= $FF00
+                        	   142: Heap				= $F000				; space for variable storage
+                        	   143: 
+                        	   144: ; variables  	(upper ram)
+                        	   145: PIO_B_value:		= $F1D0
+                        	   146: Result_NumToHex:	= $F1F0
+                        	   147: 
+                        	   148: 
+                        	   149: ;*****	ALIGN command  : 00 removes all align commands
+                        	   150: DOALIGN 	EQU 	00
+                        	   151: 
+                        	   152: EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
+                        	   153: TestChar:		EQU		'A'				;TEST CHARACTER = A
+                        	   154: CRChar:			EQU		0DH				; carrige return
+                        	   155: LFChar:			EQU		0AH				; line feed
+                        	   156: NUL			EQU		00
+                        	   157: SOH			EQU		01
+                        	   158: STX			EQU		02
+                        	   159: ETX			EQU		03
+                        	   160: EOT			EQU		04
+                        	   161: ENQ			EQU		05
+                        	   162: ACK			EQU		06
+                        	   163: BEL			EQU		07
+                        	   164: BS			EQU		08h
+                        	   165: HT			EQU		09h
+                        	   166: LF			EQU		0AH
+                        	   167: VT			EQU		0BH
+                        	   168: FF			EQU		0CH
+                        	   169: CR			EQU		0DH
+                        	   170: SO			EQU		0Eh
+                        	   171: SI			EQU		0Fh
+                        	   172: DLE			EQU		10h
+                        	   173: DC1			EQU		11h
+                        	   174: DC2			EQU		12h
+                        	   175: DC3			EQU		13h
+                        	   176: DC4			EQU		14h
+                        	   177: NAK			EQU		15h
+                        	   178: SYN			EQU		16h
+                        	   179: ETB			EQU		17h
+                        	   180: CAN			EQU		18h
+                        	   181: EM			EQU		19h
+                        	   182: SUB			EQU		1Ah
+                        	   183: ESC			EQU		1Bh
+                        	   184: FS			EQU		1Ch
+                        	   185: GS			EQU		1Dh
+                        	   186: RS			EQU		1Eh
+                        	   187: US			EQU		1Fh
+                        	   188: ITEM		EQU		1Ch
+                        	   189: STEND		EQU		1Dh
+                        	   190: LISTEND		EQU		1Eh
+                        	   191: SP			EQU		20h
+                        	   192: CDEL		EQU 	0xEE
+                        	   193: 
+                        	   194: ; 	Variables in SRAM   HEAP TOP  - Moved to load script !
+                        	   195: ;DATA LOCATIONS
+                        	   196: ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
+                        	   197: ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
+                        	   198: ; BufStat:		EQU     0D07H ;The state of the buffer okay (00), error (EE), auto (AA)        (1-byte)
+                        	   199: ; CByteRec:		EQU     0D08H ;Current byte received from SIO_0                                  (1-byte)
+                        	   200: ; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to SIO_0, or by key press FF=auto  (1-byte)
+                        	   201: ; KeyPressed:		EQU     0D0AH ;Key Pressed Flag, 00-False, FF-True                             (1-byte)
+                        	   202: 
+                        	   203: ;BUFFER CONFIGURATION
+                        	   204: ; CBufLoc:		EQU     0B00H ;Location of circular buffer
+                        	   205: ; CBufHead:		EQU     0D0BH ;Pointer to the Head of the Circular buffer                      (1-byte)
+                        	   206: ; CBufTail:		EQU     0D0CH ;Pointer to the Tail of the Circular buffer                      (1-byte)
+                        	   207: 
+                        	   208: ;BUFFER SIZES, change to suit
+                        	   209: ; BUFF16:			EQU     0FH   ;16 bytes
+                        	   210: ; BUFF32:			EQU     1FH   ;32 bytes
+                        	   211: ; BUFF64:			EQU     3FH   ;64 bytes
+                        	   212: ; BUFF128:		EQU     7FH   ;128 bytes
+                        	   213: ; BUFF256:		EQU     0FFH  ;256 bytes
+                        	   214: ; CBufSize:		EQU     BUFF32  ;16 bytes (Change if required)
+                        	   215: 
+                        	   216: 
+                        	   217: ;INTERRUPT VECTOR TABLE SETUP
+                        	   218: ;The interrupt will call one of these service routines depending on the type of interrupt
+                        	   219: ;There are 4 reasons the interrupt will occur:
+                        	   220: ; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
+                        	   221: ; 2. External/Status Change - Indicating a change in the modem line or break condition
+                        	   222: ; 3. Receive Character Available - Indicating that data has been sent to CPU
+                        	   223: ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
+                        	   224: ;
+                        	   225: ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
+                        	   226: ;address is the value in the interrupt register 'I'.  The Low byte of the address is
+                        	   227: ;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
+                        	   228: ;shows what bits are set on the data bus.  This is used to index the vector table:
+                        	   229: ;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
+                        	   230: ;
+                        	   231: ; Channel   D3  D2  D1  Addr  Interrupt type
+                        	   232: ; -------   --  --  --  ----  --------------
+                        	   233: ;    B       0   0   0   00H  Transmit Buffer Empty
+                        	   234: ;    B       0   0   1   02H  External/Status Change
+                        	   235: ;    B       0   1   0   04H  Receive Character Available
+                        	   236: ;    B       0   1   1   06H  Special Receive Condition
+                        	   237: ;    A       1   0   0   08H  Transmit Buffer Empty
+                        	   238: ;    A       1   0   1   0AH  External/Status Change
+                        	   239: ;    A       1   1   0   0CH  Receive Character Available
+                        	   240: ;    A       1   1   1   0EH  Special Receive Condition
+                        	   241: ;
+                        	   242: ; SIO_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
+                        	   243: ; SIO_WriteVector:		EQU		SIO_IntVectors+08H ;Write Interrupt Vector
+                        	   244: ; SIO_ExternalVector:	EQU		SIO_IntVectors+0AH ;External Status Interrupt Vector
+                        	   245: ; SIO_ReadVector:		EQU		SIO_IntVectors+0CH ;Read Interrupt Vector
+                        	   246: ; SIO_SpecialVector:		EQU		SIO_IntVectors+0EH ;Special Receive Interrupt Vector
+                        	   247: 
+                        	   248: 
+                        	   249: 	; SIO_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+                        	   250: 	; SIO_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+                        	   251: 	; SIO_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	   252: 	; SIO_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	   253: 
+                        	   254: ;****************************************************************************
+                        	   255: 
+                        	   256: 
+                        	   257: 
+                        	   258: 
+                        	   259: ; Define the memory size to be used for the CP/M configuration
+                        	   260: ; MEM:    equ 60
+                        	   261: 
+                        	   262: ; The CPM origin will be at: (MEM-7)*1024
+                        	   263: ; This screwy convention is due to the way that that the CP/M origin is defined.
+                        	   264: ; CPM_BASE:	equ	(MEM-7)*1024
+                        	   265: 
+                        	   266: ; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
+                        	   267: 
+                        	   268: 
+                        	   269: 
+
+Source: "stdin"
+                        	    25: 		include "HD_44780_defs.inc"
+
+Source: "HD_44780_defs.inc"
+                        	     1: 
+                        	     2: 
+                        	     3: ;I/D	= 1:Increment
+                        	     4: ;I/D	= 0:Decrement
+                        	     5: ;S	= 1:Accompanies display shift
+                        	     6: ;S/C	= 1:Display shift
+                        	     7: ;S/C	= 0:Cursor move
+                        	     8: ;R/L= 1:Shift to the right
+                        	     9: ;R/L= 0:Shift to the left
+                        	    10: ;DL= 1:8 bits, DL = 0: 4 bits
+                        	    11: ;N= 1:2 lines, N = 0: 1 line
+                        	    12: ;F = 1:5 × 10 dots, F = 0: 5 × 8 dots
+                        	    13: ;BF	= 1:Internally operating
+                        	    14: ;BF	= 0:Instructions acceptable DDRAM: Display data RAM
+                        	    15: 
+                        	    16: 
+00:0000 20              	    17: _displayfunction:       defb $20
+00:0001 10              	    18: _displaycontrol:        defb $10
+00:0002 04              	    19: _displaymode:           defb $04
+                        	    20: 
+                        	    21: 
+                        	    22: LCD_CLEARDISPLAY	equ		0x01
+                        	    23: LCD_RETURNHOME 		equ		0x02
+                        	    24: 
+                        	    25: ;// flags for display entry mode
+                        	    26: ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
+                        	    27: ;Entry mode set 			0 	0 	0 	0 	0 	0 	0 	1 	I/D S 	Sets cursor move direction
+                        	    28: ;and specifies display shift. These operations are performed during data write and read.
+                        	    29: LCD_ENTRYMODESET 	equ		0x04
+                        	    30: ;********************************
+                        	    31: LCD_ENTRYRIGHT 		equ		0x00
+                        	    32: LCD_ENTRYLEFT 		equ		0x02            ; S	= 1:Accompanies display shift   
+                        	    33: LCD_ENTRYSHIFTDECREMENT 	equ		0x00 
+                        	    34: LCD_ENTRYSHIFTINCREMENT 	equ		0x01    ; I/D	= 1:Increment;I/D	= 0:Decrement
+                        	    35: 
+                        	    36: 
+                        	    37: ;// flags for display on/off control
+                        	    38: ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
+                        	    39: ;Display on/off control 	0 	0 	0 	0 	0 	0 	1 	D 	C 	B 	Sets entire display (D) on/off, 37 μs
+                        	    40: ;cursor on/off (C), and
+                        	    41: ;blinking of cursor position character (B).
+                        	    42: LCD_DISPLAYCONTROL 	equ		0x08
+                        	    43: ;********************************
+                        	    44: LCD_DISPLAYON 		equ		0x04    ; D=1  : Display ON
+                        	    45: LCD_DISPLAYOFF 		equ		0x00    ; D=0  : Display OFF
+                        	    46: LCD_CURSORON 		equ		0x02    ; C=1  : Cursor ON
+                        	    47: LCD_CURSOROFF 		equ		0x00    ; C=0  : Cursor OFF
+                        	    48: LCD_BLINKON 		equ		0x01    ; B=1  : Blink ON
+                        	    49: LCD_BLINKOFF 		equ		0x00    ; B=0  : Blink OFF
+                        	    50: 
+                        	    51: ;// flags for display/cursor shift
+                        	    52: ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
+                        	    53: ;Cursor or display shift 	0 	0 	0 	0 	0 	1 	S/C R/L — 	— 	Moves cursor and shifts
+                        	    54: ;display without changing DDRAM contents.
+                        	    55: LCD_CURSORSHIFT 	equ		0x10
+                        	    56: ;********************************
+                        	    57: LCD_DISPLAYMOVE 	equ		0x08    ;S/C    = 1:Display shift 
+                        	    58: LCD_CURSORMOVE 		equ		0x00    ;S/C	= 0:Cursor move
+                        	    59: LCD_MOVERIGHT 		equ		0x04    ;R/L    = 1:Shift to the right
+                        	    60: LCD_MOVELEFT 		equ		0x00    ;R/L    = 0:Shift to the left
+                        	    61: 
+                        	    62: ;// flags for function set
+                        	    63: ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
+                        	    64: ;Function set 				0 	0 	0 	0 	1 	DL	 N 	F	— 	— 	Sets interface data length 37 μs
+                        	    65: ;(DL), number of display lines
+                        	    66: ;(N), and character font (F).
+                        	    67: LCD_FUNCTIONSET 	equ		0x20
+                        	    68: ;*******************************
+                        	    69: LCD_8BITMODE 		equ		0x10    ;DL = 1:8 bits, 
+                        	    70: LCD_4BITMODE 		equ		0x00    ;DL = 0: 4 bits
+                        	    71: LCD_2LINE 			equ		0x08    ;N  = 1: 2 lines
+                        	    72: LCD_1LINE 			equ		0x00    ;N  = 0: 1 line
+                        	    73: LCD_5x10DOTS 		equ		0x04    ;F  = 1: 5 × 10 dots
+                        	    74: LCD_5x8DOTS 		equ		0x00    ;F  = 0: 5 × 8 dots
+                        	    75: 
+                        	    76: ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
+                        	    77: ;Set CGRAM address 			0 	0 	0 	1 	ACG ACG ACG ACG ACG ACG Sets CGRAM address.
+                        	    78: ;CGRAM data is sent and received after this setting.
+                        	    79: LCD_SETCGRAMADDR 	equ		0x40
+                        	    80: 
+                        	    81: ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
+                        	    82: ;Set DDRAM address 			0 	0 	1 	ADD ADD ADD ADD ADD ADD ADD Sets DDRAM address.
+                        	    83: ;DDRAM data is sent and received after this setting.
+                        	    84: LCD_SETDDRAMADDR	equ		0x80
+                        	    85: 
+                        	    86: ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
+                        	    87: ;Read busy flag & address 	0 	1 	BF 	AC 	AC 	AC 	AC 	AC 	AC 	AC
+                        	    88: ;Reads busy flag (BF) indicating internal operation is being performed and 
+                        	    89: ;reads address counter contents.
+                        	    90: 
+                        	    91: ;HD44780 pin assignments
+                        	    92: LCD_RS  =1<<0;
+                        	    93: LCD_RW  =1<<1;
+                        	    94: LCD_E   =1<<3;
+                        	    95: 
+                        	    96: 
+                        	    97: 
+                        	    98: 
+                        	    99: ;class LiquidCrystal : public Print {
+                        	   100: ;public:
+                        	   101: ;
+                        	   102: ;  LiquidCrystal(uint8_t rs, uint8_t enable,	uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
+                        	   103: ;			uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
+                        	   104: ;	LiquidCrystal(uint8_t rs, uint8_t rw, uint8_t enable,
+                        	   105: ;			uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
+                        	   106: ;			uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
+                        	   107: ;	LiquidCrystal(uint8_t rs, uint8_t rw, uint8_t enable,
+                        	   108: ;			uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3);
+                        	   109: ;	LiquidCrystal(uint8_t rs, uint8_t enable,
+                        	   110: ;			uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3);
+                        	   111: ;
+                        	   112: ;	void init(uint8_t fourbitmode, uint8_t rs, uint8_t rw, uint8_t enable,
+                        	   113: ;			uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3,
+                        	   114: ;			uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
+                        	   115: ;		
+                        	   116: ;	void begin(uint8_t cols, uint8_t rows, uint8_t charsize = LCD_5x8DOTS);
+                        	   117: ;
+                        	   118: ;	void clear();
+                        	   119:  ; void home();
+                        	   120: ;;
+                        	   121: ;  void noDisplay();
+                        	   122: ;  void display();
+                        	   123: ;  void noBlink();
+                        	   124: ;  void blink();
+                        	   125: ;  void noCursor();
+                        	   126: ;  void cursor();
+                        	   127: ;  void scrollDisplayLeft();
+                        	   128: ;  void scrollDisplayRight();
+                        	   129: ;  void leftToRight();
+                        	   130: ;  void rightToLeft();
+                        	   131: ;  void autoscroll();
+                        	   132: ;  void noAutoscroll();
+                        	   133: 
+                        	   134: ;  void setRowOffsets(int row1, int row2, int row3, int row4);
+                        	   135: ;  void createChar(uint8_t, uint8_t[]);
+                        	   136: ;  void setCursor(uint8_t, uint8_t); 
+                        	   137: ;  virtual size_t write(uint8_t);
+                        	   138: ;  void command(uint8_t);
+                        	   139:   
+                        	   140: ;  using Print::write;
+                        	   141: ;private:
+                        	   142: ;  void send(uint8_t, uint8_t);
+                        	   143: ;  void write4bits(uint8_t);
+                        	   144: ;  void write8bits(uint8_t);
+                        	   145: ;  void pulseEnable();
+                        	   146: 
+                        	   147: ;  uint8_t _rs_pin; // LOW: command.  HIGH: character.
+                        	   148: ;  uint8_t _rw_pin; // LOW: write to LCD.  HIGH: read from LCD.
+                        	   149: ;  uint8_t _enable_pin; // activated by a HIGH pulse.
+                        	   150: ;  uint8_t _data_pins[8];
+                        	   151: 
+                        	   152: ;  uint8_t _displayfunction;
+                        	   153: ;  uint8_t _displaycontrol;
+                        	   154: ;  uint8_t _displaymode;
+                        	   155: 
+                        	   156: ;  uint8_t _initialized;
+                        	   157: 
+                        	   158: ;  uint8_t _numlines;
+                        	   159: ;  uint8_t _row_offsets[4];
+                        	   160: ;
+                        	   161: 
+                        	   162: 
+
+Source: "stdin"
+                        	    26: 
+                        	    27: 		GLOBAL  LCD_Test
+                        	    28: 
+                        	    29: 
+                        	    30: 	;#code RAMPAGE, $50, *            ; RAM area        
+                        	    31: LCD_Test:
+00:0003 CD2E01          	    32: 		call HD44780_main_init
+                        	    33: 
+                        	    34: 		; Try to print something
+00:0006 DD217200        	    35: 		ld ix,t_string3
+00:000A 0613            	    36: 		ld b,19
+00:000C 110501          	    37: 		ld de,$0105	; row 1 column 5
+                        	    38: 		; call setcursor	; runs also 'command'
+                        	    39: nextchar1:
+00:000F DD7E00          	    40: 		ld a,(ix+0)
+00:0012 DD23            	    41: 		inc ix
+00:0014 CDB501          	    42: 		call write_char_to_LCD
+00:0017 10F6            	    43: 		djnz nextchar1
+                        	    44: 
+00:0019 C9              	    45: 		ret 
+                        	    46: 
+                        	    47: 		; call ShowPC_HALT
+                        	    48: 
+                        	    49: 		; Try to print something 2
+00:001A DD216800        	    50: 		ld ix,t_string2
+00:001E 0609            	    51: 		ld b,$09
+00:0020 110502          	    52: 		ld de,$0205	; row 2 column 5
+00:0023 CD7601          	    53: 		call setcursor	; runs also 'command'
+                        	    54: nextchar2:
+00:0026 DD7E00          	    55: 		ld a,(ix+0)
+00:0029 DD23            	    56: 		inc ix
+00:002B CDB501          	    57: 		call write_char_to_LCD
+00:002E 10F6            	    58: 		djnz nextchar2
+00:0030 D300            	    59: 		out (portA_Data),a
+                        	    60: 
+00:0032 CD8600          	    61: 		call ShowPC_HALT
+                        	    62: 
+                        	    63: 		; Try to print something 2
+00:0035 DD217200        	    64: 		ld ix,t_string3
+00:0039 0607            	    65: 		ld b,$07
+00:003B 110503          	    66: 		ld de,$0305	; row 2 column 5
+00:003E CD7601          	    67: 		call setcursor	; runs also 'command'
+                        	    68: nextchar3:
+00:0041 DD7E00          	    69: 		ld a,(ix+0)
+00:0044 DD23            	    70: 		inc ix
+00:0046 CDB501          	    71: 		call write_char_to_LCD
+00:0049 10F6            	    72: 		djnz nextchar3
+00:004B D300            	    73: 		out (portA_Data),a
+                        	    74: 
+00:004D CD8600          	    75: 		call ShowPC_HALT
+00:0050 00              	    76: 		nop
+00:0051 DD23            	    77: 		inc ix
+00:0053 00              	    78: 		nop
+00:0054 DD23            	    79: 		inc ix
+                        	    80: 
+                        	    81: slut:      
+00:0056 C7              	    82: 			rst 00h 
+                        	    83: 
+                        	    84: 				
+00:0057 01              	    85: initbytes:   byte $01, $38, $0E, $06, $B0
+00:0058 38
+00:0059 0E
+00:005A 06
+00:005B B0
+00:005C 41525A3830206D69	    86: t_string1:   ascii "ARZ80 micro"
+00:0064 63726F
+00:0067 00
+00:0068 57616B696E672075	    87: t_string2:   ascii "Waking up"
+00:0070 70
+00:0071 00
+00:0072 4142434445464748	    88: t_string3:   ascii "ABCDEFGHIJKLMNOPQ->"
+00:007A 494A4B4C4D4E4F50
+00:0082 512D3E
+00:0085 00
+                        	    89: 
+                        	    90: 
+                        	    91: 
+                        	    92: 	;************************************************************************
+                        	    93: 	; ShowPC_HALT:
+                        	    94: 	; Dump prog counter prior to HALT instr. value present in stack (pointed by SP).
+                        	    95: 	; uses  IX (pointer to HEX chars)
+                        	    96: 	;       IY (pointer at stack)
+                        	    97: 	;       BC ( count)
+                        	    98: 	;       HL (value for conversion to HEX)
+                        	    99: 	;       DE (positon of display 2004A)
+                        	   100: 	;************************************************************************
+                        	   101: 
+                        	   102: ShowPC_HALT:
+00:0086 ED730000        	   103: 		ld (SP_value),sp
+00:008A FD2A0000        	   104: 		ld iy,(SP_value)
+00:008E FD6E00          	   105: 		ld L,(iy+0)
+00:0091 FD6601          	   106: 		ld H,(iy+1)
+                        	   107: 		
+00:0094 CD0A01          	   108: 		call Num2Hex
+00:0097 110200          	   109: 		ld de,$0002	; row 0 column 2
+00:009A CD7601          	   110: 		call setcursor	; runs also 'command'
+00:009D 0604            	   111: 		ld b,$04
+00:009F DD21F0F1        	   112: 		ld ix,Result_NumToHex    ; adress for ascii chars.
+                        	   113: nxt4:
+00:00A3 DD7E00          	   114: 		ld a,(ix+0)
+00:00A6 DD23            	   115: 		inc ix
+00:00A8 CDB501          	   116: 		call write_char_to_LCD
+00:00AB 10F6            	   117: 		djnz nxt4
+00:00AD 76              	   118: 		halt
+00:00AE C9              	   119: 		ret
+                        	   120: 
+                        	   121: 		align 8            
+00:0100 50494F204120494E	   122: t_intAstr:   ascii "PIO A INT"
+00:0108 54
+00:0109 00
+                        	   123: 	;************************************************************************
+                        	   124: 	; Hexadecimal conversion operates directly on nibbles and takes advantage of nifty DAA trick.
+                        	   125: 	;Input: HL = number to convert, IX = location of ASCII string
+                        	   126: 	;Output: ASCII string at (IX) 
+                        	   127: 	;************************************************************************
+                        	   128: 
+                        	   129: Num2Hex:
+00:010A DD21F0F1        	   130: 		ld ix,Result_NumToHex
+00:010E 7C              	   131: 		ld	a,h
+00:010F CD1D01          	   132: 		call	Num1
+00:0112 7C              	   133: 		ld	a,h
+00:0113 CD2101          	   134: 		call	Num2
+00:0116 7D              	   135: 		ld	a,l
+00:0117 CD1D01          	   136: 		call	Num1
+00:011A 7D              	   137: 		ld	a,l
+00:011B 1804            	   138: 		jr	Num2
+                        	   139: 			
+00:011D 1F              	   140: Num1:	rra
+00:011E 1F              	   141: 		rra
+00:011F 1F              	   142: 		rra
+00:0120 1F              	   143: 		rra
+00:0121 F6F0            	   144: Num2:	or	$F0
+00:0123 27              	   145: 		daa
+00:0124 C6A0            	   146: 		add	a,$A0
+00:0126 CE40            	   147: 		adc	a,$40
+                        	   148: 
+00:0128 DD7700          	   149: 		ld	(ix+0),a
+00:012B DD23            	   150: 		inc	ix
+00:012D C9              	   151: 		ret
+                        	   152: 
+                        	   153: 
+                        	   154: 
+                        	   155: 
+                        	   156: 	;************************************************************************
+                        	   157: 	; Init the HC44780 circuit
+                        	   158: 	;       Call the CTC delay  functions
+                        	   159: 	;
+                        	   160: 	;************************************************************************
+                        	   161: 
+                        	   162: 
+                        	   163: 
+                        	   164: HD44780_main_init:
+                        	   165: 
+                        	   166: 
+                        	   167: 		;//put the LCD into 4 bit or 8 bit mode
+                        	   168: 		;// this is according to the hitachi HD44780 datasheet
+                        	   169: 		;// figure 24, pg 46
+                        	   170: 		;// we start in 8bit mode, try to set 4 bit mode
+                        	   171: 
+                        	   172: ; 		***		Fix the CTC timer		
+00:012E 110000          	   173: 		ld 	DE,CTC_delay_INT_handler
+00:0131 ED5312F4        	   174: 		ld 	(CTC_CH1_I_Vector),DE
+                        	   175: 
+00:0135 110000          	   176: 		ld   	DE,HD44780_CTRL
+00:0138 3E00            	   177: 		ld 		A,00
+00:013A 12              	   178: 		ld    	(DE),A 					; reset the RS/E/R/W register.
+                        	   179: 
+00:013B 3E30            	   180: 		ld 		A,LCD_FUNCTIONSET|LCD_8BITMODE
+00:013D CDD401          	   181: 		call 	write_comm_to_LCD
+00:0140 CD0000          	   182: 		call 	delay10ms   			; start timout counter 10 ms
+00:0143 CDA401          	   183: 		call 	waitForResponse 		; Z is set if CTC timeout
+                        	   184: 
+00:0146 3E30            	   185: 		ld      A,LCD_FUNCTIONSET|LCD_8BITMODE
+00:0148 CDD401          	   186: 		call    write_comm_to_LCD
+00:014B CD0000          	   187: 		call 	delay1ms   			; start timout counter 10 ms
+00:014E CDA401          	   188: 		call 	waitForResponse 		; Z is set if CTC timeout
+                        	   189: 		
+00:0151 3E30            	   190: 		ld      A,LCD_FUNCTIONSET|LCD_8BITMODE
+00:0153 CDD401          	   191: 		call    write_comm_to_LCD
+00:0156 CD0000          	   192: 		call 	delay1ms   			; start timout counter 10 ms
+00:0159 CDA401          	   193: 		call 	waitForResponse 		; Z is set if CTC timeout
+                        	   194: 
+                        	   195: 				
+                        	   196: 
+                        	   197: 
+                        	   198: ;		*** 	set # lines, font size, etc.
+00:015C 3E38            	   199: 		ld 		A,LCD_FUNCTIONSET|LCD_8BITMODE|LCD_2LINE|LCD_5x8DOTS 
+00:015E CDD401          	   200: 		call 	write_comm_to_LCD
+                        	   201: 
+                        	   202: 
+                        	   203: 		;// turn the display on with no cursor or blinking default
+                        	   204: 		;_displaycontrol = 0x04  ;//LCD_DISPLAYON(04) | LCD_CURSOROFF (02) | LCD_BLINKOFF (01);  
+                        	   205: 
+00:0161 3E0E            	   206: 		ld 		A,LCD_DISPLAYCONTROL|LCD_DISPLAYON|LCD_CURSORON
+00:0163 CDD401          	   207: 		call 	write_comm_to_LCD
+                        	   208: 
+                        	   209: 		; ld 		A,LCD_CLEARDISPLAY
+                        	   210: 		; call 	write_comm_to_LCD     ;//LCD_CLEARDISPLAY);  // clear display, set cursor position to zero
+                        	   211: 		; call 	delay100us   			; start timout counter 10 ms
+                        	   212: 		; call 	waitForResponse 		; Z is set if CTC timeout
+                        	   213: 
+00:0166 3E06            	   214: 		ld   	A,LCD_ENTRYMODESET|LCD_ENTRYLEFT
+00:0168 CDD401          	   215: 		call 	write_comm_to_LCD     ;//LCD_CLEARDISPLAY);  // clear display, set cursor position to zero
+00:016B CD0000          	   216: 		call 	delay100us   			; start timout counter 10 ms
+00:016E CDA401          	   217: 		call 	waitForResponse 		; Z is set if CTC timeout
+                        	   218: 
+00:0171 C9              	   219: 		ret
+                        	   220: 
+                        	   221: 		;// Initialize to default text direction (for romance languages)
+                        	   222: 		;_displaymode = 0x02     ;//LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT;
+                        	   223: 		;// set the entry mode
+                        	   224: ;************************************************************************
+                        	   225: 
+                        	   226: 
+00:0172 00              	   227: _rowoffset:             defb 0,0x40,20,0x54
+00:0173 40
+00:0174 14
+00:0175 54
+                        	   228: 
+                        	   229: ;********************************************************************
+                        	   230: setcursor:
+                        	   231: 												; row in D, col in E
+00:0176 DDE5            	   232: 		push 	ix
+00:0178 DD217201        	   233: 		ld 		ix,_rowoffset
+00:017C 7A              	   234: 		ld 		a,d			; a= row
+00:017D FE03            	   235: 		cp 		$03
+00:017F 2005            	   236: 		jr		nz,tr2
+00:0181 DD5603          	   237: 		ld		d,(ix+3)
+00:0184 1815            	   238: 		jr		sum
+00:0186 FE02            	   239: tr2:	cp		$02
+00:0188 2005            	   240: 		jr		nz,tr1
+00:018A DD5602          	   241: 		ld		d,(ix+2)
+00:018D 180C            	   242: 		jr		sum
+00:018F FE01            	   243: tr1:	cp		$01
+00:0191 2005            	   244: 		jr		nz,tr0
+00:0193 DD5601          	   245: 		ld		d,(ix+1)
+00:0196 1803            	   246: 		jr		sum
+00:0198 DD5600          	   247: tr0:	ld		d,(ix+0)
+                        	   248: sum:	
+00:019B 7B              	   249: 		ld		a,e
+00:019C 82              	   250: 		add		a,d					; a is adress
+00:019D F680            	   251: 		or		LCD_SETDDRAMADDR	; LCD_SETDDRAMADDR  command
+00:019F DDE1            	   252: 		pop		ix
+00:01A1 C3D401          	   253: 		jp 		write_comm_to_LCD	; continue writing A to LCD with RS low
+                        	   254: 
+                        	   255: 
+                        	   256: 
+                        	   257: 
+                        	   258: ;********************************************************************
+                        	   259: 	;wait for a response from the CTC timer. 
+                        	   260: 		;Response in A&E, use CTC timeout, Z -> no response, NZ -> 376S has responded
+                        	   261: ;********************************************************************
+                        	   262: waitForResponse:  
+                        	   263: 
+00:01A4 FB              	   264: 		ei
+00:01A5 76              	   265: 		halt    
+                        	   266: 
+00:01A6 CD0000          	   267: 		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
+                        	   268: 
+00:01A9 3A0000          	   269: 		ld 		A,(CTCdelayFlag)
+00:01AC FEEE            	   270: 		cp 		CTC_TIMEOUT 			; if A=EE, Z is set, timeout (set by CTC interrupt)
+00:01AE C8              	   271: 		ret 	Z						; return with Z -> timeout set
+                        	   272: 
+                        	   273: 
+00:01AF CD0000          	   274: 		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
+00:01B2 3C              	   275: 		inc 	A						; => NZ
+00:01B3 7B              	   276: 		ld 		A,E						; no flags set.
+00:01B4 C9              	   277: 		ret								; NZ set, 
+                        	   278: 		
+                        	   279: 		
+                        	   280: 
+                        	   281: ;****************************************************************
+                        	   282: 
+                        	   283: write_char_to_LCD:  
+                        	   284: ; 		****	write char to the LCD
+                        	   285: 				; indicate rs pin set
+00:01B5 57              	   286: 		ld   	D,A		
+00:01B6 3E01            	   287: 		ld 		A,$01 					; set RS
+00:01B8 D300            	   288: 		out 	(_CE_HD44780_CTRL),A		
+00:01BA 3E09            	   289: 		ld 		A,$09 					; set RS & E
+00:01BC D300            	   290: 		out 	(_CE_HD44780_CTRL),A		
+00:01BE 7A              	   291: 		ld   	A,D
+00:01BF D300            	   292: 		out 	(_CE_HD44780_DATA),A		
+00:01C1 3E09            	   293: 		ld 		A,$09 					; set RS & E
+00:01C3 D300            	   294: 		out 	(_CE_HD44780_CTRL),A		
+00:01C5 3E01            	   295: 		ld 		A,$01 					; set RS & E
+00:01C7 D300            	   296: 		out 	(_CE_HD44780_CTRL),A		
+00:01C9 3E00            	   297: 		ld 		A,$00						; clear  RS & E
+00:01CB D300            	   298: 		out 	(_CE_HD44780_CTRL),A		
+00:01CD CD0000          	   299: 		call 	delay100us   			; start timout counter 10 ms
+00:01D0 CDA401          	   300: 		call 	waitForResponse 		; Z is set if CTC timeout
+                        	   301: 
+00:01D3 C9              	   302: 		ret
+                        	   303: 
+                        	   304: 
+                        	   305: 
+                        	   306: ;****************************************************************
+                        	   307: 
+                        	   308: 
+                        	   309: ;****************************************************************
+                        	   310: write_comm_to_LCD:   ; A contains value
+                        	   311: 		
+00:01D4 D300            	   312: 		out 	(_CE_HD44780_DATA),A	 ;
+00:01D6 3E08            	   313: 		ld 		A,$08 					; set  E
+00:01D8 D300            	   314: 		out 	(_CE_HD44780_CTRL),A		
+00:01DA 3E08            	   315: 		ld 		A,$08 					; set  E
+00:01DC D300            	   316: 		out 	(_CE_HD44780_CTRL),A		
+00:01DE 3E00            	   317: 		ld 		A,$0						; clear   E
+00:01E0 D300            	   318: 		out 	(_CE_HD44780_CTRL),A		
+00:01E2 CD0000          	   319: 		call 	delay100us   			; start timout counter 10 ms
+00:01E5 CDA401          	   320: 		call 	waitForResponse 		; Z is set if CTC timeout
+00:01E8 C9              	   321: 		ret
+                        	   322: 
+                        	   323: write_test:
+00:01E9 3E01            	   324: 	ld 		A,01 					; set  E
+00:01EB D300            	   325: 	out 	(_CE_HD44780_CTRL),A		
+00:01ED 3E02            	   326: 	ld 		A,02 					; set  E
+00:01EF D300            	   327: 	out 	(_CE_HD44780_CTRL),A		
+00:01F1 3E03            	   328: 	ld 		A,03 					; set  E
+00:01F3 D300            	   329: 	out 	(_CE_HD44780_CTRL),A		
+00:01F5 3E04            	   330: 	ld 		A,04 					; set  E
+00:01F7 D300            	   331: 	out 	(_CE_HD44780_CTRL),A		
+00:01F9 3E05            	   332: 	ld 		A,05 					; set  E
+00:01FB D300            	   333: 	out 	(_CE_HD44780_CTRL),A		
+00:01FD 3E06            	   334: 	ld 		A,0x06 					; set  E
+00:01FF D300            	   335: 	out 	(_CE_HD44780_CTRL),A		
+00:0201 3E07            	   336: 	ld 		A,0x07 					; set  E
+00:0203 D300            	   337: 	out 	(_CE_HD44780_CTRL),A		
+00:0205 3E08            	   338: 	ld 		A,0x08 					; set  E
+00:0207 D300            	   339: 	out 	(_CE_HD44780_CTRL),A		
+00:0209 3E09            	   340: 	ld 		A,0x09 					; set  E
+00:020B D300            	   341: 	out 	(_CE_HD44780_CTRL),A		
+00:020D 3E0A            	   342: 	ld 		A,0x0A 					; set  E
+00:020F D300            	   343: 	out 	(_CE_HD44780_CTRL),A		
+00:0211 3E0B            	   344: 	ld 		A,0x0B 					; set  E
+00:0213 D300            	   345: 	out 	(_CE_HD44780_CTRL),A		
+00:0215 3E0C            	   346: 	ld 		A,0x0C 					; set  E
+00:0217 D300            	   347: 	out 	(_CE_HD44780_CTRL),A		
+00:0219 3E0D            	   348: 	ld 		A,13 					; set  E
+00:021B D300            	   349: 	out 	(_CE_HD44780_CTRL),A		
+00:021D 3E0E            	   350: 	ld 		A,14 					; set  E
+00:021F D300            	   351: 	out 	(_CE_HD44780_CTRL),A		
+00:0221 3E0F            	   352: 	ld 		A,15					; set  E
+00:0223 D300            	   353: 	out 	(_CE_HD44780_CTRL),A		
+00:0225 C9              	   354: 	ret
+                        	   355: ; ;****************************************************************
+                        	   356: ; pulseEnable:     ; pulse the enable pin... (pin 4)
+                        	   357: ; 				; a contains data...
+                        	   358: ; 		push af        
+                        	   359: ; 		push bc 
+                        	   360: 
+                        	   361: ; 		ld   	HL,HD44780_CTRL
+                        	   362: ; 		ld    	A,(HL)
+                        	   363: 
+                        	   364: 
+                        	   365: ; 		out (_CE_HD44780_CTRL),A   ; set pin 4 (enable) LOW
+                        	   366: ; 		set 3,a
+                        	   367: ; 		out (_CE_HD44780_CTRL),A    ; set pin 4 (enable) HIGH    
+                        	   368: ; 		nop
+                        	   369: ; 		res 3,a
+                        	   370: ; 		out (_CE_HD44780_CTRL),A   ; set pin 4 (enable) LOW
+                        	   371: 		
+                        	   372: ; 		ld b, $10       ; 20 cyc, 10 µs@2Mhz-> (16X-> 150-160µs)
+                        	   373: ; wait_pe:
+                        	   374: ; 		nop
+                        	   375: ; 		djnz wait_pe
+                        	   376: 
+                        	   377: ; 		pop BC
+                        	   378: ; 		pop af
+                        	   379: ; 		ret
+                        	   380: 
+                        	   381: ;****************************************************************
+                        	   382: 
+                        	   383: ;****************************************************************
+                        	   384: 
+                        	   385: 
+                        	   386: .end
+                        	   387: 
+                        	   388: 
+                        	   389: 
+                        	   390: 
+
+
+Symbols by name:
+CH0                             external
+CH1                             external
+CH2                             external
+CH3                             external
+CTC1_INT_OFF                    external
+CTC_CH1_I_Vector                 E:F412
+CTC_TIMEOUT                      E:00EE
+CTC_delay_INT_handler           external
+CTCdelayFlag                    external
+HD44780_CTRL                    external
+HD44780_main_init               00:012E
+LCD_2LINE                        E:0008
+LCD_5x8DOTS                      E:0000
+LCD_8BITMODE                     E:0010
+LCD_CURSORON                     E:0002
+LCD_DISPLAYCONTROL               E:0008
+LCD_DISPLAYON                    E:0004
+LCD_ENTRYLEFT                    E:0002
+LCD_ENTRYMODESET                 E:0004
+LCD_FUNCTIONSET                  E:0020
+LCD_SETDDRAMADDR                 E:0080
+LCD_Test                        00:0003 EXP
+Num1                            00:011D
+Num2                            00:0121
+Num2Hex                         00:010A
+Result_NumToHex                  E:F1F0
+SIO_A_C                         external
+SIO_A_D                         external
+SIO_B_C                         external
+SIO_B_D                         external
+SIO_Int_Vec                      E:F400
+SP_value                        external
+ShowPC_HALT                     00:0086
+_CE_HD44780_CTRL                external
+_CE_HD44780_DATA                external
+_Z80CTC_Base                    external
+_Z80PIO_Base                    external
+_Z80SIO_Base                    external
+_displaycontrol                 00:0001
+_displayfunction                00:0000
+_displaymode                    00:0002
+_rowoffset                      00:0172
+delay100us                      external
+delay10ms                       external
+delay1ms                        external
+gpioB                           external
+gpio_in                         external
+gpio_out                        external
+initbytes                       00:0057
+nextchar1                       00:000F
+nextchar2                       00:0026
+nextchar3                       00:0041
+nxt4                            00:00A3
+portA_Contr                     external
+portA_Data                      external
+portB_Contr                     external
+portB_Data                      external
+setcursor                       00:0176
+sio_ac                          external
+sio_ad                          external
+sio_bc                          external
+sio_bd                          external
+slut                            00:0056
+sum                             00:019B
+t_intAstr                       00:0100
+t_string1                       00:005C
+t_string2                       00:0068
+t_string3                       00:0072
+tr0                             00:0198
+tr1                             00:018F
+tr2                             00:0186
+waitForResponse                 00:01A4
+write_char_to_LCD               00:01B5
+write_comm_to_LCD               00:01D4
+write_test                      00:01E9
+
+Symbols by value:
+0000 LCD_5x8DOTS
+0000 _displayfunction
+0001 _displaycontrol
+0002 LCD_CURSORON
+0002 LCD_ENTRYLEFT
+0002 _displaymode
+0003 LCD_Test
+0004 LCD_DISPLAYON
+0004 LCD_ENTRYMODESET
+0008 LCD_2LINE
+0008 LCD_DISPLAYCONTROL
+000F nextchar1
+0010 LCD_8BITMODE
+0020 LCD_FUNCTIONSET
+0026 nextchar2
+0041 nextchar3
+0056 slut
+0057 initbytes
+005C t_string1
+0068 t_string2
+0072 t_string3
+0080 LCD_SETDDRAMADDR
+0086 ShowPC_HALT
+00A3 nxt4
+00EE CTC_TIMEOUT
+0100 t_intAstr
+010A Num2Hex
+011D Num1
+0121 Num2
+012E HD44780_main_init
+0172 _rowoffset
+0176 setcursor
+0186 tr2
+018F tr1
+0198 tr0
+019B sum
+01A4 waitForResponse
+01B5 write_char_to_LCD
+01D4 write_comm_to_LCD
+01E9 write_test
+F1F0 Result_NumToHex
+F400 SIO_Int_Vec
+F412 CTC_CH1_I_Vector

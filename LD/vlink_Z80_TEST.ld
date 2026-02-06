@@ -29,8 +29,6 @@
 	PROVIDE(_Z80_BankCS  	= 0x30);		/*	 30 - 3F   */
 	PROVIDE(_8Bitsout 		= 0x40);		/*	 40 - 4F  */
 	PROVIDE(_CE_RST_BANK 	= 0x50);		/*	 50 - 5F  */
-	PROVIDE(_CE_HD44780_DATA = 0x60);		/*	 50 - 5F  */
-	PROVIDE(_CE_HD44780_CTRL = 0x70);		/*	 50 - 5F  */
 
 	PROVIDE( SRAM_VAR_END = 0xFFF0 );
 	PROVIDE( SRAM_VAR_START =  _String_HEAP);
@@ -85,15 +83,14 @@
 	PROVIDE( TempVar7		=	0x1B7 + _String_HEAP);			/*	Temp7	DS	1	*/
 	PROVIDE( TempVar8		=	0x1B8 + _String_HEAP);			/*	Temp8	DS	1	*/
 
-	PROVIDE( HD44780_CTRL 	= 	0x1B9 + _String_HEAP);			/*	HD44780 RS/ E/ R/W register 	*/
 	PROVIDE( CTCdelayFlag 	= 	0x1BA + _String_HEAP);			/*	CTC flags that timeout has occured 1 byte	*/
 	PROVIDE( packLen 		=	0x1BC + _String_HEAP);			/*	length of packet   2-byte */
 	PROVIDE( charLen 		=	0x1BE + _String_HEAP);			/*	length of written file   2-byte */
 	PROVIDE( sdWRpointer 	=	0x1C0 + _String_HEAP);			/*	pointer to write file   2-byte */
 
 	PROVIDE( outBufferSize	=	0xF0	);							/*	;SIZE OF OUTPUT BUFFER */
-	PROVIDE( outBuffer		=	0x200 + _String_HEAP);	         	 	/*;OUTPUT BUFFER */
-	PROVIDE( endOutBuffer	=	0x2F0 + _String_HEAP);	/*		END OF OUTPUT BUFFER */
+	PROVIDE( outBuffer		=	0x200+ _String_HEAP);	         	 	/*;OUTPUT BUFFER */
+	PROVIDE( endOutBuffer	=	0x2F0+ _String_HEAP);	/*		END OF OUTPUT BUFFER */
 
 	PROVIDE( list_len		=	0x48	);				/*	 length of command pointer list */
 	PROVIDE( Comm_Ptr_list	=	0x300 + _String_HEAP); 	/*	 command pointer list */
@@ -111,24 +108,45 @@
 			KEEP(*.o(FLASH_Startup))
 
 			. = _NMISTART;	
-			KEEP( *.o(INT_IM1))			
+			KEEP( *.o(INT_IM1))
 			. = ALIGN (0x80);
 
 			KEEP( *.o(INIT_BODY))
-			. = ALIGN (0x20);
+            . = ALIGN(0x20);
 
-/*			KEEP( *.o(EEtestprog))
-			_EEprog_end = .;
+		    KEEP( *.o(SD_USB_Start))
+			_SDUSB_EEprog_end = .;
+			. = ALIGN(0x20);
+/*
+		    KEEP( *.o(EEtestprog))
+			_EET_EEprog_end = .;
+			. = ALIGN(0x20);
 
-			KEEP(*.o (CH376S_Support))
+
+			*.o (CodeConversion)
+			_CodeConv_end = .;
+			. = ALIGN(0x20);
+
+			*.o (Strings)
+			_Strings_end = .;
+			. = ALIGN(0x20);
+
+			*.o (InOutInterrupt)
+			_IOI_end = .;
+			. = ALIGN(0x20);
+
+			*.o (CH376S_Support)
+			_USB_end = .;
 			. = ALIGN(0x20);
 */
-			} > FLASH
+		}	> FLASH
 
-	
-		
+
 		MainBody  _RAMSTART :
 		{
+			KEEP(*.o (EEtestprog))
+			_EEtestprog_end = .;
+			. = ALIGN(0x20);
 	
 			KEEP(*.o(Monitor))
 			_MonEnd = .;

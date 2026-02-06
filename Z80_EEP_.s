@@ -12,7 +12,8 @@ EPS1:
 
 		ld		sp,stacktop
 		
-		; jp 		hit
+		jp 		_RAMSTART
+
 		jp		setBanks
 		align 3
 		; section RST08
@@ -67,8 +68,8 @@ setBanks:
 		call 	EEPIO_Init
 		
 	ifd 	GPIODEBUG
-	ld 		A,$55
-	out 	(gpio_out),A
+		ld 		A,$55
+		out 	(gpio_out),A
 	endif
 
 		xor 	A					; A=0
@@ -83,8 +84,8 @@ setBanks:
 		call 	setSRAMBank			; ram bank #0
 
 	ifd 	GPIODEBUG
-	ld 		A,$77
-	out 	(gpio_out),A
+		ld 		A,$77
+		out 	(gpio_out),A
 	endif
 
 
@@ -224,8 +225,6 @@ enableIC620_OE:
 ;********************************************************************************************	
 
 		; out (_8Bitsout),A
-		
-
 ; 
 EEPIO_Init:
 ; ;----------******************* PIO PORT A
@@ -249,38 +248,79 @@ EEPIO_Init:
 	ret
  
 
+		
 ;********************************************************		
 		section EEtestprog			; main program in sram
 ;********************************************************	
 
 		; xdef	RDATA_END,RDATA,TB_length
 hit:
-		LD 		A,$0D
-		out 	(_CE_RST_BANK),A
 
-		LD 		A,$77
-		out 	(_Z80_BankCS),A
+				
 
-		halt 
-
-		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+		; CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
 			; initialize buffer counters and pointers.
 
-		call	PIO_Init
+		call	EEPIO_Init
+		di
+hit3:
+		LD 		A,$81
+		; out 	(_CE_RST_BANK),A
+		out 	(gpio_out),A
+
+
+		LD 		A,$7E
+		; out 	(_Z80_BankCS),A
+		out 	(gpio_out),A
+
+		ld 		ix,$8000
+
+		ld 		bc,$0F00
+		ld 		A,$3F
+		ld 		(IX+0),A
+		inc 	IX
+.nxt1:
+		ld 		(IX+0),A
+		out 	(gpio_out),A
+		inc 	IX
+		inc 	A
+		djnz 	.nxt1			
+
+;***********************************
 	 	ld 		A,$1B
 		out 	(gpio_out),A
 		out 	(gpio_out),A
+	 	ld 		A,$E3
 		out 	(gpio_out),A
 		ld 		A,$0C
+		out 	(gpio_out),A
+		
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+			; initialize buffer counters and pointers.
+
+		ld 		A,$0F
 		out 	(gpio_out),A
 
 		call 	CTC_Init
 		ld 		A,$1D
 		out 	(gpio_out),A
+		ld 		A,$00
+		out 	(gpio_out),A
 
-		; call 	SIO_Init
-		ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
-		call    InitSIO_0Ports			; INITIALIZE SIO_0
+		call 	SIO_Init
+		; ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
+		; call    InitSIO_0Ports			; INITIALIZE SIO_0
+
+		call	CRLF
+		call 	writeSTRBelow
+		defb   	"\0\r\n"
+		defb	"##########################################################\r\n"
+		defb	"The Z80 Board Awakened 2025\r\n"
+		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"\0"
+
+		halt
+
 
 		ld 		A,$1E
 		out 	(gpio_out),A
@@ -314,9 +354,9 @@ hit:
 
 		ld 		A,$1A
 		out 	(gpio_out),A
-
+;***************************
 		halt
-
+;**************************
 		ld  	HL,$0402
 
 		call 	EEPIO_Init
@@ -348,7 +388,6 @@ hit2:
 
 		LD 		A,$0C
 		out 	(_CE_RST_BANK),A
-		halt
 
 		
 
