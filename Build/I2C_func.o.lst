@@ -1,0 +1,608 @@
+Sections:
+00: "Functions" (0-DD)
+
+
+Source: "temp.tmp"
+                        	     1: ;* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+                        	     2: ;* TRIANGLE.ASM
+                        	     3: ;* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+                        	     4: ;* Purpose: Test of I2C bit-banging using the J1A
+                        	     5: ;* Target: 705J1A
+                        	     6: ;* Author: Brad Bierschenk, MMD Applications
+                        	     7: ;* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+                        	     8: ;* Tested using Maxim I 2 C DAC IC, MAX517
+                        	     9: ;* Has a "2-wire interface" (another word for I 2 C)
+                        	    10: ;*
+                        	    11: ;* This code continuously sends 8-bit data to the
+                        	    12: ;* Digital to Analog IC, incrementing from $00 to
+                        	    13: ;* $FF, and back down again. This creates a
+                        	    14: ;* triangular waveform at the output of the DAC chip.
+                        	    15: ;*
+                        	    16: ;* The SCL frequency is approximately 28 kHz. This is
+                        	    17: ;* completely arbitrary.
+                        	    18: ;* -------------------------------------------------------------
+                        	    19: ;* Assembler Equates
+                        	    20: ;* -------------------------------------------------------------
+                        	    21: 		include 	"Z80_Params_.inc"
+
+Source: "Z80_Params_.inc"
+                        	     1: ;Z80_PLD_PCB_.asm
+                        	     2: 
+                        	     3: 
+                        	     4: 
+                        	     5: ; ;Function addresses
+                        	     6: ; setcursor		= $3100
+                        	     7: ; writecommand	= $3180
+                        	     8: ; writedata		= $3140
+                        	     9: ; testBusyFlag    = $31B0
+                        	    10: ; HD44780_main_init = $3000
+                        	    11: 
+                        	    12: 
+                        	    13: ; PIO addressess...
+                        	    14: portA_Contr:	equ _Z80PIO_Base + 1
+                        	    15: portB_Contr:	equ _Z80PIO_Base + 3
+                        	    16: portA_Data:		equ _Z80PIO_Base + 0
+                        	    17: portB_Data:		equ _Z80PIO_Base + 2
+                        	    18: 
+                        	    19: 
+                        	    20: ; SIO_0 stuff
+                        	    21: 				;SIO_0 CHANNEL A DATA
+                        	    22: SIO_0_A_D:		equ	_Z80SIO_0_Base
+                        	    23: 				;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	    24: SIO_0_A_C:		equ	_Z80SIO_0_Base+2
+                        	    25: 				;SIO_0  CHANNEL B DATA
+                        	    26: SIO_0_B_D:		equ	_Z80SIO_0_Base+1
+                        	    27: 				;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	    28: SIO_0_B_C:		equ	_Z80SIO_0_Base+3
+                        	    29: 
+                        	    30: sio_ac: 		equ 	SIO_0_A_C
+                        	    31: sio_ad: 		equ 	SIO_0_A_D
+                        	    32: sio_bc: 		equ 	SIO_0_B_C
+                        	    33: sio_bd: 		equ 	SIO_0_B_D
+                        	    34: 
+                        	    35: 
+                        	    36: SIO_0_Int_Vec		EQU     $F400					; interrupt vector 
+                        	    37: SIO_0_Int_WR_Vec	EQU     SIO_0_Int_Vec+8			;sio_0 channel A write interrupt vector
+                        	    38: SIO_0_Int_EXT_Vec	EQU     SIO_0_Int_Vec+10		;sio_0 channel A external/status ; interrupt vector
+                        	    39: SIO_0_Int_Read_Vec	EQU     SIO_0_Int_Vec+12		;sio_0 channel A read interrupt vector
+                        	    40: SIO_0_Int_Spec_Vec	EQU     SIO_0_Int_Vec+14		;sio_0 channel A special receive interrupt vector
+                        	    41: 
+                        	    42: 		;sio_0 channel B write interrupt vector
+                        	    43: SIO_0_USB_WR_Vec	EQU     SIO_0_Int_Vec+0	
+                        	    44: 		;sio_0 channel B external/status ; interrupt vector
+                        	    45: SIO_0_USB_EXT_Vec	EQU     SIO_0_Int_Vec+2	
+                        	    46: 		;sio_0 channel B read interrupt vector
+                        	    47: SIO_0_USB_Read_Vec	EQU     SIO_0_Int_Vec+4	
+                        	    48: 			;sio_0 channel B special receive interrupt vector
+                        	    49: SIO_0_USB_Spec_Vec	EQU     SIO_0_Int_Vec+6
+                        	    50: 
+                        	    51: 
+                        	    52: ;Write register 0
+                        	    53: WR0 equ 0
+                        	    54: _Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
+                        	    55: _Ch_Reset		equ 3<<3			; 18
+                        	    56: _EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
+                        	    57: _Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
+                        	    58: _Error_Reset 	equ $30				; (30)	
+                        	    59: _Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
+                        	    60: 
+                        	    61: ;Write register 1
+                        	    62: WR1 equ 1
+                        	    63: _Ext_INT_EN			equ 1
+                        	    64: _Tx_INT_EN 			equ 2
+                        	    65: _Status_Vector		equ 4
+                        	    66: _Rx_INT_Disable		equ 0
+                        	    67: _Rx_INT_First_Char  equ $08
+                        	    68: _INT_All_Rx_Char_P 	equ $10 
+                        	    69: _Int_All_Rx_Char_NP	equ $18
+                        	    70: _WAIT_READY_R_T 	equ $20
+                        	    71: _WAIT_READY_FUNC	equ $40
+                        	    72: _WAIT_READY_EN		equ $80
+                        	    73: 
+                        	    74: WR2 equ 2
+                        	    75: 
+                        	    76: ;Write register 3
+                        	    77: WR3 equ 3
+                        	    78: _Rx_Enable 			equ $01
+                        	    79: _Rx_Disable 		equ $00
+                        	    80: _Auto_Enable		equ $20
+                        	    81: _RX_5_bits			equ $00
+                        	    82: _RX_6_bits			equ $40
+                        	    83: _RX_7_bits			equ $80
+                        	    84: _RX_8_bits			equ $C0
+                        	    85: 
+                        	    86: ;Write register 4
+                        	    87: WR4 equ 4
+                        	    88: _Parity_EN			equ $01
+                        	    89: _Parity_Even		equ $02
+                        	    90: _Stop_1_bit			equ $04
+                        	    91: _Stop_1_2_bit		equ $08
+                        	    92: _Stop_2_bit			equ $0C
+                        	    93: _X1_Clock_mode		equ $00
+                        	    94: _X16_Clock_mode		equ $40
+                        	    95: _X32_Clock_mode		equ $80
+                        	    96: _X64_Clock_mode		equ $C0
+                        	    97: 
+                        	    98: ;Write register 5
+                        	    99: WR5 equ 5
+                        	   100: _RTS_Enable			equ $02
+                        	   101: _Tx_Enable 			equ $08
+                        	   102: _Send_Break			equ $10
+                        	   103: _Tx_5bits_char		equ $00
+                        	   104: _Tx_7bits_char		equ $20
+                        	   105: _Tx_6bits_char		equ $40
+                        	   106: _Tx_8bits_char		equ $60
+                        	   107: _DTR_Enable 		equ $80
+                        	   108: 
+                        	   109: EOT_FOUND			equ $02
+                        	   110: _err01_				equ	$08
+                        	   111: _err02_				equ	$09
+                        	   112: _err03_				equ	$0C
+                        	   113: _err04_				equ	$0D
+                        	   114: _err05_				equ	$0E
+                        	   115: CTCpulse			equ $0A
+                        	   116: CTCtimeout			equ $0B
+                        	   117: 
+                        	   118: 
+                        	   119: ; CTC stuff
+                        	   120: CH0		equ 	_Z80CTC_Base	
+                        	   121: CH1		equ 	_Z80CTC_Base+1	
+                        	   122: CH2		equ 	_Z80CTC_Base+2	
+                        	   123: CH3		equ 	_Z80CTC_Base+3	
+                        	   124: 
+                        	   125: _INT_EN 	equ 	$80		; D7 - 1 enables interrupt
+                        	   126: _Counter 	equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
+                        	   127: _Timer 		equ 	$00
+                        	   128: _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
+                        	   129: _Rising 	equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
+                        	   130: _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
+                        	   131: _TC_Follow 	equ 	$04		; D2 - 1 time constant follows
+                        	   132: _Reset 		equ 	$02		; D1 - 1 Software reset
+                        	   133: _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
+                        	   134: 
+                        	   135: ; Interrupt vectors for CTC
+                        	   136: CTC_CH0_I_Vector	EQU     SIO_0_Int_Vec+$10		;CTC channel 0 interrupt vector 
+                        	   137: CTC_CH1_I_Vector	EQU     SIO_0_Int_Vec+$12		;CTC channel 1 interrupt vector 
+                        	   138: CTC_CH2_I_Vector	EQU     SIO_0_Int_Vec+$14		;CTC channel 2 interrupt vector 
+                        	   139: CTC_CH3_I_Vector	EQU     SIO_0_Int_Vec+$16		;CTC channel 3 interrupt vector 
+                        	   140: 
+                        	   141: ; Data tables  (upper EPROM/FLASH)
+                        	   142: ; Interupt_vector		= SIO_0_Int_Vec
+                        	   143: ; stack  				= $FF00
+                        	   144: Heap				= $F000				; space for variable storage
+                        	   145: 
+                        	   146: ; variables  	(upper ram)
+                        	   147: PIO_B_value:		= $F1D0
+                        	   148: Result_NumToHex:	= $F1F0
+                        	   149: 
+                        	   150: 
+                        	   151: ; _RAMSTART		= $8010	
+                        	   152: ; _EETESTPROG		= $100	
+                        	   153: 	
+                        	   154: ; _Z80PIO_Base	= $0
+                        	   155: ; _Z80CTC_Base	= $10
+                        	   156: ; _Z80SIO_0_Base	= $20
+                        	   157: ; _Z80_BankCS  	= 0x30;		/*	 30 - 3F   */
+                        	   158: ; _8Bitsout 		= $40;		/*	 40 - 4F  */
+                        	   159: ; _CE_RST_BANK 	= 0x80;		/*	 40 - 4F  */
+                        	   160: 
+                        	   161: ;*****	ALIGN command  : 00 removes all align commands
+                        	   162: DOALIGN 	EQU 	00
+                        	   163: 
+                        	   164: EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
+                        	   165: TestChar:		EQU		'A'				;TEST CHARACTER = A
+                        	   166: CRChar:			EQU		0DH				; carrige return
+                        	   167: LFChar:			EQU		0AH				; line feed
+                        	   168: NUL			EQU		00
+                        	   169: SOH			EQU		01
+                        	   170: STX			EQU		02
+                        	   171: ETX			EQU		03
+                        	   172: EOT			EQU		04
+                        	   173: ENQ			EQU		05
+                        	   174: ACK			EQU		06
+                        	   175: BEL			EQU		07
+                        	   176: BS			EQU		08h
+                        	   177: HT			EQU		09h
+                        	   178: LF			EQU		0AH
+                        	   179: VT			EQU		0BH
+                        	   180: FF			EQU		0CH
+                        	   181: CR			EQU		0DH
+                        	   182: SO			EQU		0Eh
+                        	   183: SI			EQU		0Fh
+                        	   184: DLE			EQU		10h
+                        	   185: DC1			EQU		11h
+                        	   186: DC2			EQU		12h
+                        	   187: DC3			EQU		13h
+                        	   188: DC4			EQU		14h
+                        	   189: NAK			EQU		15h
+                        	   190: SYN			EQU		16h
+                        	   191: ETB			EQU		17h
+                        	   192: CAN			EQU		18h
+                        	   193: EM			EQU		19h
+                        	   194: SUB			EQU		1Ah
+                        	   195: ESC			EQU		1Bh
+                        	   196: FS			EQU		1Ch
+                        	   197: GS			EQU		1Dh
+                        	   198: RS			EQU		1Eh
+                        	   199: US			EQU		1Fh
+                        	   200: ITEM		EQU		1Ch
+                        	   201: STEND		EQU		1Dh
+                        	   202: LISTEND		EQU		1Eh
+                        	   203: SP			EQU		20h
+                        	   204: 
+                        	   205: 
+                        	   206: ; 	Variables in SRAM   HEAP TOP  - Moved to load script !
+                        	   207: ;DATA LOCATIONS
+                        	   208: ; LedScreen:		EQU     0D00H ;Byte Recieved, Atomic Flag and Buffer size for LED display      (6-bytes)
+                        	   209: ; BufCnt:			EQU     0D06H ;Number of bytes active in the buffer                            (1-byte)
+                        	   210: ; BufStat:		EQU     0D07H ;The state of the buffer okay (00), error (EE), auto (AA)        (1-byte)
+                        	   211: ; CByteRec:		EQU     0D08H ;Current byte received from SIO_0                                  (1-byte)
+                        	   212: ; AutoTransmit:	EQU     0D09H ;Flag to automatically transmit to SIO_0, or by key press FF=auto  (1-byte)
+                        	   213: ; KeyPressed:		EQU     0D0AH ;Key Pressed Flag, 00-False, FF-True                             (1-byte)
+                        	   214: 
+                        	   215: ;BUFFER CONFIGURATION
+                        	   216: ; CBufLoc:		EQU     0B00H ;Location of circular buffer
+                        	   217: ; CBufHead:		EQU     0D0BH ;Pointer to the Head of the Circular buffer                      (1-byte)
+                        	   218: ; CBufTail:		EQU     0D0CH ;Pointer to the Tail of the Circular buffer                      (1-byte)
+                        	   219: 
+                        	   220: ;BUFFER SIZES, change to suit
+                        	   221: ; BUFF16:			EQU     0FH   ;16 bytes
+                        	   222: ; BUFF32:			EQU     1FH   ;32 bytes
+                        	   223: ; BUFF64:			EQU     3FH   ;64 bytes
+                        	   224: ; BUFF128:		EQU     7FH   ;128 bytes
+                        	   225: ; BUFF256:		EQU     0FFH  ;256 bytes
+                        	   226: ; CBufSize:		EQU     BUFF32  ;16 bytes (Change if required)
+                        	   227: 
+                        	   228: 
+                        	   229: ;INTERRUPT VECTOR TABLE SETUP
+                        	   230: ;The interrupt will call one of these service routines depending on the type of interrupt
+                        	   231: ;There are 4 reasons the interrupt will occur:
+                        	   232: ; 1. Transmit Buffer Empty - Indicating that data can be sent to the SIO_0
+                        	   233: ; 2. External/Status Change - Indicating a change in the modem line or break condition
+                        	   234: ; 3. Receive Character Available - Indicating that data has been sent to CPU
+                        	   235: ; 4. Special Receive Condition - Indicates a buffer overrun or parity error condtion has occured
+                        	   236: ;
+                        	   237: ;Interrupt mode 2 (IM 2), requires a 16 bit table of addresses. The High byte of the 
+                        	   238: ;address is the value in the interrupt register 'I'.  The Low byte of the address is
+                        	   239: ;placed on the data bus from the SIO_0 when an interrupt is triggered. The follwing table
+                        	   240: ;shows what bits are set on the data bus.  This is used to index the vector table:
+                        	   241: ;Note: D0, D4-7 are set via Write Register 2 (Channel B on the SIO_0).  this is set to 00H
+                        	   242: ;
+                        	   243: ; Channel   D3  D2  D1  Addr  Interrupt type
+                        	   244: ; -------   --  --  --  ----  --------------
+                        	   245: ;    B       0   0   0   00H  Transmit Buffer Empty
+                        	   246: ;    B       0   0   1   02H  External/Status Change
+                        	   247: ;    B       0   1   0   04H  Receive Character Available
+                        	   248: ;    B       0   1   1   06H  Special Receive Condition
+                        	   249: ;    A       1   0   0   08H  Transmit Buffer Empty
+                        	   250: ;    A       1   0   1   0AH  External/Status Change
+                        	   251: ;    A       1   1   0   0CH  Receive Character Available
+                        	   252: ;    A       1   1   1   0EH  Special Receive Condition
+                        	   253: ;
+                        	   254: ; SIO_0_IntVectors:		EQU		0E00H      ;Interrupt Vector Base
+                        	   255: ; SIO_0_WriteVector:		EQU		SIO_0_IntVectors+08H ;Write Interrupt Vector
+                        	   256: ; SIO_0_ExternalVector:	EQU		SIO_0_IntVectors+0AH ;External Status Interrupt Vector
+                        	   257: ; SIO_0_ReadVector:		EQU		SIO_0_IntVectors+0CH ;Read Interrupt Vector
+                        	   258: ; SIO_0_SpecialVector:		EQU		SIO_0_IntVectors+0EH ;Special Receive Interrupt Vector
+                        	   259: 
+                        	   260: 
+                        	   261: 	; SIO_0_A_D			EQU 	1CH					;SIO_0 CHANNEL A DATA
+                        	   262: 	; SIO_0_B_D			EQU 	1EH					; SIO_0 CHANNEL B DATA
+                        	   263: 	; SIO_0_A_C			EQU		1DH					;SIO_0 CHANNEL A COMMANDS/STATUS
+                        	   264: 	; SIO_0_B_C			EQU		1FH					;SIO_0 CHANNEL B COMMANDS/STATUS
+                        	   265: 
+                        	   266: ;****************************************************************************
+                        	   267: 
+                        	   268: 
+                        	   269: 
+                        	   270: gpio_in:		equ     portA_Data		; GP input port (repl with PIO A)
+                        	   271: gpio_out:		equ		portB_Data		; GP output port (repl with PIO A)
+                        	   272: gpioB:			equ		portB_Data
+                        	   273: 
+                        	   274: 
+                        	   275: ; Define the memory size to be used for the CP/M configuration
+                        	   276: ; MEM:    equ 60
+                        	   277: 
+                        	   278: ; The CPM origin will be at: (MEM-7)*1024
+                        	   279: ; This screwy convention is due to the way that that the CP/M origin is defined.
+                        	   280: ; CPM_BASE:	equ	(MEM-7)*1024
+                        	   281: 
+                        	   282: ; LOAD_BASE:	equ	0xc000		; where the boot loader reads the image from the SD card
+                        	   283: 
+                        	   284: stacktop: equ	0xFFF0	
+                        	   285: 
+                        	   286: 
+
+Source: "temp.tmp"
+                        	    22: 		Section Functions
+                        	    23: RAMSPACE	EQU	$C0				;RAM start address
+                        	    24: ROMSPACE	EQU	$300			;EPROM start address
+                        	    25: PORTA		EQU $00				;Port A
+                        	    26: PORTB		EQU $01				;Port B
+                        	    27: DDRA		EQU $04				;Data direction A
+                        	    28: DDRB		EQU $05				;Data direction B
+                        	    29: ;* -------------------------------------------------------------
+                        	    30: ;* Emulated I2C lines on Port A pins
+                        	    31: ;* Need a clock (SCL) and data (SDA)
+                        	    32: ;* -------------------------------------------------------------
+                        	    33: SCL			EQU	0				;Serial clock
+                        	    34: SDA			EQU	1				;Serial data
+                        	    35: DACADDR		EQU	27				;Slave address of DAC
+                        	    36: ;* -------------------------------------------------------------
+                        	    37: ;* RAM Variables
+                        	    38: ;* -------------------------------------------------------------
+                        	    39: ; ORG			RAMSPACE
+00:0000 01              	    40: BitCounter: DB	1				;Used to count bits in a Tx
+00:0001 01              	    41: Value:		DB	1				;Used to store data value
+00:0002 01              	    42: Direction:	DB	1				;Indicates increment or	decrement
+                        	    43: ;* -------------------------------------------------------------
+                        	    44: ;* Start of program code
+                        	    45: ;* -------------------------------------------------------------
+                        	    46: ; ORG			ROMSPACE			;Start of EPROM
+                        	    47: Start:
+                        	    48: 		;Initialize variables
+00:0003 3E00            	    49: 		ld  	A,00
+00:0005 320100          	    50: 		ld 		(Value),A				;Clear all RAM variables
+00:0008 320000          	    51: 		ld		(BitCounter),A		
+00:000B 320200          	    52: 		ld		(Direction),A			
+                        	    53: 		;Setup parallel ports
+                        	    54: 
+00:000E 3ECF            	    55: 		ld		A,0xCF				; set PIO B to bit mode
+00:0010 320400          	    56: 		ld		(DDRA),A			;driven high to start
+00:0013 D301            	    57: 		out 	(portA_Contr),A
+                        	    58: 	
+                        	    59: ;* -------------------------------------------------------------
+                        	    60: ;* This main loop just ramps up and down the data
+                        	    61: ;* value that is sent to the DAC chip.
+                        	    62: ;* -------------------------------------------------------------
+                        	    63: TxLoop:
+00:0015 3A0200          	    64: 		LD		A,(Direction)			;Increment or decrement?
+00:0018 2812            	    65: 		jr 		Z,GoUp
+                        	    66: GoDown:
+00:001A 3A0100          	    67: 		LD		A,(Value)				;Decrement
+00:001D 2007            	    68: 		jr 		NZ,GD2					;Change direction if needed
+00:001F 3E00            	    69: 		ld 		A,00
+00:0021 320200          	    70: 		ld 		(Direction),A
+00:0024 1817            	    71: 		jr		SendIt
+                        	    72: GD2:
+00:0026 210100          	    73: 		ld 		HL,Value
+00:0029 35              	    74: 		DEC		(HL)				;Decrement the data value
+00:002A 1811            	    75: 		jr		SendIt
+                        	    76: GoUp:
+00:002C 3A0100          	    77: 		LD		A,(Value)				;Increment
+00:002F FEFF            	    78: 		CP		A,$FF				;Change direction if needed
+00:0031 2006            	    79: 		jr 		NZ,GU2
+00:0033 210200          	    80: 		ld 		HL,Direction
+00:0036 34              	    81: 		inc		(HL)				;Increment the data value
+00:0037 1804            	    82: 		jr		SendIt
+                        	    83: GU2:
+00:0039 210100          	    84: 		ld 		HL,Value
+00:003C 34              	    85: 		inc		(HL)
+                        	    86: 
+                        	    87: ;* -------------------------------------------------------------
+                        	    88: ;* Send the I 2 C transmission, including START, address,
+                        	    89: ;* data, and STOP
+                        	    90: ;* -------------------------------------------------------------
+                        	    91: SendIt:
+                        	    92: 		;START condition
+00:003D CDBC00          	    93: 		call	I2CStartBit			;Give START condition
+                        	    94: 
+                        	    95: 		;ADDRESS byte, consists of 7-bit address + 0 as LSbit
+00:0040 3E1B            	    96: 		LD		A,DACADDR			;Slave device address
+00:0042 CB27            	    97: 		sla		A					;Need this to align address
+00:0044 CD5A00          	    98: 		call		I2CTxByte			;Send the eight bits
+                        	    99: 
+                        	   100: 		;DATA bytes
+00:0047 3E00            	   101: 		LD		A,$00				;$00 is command byte for DAC
+00:0049 CD5A00          	   102: 		call	I2CTxByte			;Send the 8 bits
+00:004C 3A0100          	   103: 		LD		A,(Value)				;Value is value to set DAC
+                        	   104: 
+00:004F CD5A00          	   105: 		call 	I2CTxByte			;Send it
+                        	   106: 
+                        	   107: 		;STOP condition
+00:0052 CDC700          	   108: 		call	I2CStopBit 			;Give STOP condition
+00:0055 CDD700          	   109: 		call	I2CBitDelay 		;Wait a bit
+00:0058 18BB            	   110: 		jr		TxLoop				;Repeat
+                        	   111: 	
+                        	   112: 
+                        	   113: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                        	   114: ; I2CTxByte
+                        	   115: ; Transmit the byte in Acc to the SDA pin
+                        	   116: ; (Acc will not be restored on return)
+                        	   117: ; Must be careful to change SDA values only while SCL is low,
+                        	   118: ; otherwise a STOP or START could be implied
+                        	   119: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                        	   120: I2CTxByte:
+                        	   121: 		;Initialize variable
+00:005A 210000          	   122: 		ld 		HL,BitCounter
+00:005D 1608            	   123: 		LD		D,$08
+00:005F 56              	   124: 		ld 		D,(HL)		
+                        	   125: 
+                        	   126: I2CNextBit:
+00:0060 CB17            	   127: 		RL		A					;Shift MSbit into Carry
+00:0062 3012            	   128: 		jr		NC,SendLow 		;Send low bit or high bit
+                        	   129: SendHigh:
+00:0064 210000          	   130: 		ld 		HL,PORTA
+00:0067 CBCE            	   131: 		SET		SDA,(HL)		;Set the data bit value
+00:0069 CDD400          	   132: 		call	I2CSetupDelay 	;Give some time for data
+                        	   133: setup:
+00:006C 210000          	   134: 		ld 		HL,PORTA
+00:006F CBC6            	   135: 		SET		SCL,(HL)		;Clock it in
+00:0071 CDD400          	   136: 		call	I2CSetupDelay	;Wait a bit
+00:0074 180D            	   137: 		jr		I2CTxCont		;Continue
+                        	   138: 
+                        	   139: SendLow:
+00:0076 210000          	   140: 		ld 		HL,PORTA
+00:0079 CB8E            	   141: 		res		SDA,(HL)
+00:007B CDD700          	   142: 		call	I2CBitDelay
+00:007E CBC6            	   143: 		SET		SCL,(HL)
+00:0080 CDD700          	   144: 		call		I2CBitDelay
+                        	   145: I2CTxCont:
+00:0083 210000          	   146: 		ld 		HL,PORTA
+00:0086 CB86            	   147: 		res		SCL,(HL)		;Restore clock to low state
+00:0088 210000          	   148: 		ld 		HL,BitCounter
+00:008B 35              	   149: 		DEC		(HL)		;Decrement the bit counter
+00:008C 2802            	   150: 		jr 		Z,I2CAckPoll		;Last bit?
+00:008E 18D0            	   151: 		jr		I2CNextBit
+                        	   152: 
+                        	   153: I2CAckPoll:
+00:0090 210000          	   154: 		ld 		HL,PORTA
+00:0093 CBCE            	   155: 		SET		SDA,(HL)
+00:0095 210400          	   156: 		ld 		HL,DDRA
+00:0098 CB8E            	   157: 		res		SDA,(HL)		;Set SDA as input
+00:009A CDD400          	   158: 		call		I2CSetupDelay
+00:009D 210000          	   159: 		ld 		HL,PORTA
+00:00A0 CBC6            	   160: 		SET		SCL,(HL)		;Clock the line to get ACK
+00:00A2 CDD700          	   161: 		call	I2CBitDelay
+                        	   162: 		; BRSET	SDA,PORTA,I2CNoAck	;Look for ACK from slave device
+00:00A5 CB4E            	   163: 		bit 	SDA,(HL)
+00:00A7 2808            	   164: 		jr 		Z,I2CNoAck
+                        	   165: 
+00:00A9 CB86            	   166: 		res		SCL,(HL)		;Restore clock line
+00:00AB 210400          	   167: 		ld 		HL,DDRA
+00:00AE CBCE            	   168: 		SET		SDA,(HL)		;SDA back as output
+00:00B0 C9              	   169: 		ret
+                        	   170: 	
+                        	   171: 		;No acknowledgment received from slave device
+                        	   172: 		;Some error action can be performed here
+                        	   173: 		;For now, just restore the bus
+                        	   174: I2CNoAck:
+00:00B1 210000          	   175: 		ld 		HL,PORTA
+00:00B4 CB86            	   176: 		res		SCL,(HL)
+00:00B6 210400          	   177: 		ld 		HL,DDRA
+00:00B9 CBCE            	   178: 		SET		SDA,(HL)
+00:00BB C9              	   179: 		ret
+                        	   180: 
+                        	   181: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                        	   182: ; A START condition is defined as a falling edge
+                        	   183: ; on SDA while SCL is high
+                        	   184: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-
+                        	   185: I2CStartBit:
+00:00BC 210000          	   186: 		ld 		HL,PORTA
+00:00BF CB8E            	   187: 		res		SDA,(HL)
+00:00C1 CDD700          	   188: 		call	I2CBitDelay
+00:00C4 CB86            	   189: 		res		SCL,(HL)
+00:00C6 C9              	   190: 		ret
+                        	   191: 
+                        	   192: 
+                        	   193: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                        	   194: ; A STOP condition is defined as a rising edge
+                        	   195: ; on SDA while SCL is high
+                        	   196: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                        	   197: I2CStopBit:
+00:00C7 210000          	   198: 		ld 		HL,PORTA
+00:00CA CB8E            	   199: 		res		SDA,(HL)
+00:00CC CBC6            	   200: 		SET		SCL,(HL)
+00:00CE CBCE            	   201: 		SET		SDA,(HL)
+00:00D0 CDD700          	   202: 		call	I2CBitDelay
+00:00D3 C9              	   203: 		ret
+                        	   204: 
+                        	   205: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+                        	   206: ; Provide some data setup time to allow
+                        	   207: ; SDA to stabilize in slave device
+                        	   208: ; Completely arbitrary delay (10 cycles)
+                        	   209: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                        	   210: I2CSetupDelay:
+00:00D4 00              	   211: 		NOP
+00:00D5 00              	   212: 		NOP
+00:00D6 C9              	   213: 		ret
+                        	   214: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                        	   215: ; Bit delay to provide (approximately) the desired
+                        	   216: ; SCL frequency
+                        	   217: ; Again, this is arbitrary (16 cycles)
+                        	   218: ;-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                        	   219: I2CBitDelay:
+00:00D7 00              	   220: 		NOP
+00:00D8 00              	   221: 		NOP
+00:00D9 00              	   222: 		NOP
+00:00DA 00              	   223: 		NOP
+00:00DB 00              	   224: 		NOP
+00:00DC C9              	   225: 		ret
+                        	   226: ;* -------------------------------------------------------------
+                        	   227: ;* Vector Definitions
+                        	   228: ;* -------------------------------------------------------------
+                        	   229: 		; ORG		$07FE		;Reset vector
+                        	   230: 		; FDB		Start		
+
+
+Symbols by name:
+BitCounter                      00:0000
+CH0                             external
+CH1                             external
+CH2                             external
+CH3                             external
+DACADDR                          E:001B
+DDRA                             E:0004
+Direction                       00:0002
+GD2                             00:0026
+GU2                             00:0039
+GoDown                          00:001A
+GoUp                            00:002C
+I2CAckPoll                      00:0090
+I2CBitDelay                     00:00D7
+I2CNextBit                      00:0060
+I2CNoAck                        00:00B1
+I2CSetupDelay                   00:00D4
+I2CStartBit                     00:00BC
+I2CStopBit                      00:00C7
+I2CTxByte                       00:005A
+I2CTxCont                       00:0083
+PORTA                            E:0000
+SCL                              E:0000
+SDA                              E:0001
+SIO_0_A_C                       external
+SIO_0_A_D                       external
+SIO_0_B_C                       external
+SIO_0_B_D                       external
+SIO_0_Int_Vec                    E:F400
+SendHigh                        00:0064
+SendIt                          00:003D
+SendLow                         00:0076
+Start                           00:0003
+TxLoop                          00:0015
+Value                           00:0001
+_Z80CTC_Base                    external
+_Z80PIO_Base                    external
+_Z80SIO_0_Base                  external
+gpioB                           external
+gpio_in                         external
+gpio_out                        external
+portA_Contr                     external
+portA_Data                      external
+portB_Contr                     external
+portB_Data                      external
+setup                           00:006C
+sio_ac                          external
+sio_ad                          external
+sio_bc                          external
+sio_bd                          external
+
+Symbols by value:
+0000 BitCounter
+0000 PORTA
+0000 SCL
+0001 SDA
+0001 Value
+0002 Direction
+0003 Start
+0004 DDRA
+0015 TxLoop
+001A GoDown
+001B DACADDR
+0026 GD2
+002C GoUp
+0039 GU2
+003D SendIt
+005A I2CTxByte
+0060 I2CNextBit
+0064 SendHigh
+006C setup
+0076 SendLow
+0083 I2CTxCont
+0090 I2CAckPoll
+00B1 I2CNoAck
+00BC I2CStartBit
+00C7 I2CStopBit
+00D4 I2CSetupDelay
+00D7 I2CBitDelay
+F400 SIO_0_Int_Vec

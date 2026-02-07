@@ -256,11 +256,6 @@ EEPIO_Init:
 		; xdef	RDATA_END,RDATA,TB_length
 hit:
 
-				
-
-		; CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-			; initialize buffer counters and pointers.
-
 		call	EEPIO_Init
 		di
 hit3:
@@ -295,13 +290,16 @@ hit3:
 		ld 		A,$0C
 		out 	(gpio_out),A
 		
-		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-			; initialize buffer counters and pointers.
-
 		ld 		A,$0F
 		out 	(gpio_out),A
 
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+			; initialize buffer counters and pointers.
+
+
 		call 	CTC_Init
+
+
 		ld 		A,$1D
 		out 	(gpio_out),A
 		ld 		A,$00
@@ -311,49 +309,40 @@ hit3:
 		; ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
 		; call    InitSIO_0Ports			; INITIALIZE SIO_0
 
-		call	CRLF
-		call 	writeSTRBelow
-		defb   	"\0\r\n"
-		defb	"##########################################################\r\n"
-		defb	"The Z80 Board Awakened 2025\r\n"
-		defb	"    FLASH->SRAM 0xD000.\r\n"
-		defb	"\0"
-
-		halt
-
 
 		ld 		A,$1E
 		out 	(gpio_out),A
 
-		ld 		A,'#'
-		out		(SIO_A_D),A			;output data
-		call 	TX_EMP
+		; ld 		A,'#'
+		; out		(SIO_A_D),A			;output data
+		; call 	TX_EMP
 
-		ld 		A,$18
-		out 	(gpio_out),A
+		; ld 		A,$18
+		; out 	(gpio_out),A
 
-		ld 		A,'#'
-		out		(SIO_A_D),A			;output data
-		call 	TX_EMP
-		ld 		A,'#'
-		out		(SIO_A_D),A			;output data
-		call 	TX_EMP
+		; ld 		A,'A'
+		; call  	WriteChar
 
-		ld 		A,$19
-		out 	(gpio_out),A
+		; ld 		A,'B'
+		; call  	WriteChar
 
-		ld 		A,'#'
-		out		(SIO_A_D),A			;output data
-		call 	TX_EMP
-		ld 		A,'#'
-		out		(SIO_A_D),A			;output data
-		call 	TX_EMP
-		ld 		A,'#'
-		out		(SIO_A_D),A			;output data
-		call 	TX_EMP
+		; ld 		A,'C'
+		; call  	WriteChar
+		; call 	CRLF
 
-		ld 		A,$1A
-		out 	(gpio_out),A
+		call 	writeSTRBelow
+		defb   	"\0\r\n"
+		defb	"##########################################################\r\n"
+		defb	"-*-*/-*/-*/-*/-*//-*/-*/-*/-*/-*/-*/**-/-*/-*/-*/-*/-*/-*/\r\n"
+		defb	"-+-+-+-+-+-+-+---++--++--++--++--++--+++-+-+-+-+-+-+-+-+-+\r\n"
+		defb	"The Z80 Board Awakened 2025\r\n"
+		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"    2026-02-07 .\r\n"
+		defb	"\0\0"
+
+		halt
+
+
 ;***************************
 		halt
 ;**************************

@@ -1862,256 +1862,255 @@ Source: "stdin"
                         	  1584: 								;BIT 1 = 1 (ENABLE TRANSMIT INTERRUPT)
                         	  1585: 								;BIT 2 = 0 (DO NOT CARE)
                         	  1586: 								;BITS 4. 3 = 11 (RECEIVE INTERRUPTS ON ALL CHARS. PARITY DOES NOT AFFECT VECTOR)
-                        	  1587: 								;BITS 7.6.5 = 000 (NO WAIT/READY
-                        	  1588: 								; FUNCTION)
+                        	  1587: 								;BITS 7.6.5 = 000 (NO WAIT/READY FUNCTION)
+                        	  1588: 
                         	  1589: 
                         	  1590: 
-                        	  1591: 
-                        	  1592: 		; INITIALIZE CHANNEL B
-                        	  1593: 		; _____________________________
-                        	  1594: 
-00:02F9 08              	  1595: 		db	8					;OUTPUT 8 BYTES
-00:02FA 03              	  1596: 		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
-                        	  1597: 
-                        	  1598: 		;iNITIALIZE BAUD RATE CONTROL
-00:02FB 14              	  1599: 		db	_Reset_STAT_INT|WR4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
-00:02FC 44              	  1600: 		db	_Stop_1_bit|_X16_Clock_mode
-                        	  1601: 	
-                        	  1602: 		; ; INITIALIZE RECEIVE CONTROL
-00:02FD 03              	  1603: 		db	WR3		;SELECT WRITE REGISTER 3
-00:02FE C1              	  1604: 		db	_Rx_Enable|_RX_8_bits
-                        	  1605: 		; ;iNITIALIZE TRANSMIT CONTROL
-00:02FF 05              	  1606: 		db	WR5					;SELECT WRITE REGISTER 5
-00:0300 68              	  1607: 		db	_Tx_Enable|_Tx_8bits_char
-                        	  1608: 		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
-00:0301 01              	  1609: 		DB	WR1					;SELECT WRITE REGISTER 1
-00:0302 04              	  1610: 		DB	_Status_Vector
-                        	  1611: 		; DB	_Tx_INT_EN|_Int_All_Rx_Char_NP|_Status_Vector
-                        	  1612: 
-00:0303 00              	  1613: 		DB	0               ; END OF TABLE
-                        	  1614: 		
+                        	  1591: 		; INITIALIZE CHANNEL B
+                        	  1592: 		; _____________________________
+                        	  1593: 
+00:02F9 08              	  1594: 		db	8					;OUTPUT 8 BYTES
+00:02FA 03              	  1595: 		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
+                        	  1596: 
+                        	  1597: 		;iNITIALIZE BAUD RATE CONTROL
+00:02FB 14              	  1598: 		db	_Reset_STAT_INT|WR4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
+00:02FC 44              	  1599: 		db	_Stop_1_bit|_X16_Clock_mode
+                        	  1600: 	
+                        	  1601: 		; ; INITIALIZE RECEIVE CONTROL
+00:02FD 03              	  1602: 		db	WR3		;SELECT WRITE REGISTER 3
+00:02FE C1              	  1603: 		db	_Rx_Enable|_RX_8_bits
+                        	  1604: 		; ;iNITIALIZE TRANSMIT CONTROL
+00:02FF 05              	  1605: 		db	WR5					;SELECT WRITE REGISTER 5
+00:0300 68              	  1606: 		db	_Tx_Enable|_Tx_8bits_char
+                        	  1607: 		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
+00:0301 01              	  1608: 		DB	WR1					;SELECT WRITE REGISTER 1
+00:0302 04              	  1609: 		DB	_Status_Vector
+                        	  1610: 		; DB	_Tx_INT_EN|_Int_All_Rx_Char_NP|_Status_Vector
+                        	  1611: 
+00:0303 00              	  1612: 		DB	0               ; END OF TABLE
+                        	  1613: 		
+                        	  1614: ;****************************************************************************************************************
                         	  1615: ;****************************************************************************************************************
                         	  1616: ;****************************************************************************************************************
                         	  1617: ;****************************************************************************************************************
                         	  1618: ;****************************************************************************************************************
-                        	  1619: ;****************************************************************************************************************
-                        	  1620: 		; DATA SECTION
-                        	  1621: 		; Moved to linker script 
-                        	  1622: ; inHeadAdr:	DS	2					; address of oldest character in input buffer
-                        	  1623: ; inTailAdr:	DS	2					; address of newest character in input buffer
-                        	  1624: ; inBufCount:	DS	1					;number of characters in input buffer 
-                        	  1625: ; outHeadAdr:	DS	2					;address of oldest character in output buffer
-                        	  1626: ; outTailAdr:	DS	2					;address of newest character in output buffer
-                        	  1627: ; OutBufCount:	DS	1				;number of characters in output buffer
-                        	  1628: ; OutINTExpect:	DS	1					;output interrupt expected
-                        	  1629: ; 								; (0 = no interrupt expected.
-                        	  1630: ; 								; ff = interrupt expected)
+                        	  1619: 		; DATA SECTION
+                        	  1620: 		; Moved to linker script 
+                        	  1621: ; inHeadAdr:	DS	2					; address of oldest character in input buffer
+                        	  1622: ; inTailAdr:	DS	2					; address of newest character in input buffer
+                        	  1623: ; inBufCount:	DS	1					;number of characters in input buffer 
+                        	  1624: ; outHeadAdr:	DS	2					;address of oldest character in output buffer
+                        	  1625: ; outTailAdr:	DS	2					;address of newest character in output buffer
+                        	  1626: ; OutBufCount:	DS	1				;number of characters in output buffer
+                        	  1627: ; OutINTExpect:	DS	1					;output interrupt expected
+                        	  1628: ; 								; (0 = no interrupt expected.
+                        	  1629: ; 								; ff = interrupt expected)
+                        	  1630: 
                         	  1631: 
-                        	  1632: 
-                        	  1633: 		; SAMPLE EXECUTION:
+                        	  1632: 		; SAMPLE EXECUTION:
+                        	  1633: 
                         	  1634: 
-                        	  1635: 
-                        	  1636: 		;CHARACTER EQUATES
-                        	  1637: ; ; ESCAPE	EQU     1BH					;ASCII ESCAPE CHARACTER
-                        	  1638: ; ; TESTCH	EQU     'A'					;TEST CHARACTER = A
-                        	  1639: ; 		global SC11C
-                        	  1640: ; SC11C:
-                        	  1641: ; 		CALL	InitBuffers				;INITIALIZE SIO_0. INTERRUPT SYSTEM
-                        	  1642: ; 			;SIMPLE EXAMPLE - READ AND ECHO CHARACTER
-                        	  1643: ; 			; UNTIL AN ESC IS RECEIVED
-                        	  1644: ; LOOP:
-                        	  1645: ; 		CALL	ReadChar				;READ CHARACTER
-                        	  1646: ; 		PUSH	AF
-                        	  1647: ; 		CALL	WriteChar				;ECHO CHARACTER
-                        	  1648: ; 		POP		AF
-                        	  1649: ; 		CP		ESCAPE				;IS CHARACTER AN ESCAPE?
-                        	  1650: ; 		JR		NZ,LOOP				;STAY IN LOOP IF NOT
-                        	  1651: ; 			;AN ASYNCHRONOUS EXAMPLE
-                        	  1652: ; 			; OUTPUT "A" TO CONSOLE CONTINUOUSLY BUT ALSO LOOK AT
-                        	  1653: ; 			; INPUT SIDE. READING AND ECHOING ANY INPUT CHARACTERS
-                        	  1654: ; ASYNLP:
-                        	  1655: ; 			;OUTPUT   AN "A" IF OUTPUT IS NOT BUSY
-                        	  1656: ; 		CALL	RetOutStatus				;IS OUTPUT BUSY?
-                        	  1657: ; 		JR		C,ASYNLP			;JUMP IF IT IS
-                        	  1658: ; 		LD		A,TESTCH
-                        	  1659: ; 		CALL	WriteChar				;OUTPUT CHARACTER
-                        	  1660: ; 			;CHECK INPUT PORT
-                        	  1661: ; 			;ECHO CHARACTER IF ONE IS AVAILABLE
-                        	  1662: ; 			;EXIT ON ESCAPE CHARACTER
-                        	  1663: ; 		CALL	RetInpStatus				;IS INPUT DATA AVAILABLE?
-                        	  1664: ; 		JR		NC, ASYNLP			;JUMP I F NOT (SEND ANOTHER .. A" )
-                        	  1665: ; 		CALL	ReadChar				; GET CHARACTER
-                        	  1666: ; 		CP		ESCAPE				;IS IT AN ESCAPE CHARACTER?
-                        	  1667: ; 		JR		Z,DONE				;BRANCH IF IT IS
+                        	  1635: 		;CHARACTER EQUATES
+                        	  1636: ; ; ESCAPE	EQU     1BH					;ASCII ESCAPE CHARACTER
+                        	  1637: ; ; TESTCH	EQU     'A'					;TEST CHARACTER = A
+                        	  1638: ; 		global SC11C
+                        	  1639: ; SC11C:
+                        	  1640: ; 		CALL	InitBuffers				;INITIALIZE SIO_0. INTERRUPT SYSTEM
+                        	  1641: ; 			;SIMPLE EXAMPLE - READ AND ECHO CHARACTER
+                        	  1642: ; 			; UNTIL AN ESC IS RECEIVED
+                        	  1643: ; LOOP:
+                        	  1644: ; 		CALL	ReadChar				;READ CHARACTER
+                        	  1645: ; 		PUSH	AF
+                        	  1646: ; 		CALL	WriteChar				;ECHO CHARACTER
+                        	  1647: ; 		POP		AF
+                        	  1648: ; 		CP		ESCAPE				;IS CHARACTER AN ESCAPE?
+                        	  1649: ; 		JR		NZ,LOOP				;STAY IN LOOP IF NOT
+                        	  1650: ; 			;AN ASYNCHRONOUS EXAMPLE
+                        	  1651: ; 			; OUTPUT "A" TO CONSOLE CONTINUOUSLY BUT ALSO LOOK AT
+                        	  1652: ; 			; INPUT SIDE. READING AND ECHOING ANY INPUT CHARACTERS
+                        	  1653: ; ASYNLP:
+                        	  1654: ; 			;OUTPUT   AN "A" IF OUTPUT IS NOT BUSY
+                        	  1655: ; 		CALL	RetOutStatus				;IS OUTPUT BUSY?
+                        	  1656: ; 		JR		C,ASYNLP			;JUMP IF IT IS
+                        	  1657: ; 		LD		A,TESTCH
+                        	  1658: ; 		CALL	WriteChar				;OUTPUT CHARACTER
+                        	  1659: ; 			;CHECK INPUT PORT
+                        	  1660: ; 			;ECHO CHARACTER IF ONE IS AVAILABLE
+                        	  1661: ; 			;EXIT ON ESCAPE CHARACTER
+                        	  1662: ; 		CALL	RetInpStatus				;IS INPUT DATA AVAILABLE?
+                        	  1663: ; 		JR		NC, ASYNLP			;JUMP I F NOT (SEND ANOTHER .. A" )
+                        	  1664: ; 		CALL	ReadChar				; GET CHARACTER
+                        	  1665: ; 		CP		ESCAPE				;IS IT AN ESCAPE CHARACTER?
+                        	  1666: ; 		JR		Z,DONE				;BRANCH IF IT IS
+                        	  1667: 
                         	  1668: 
-                        	  1669: 
-                        	  1670: ; 		CALL	WriteChar				;ELSE ECHO CHARACTER
-                        	  1671: ; 		JP		ASYNLP				;AND CONTINUE
-                        	  1672: ; DONE:
-                        	  1673: ; 		JP		LOOP
+                        	  1669: ; 		CALL	WriteChar				;ELSE ECHO CHARACTER
+                        	  1670: ; 		JP		ASYNLP				;AND CONTINUE
+                        	  1671: ; DONE:
+                        	  1672: ; 		JP		LOOP
+                        	  1673: 
                         	  1674: 
-                        	  1675: 
-                        	  1676: ;##############################################################
-                        	  1677: ; Write the null-terminated string starting after the call
-                        	  1678: ; instruction invoking this subroutine to the console.
-                        	  1679: ; Clobbers AF, C
-                        	  1680: ;##############################################################
-                        	  1681: writeSTRBelow:
-00:0304 FDE3            	  1682:         ex      (sp),iy                 ; iy = @ of string to print
-00:0306 CD9100          	  1683: 		call	WriteLine
-00:0309 FD23            	  1684:         inc     iy                      ; point past the end of the string
-00:030B FDE3            	  1685:         ex      (sp),iy
-00:030D C9              	  1686:         ret
-                        	  1687: 
-                        	  1688: writeSTRBelow_CRLF:
-00:030E FDE3            	  1689: 		ex		(sp),iy                 ; iy = @ of string to print
-00:0310 CDA200          	  1690: 		call	WriteLineCRNL
-00:0313 FD23            	  1691: 		inc		iy                      ; point past the end of the string
-00:0315 FDE3            	  1692: 		ex		(sp),iy
-00:0317 C9              	  1693: 		ret
-                        	  1694: 
-                        	  1695: ;##############################################################
-                        	  1696: ; Print a CRLF 
-                        	  1697: ; Clobbers AF, C
-                        	  1698: ;##############################################################
-                        	  1699: puts_crlf:
-00:0318 CD0403          	  1700:         call    writeSTRBelow
-00:031B 000D0A00        	  1701:         defb    '\0\r\n\0'
-00:031F C9              	  1702:         ret
+                        	  1675: ;##############################################################
+                        	  1676: ; Write the null-terminated string starting after the call
+                        	  1677: ; instruction invoking this subroutine to the console.
+                        	  1678: ; Clobbers AF, C
+                        	  1679: ;##############################################################
+                        	  1680: writeSTRBelow:
+00:0304 FDE3            	  1681:         ex      (sp),iy                 ; iy = @ of string to print
+00:0306 CD9100          	  1682: 		call	WriteLine
+00:0309 FD23            	  1683:         inc     iy                      ; point past the end of the string
+00:030B FDE3            	  1684:         ex      (sp),iy
+00:030D C9              	  1685:         ret
+                        	  1686: 
+                        	  1687: writeSTRBelow_CRLF:
+00:030E FDE3            	  1688: 		ex		(sp),iy                 ; iy = @ of string to print
+00:0310 CDA200          	  1689: 		call	WriteLineCRNL
+00:0313 FD23            	  1690: 		inc		iy                      ; point past the end of the string
+00:0315 FDE3            	  1691: 		ex		(sp),iy
+00:0317 C9              	  1692: 		ret
+                        	  1693: 
+                        	  1694: ;##############################################################
+                        	  1695: ; Print a CRLF 
+                        	  1696: ; Clobbers AF, C
+                        	  1697: ;##############################################################
+                        	  1698: puts_crlf:
+00:0318 CD0403          	  1699:         call    writeSTRBelow
+00:031B 000D0A00        	  1700:         defb    '\0\r\n\0'
+00:031F C9              	  1701:         ret
+                        	  1702: 
                         	  1703: 
                         	  1704: 
                         	  1705: 
-                        	  1706: 
-                        	  1707: PIO_Init:
-                        	  1708: ;----------******************* PIO PORT A
-00:0320 3ECF            	  1709: 		ld A, %11001111                 ;mode 3 in/out
-00:0322 D301            	  1710: 		out (portA_Contr), A         ; set port A as output
-00:0324 3E00            	  1711: 		ld 	A,%00000000					; msb=input lsb = output, 0-mosi, 1-clk, 2-ssel, 7-miso
-00:0326 D301            	  1712: 		out (portA_Contr), A         ; set port A as 4 input/ 4 output
-                        	  1713: 		; ld A, Interupt_vector&0xFF                   ; low byte of INT table
-                        	  1714: 		; out (portA_Contr), A         ; PIO A interrupt vector
-00:0328 3E03            	  1715: 		ld A, $03
-00:032A D301            	  1716: 		out (portA_Contr), A         ; PIO A interrupt disable
-                        	  1717: 		; ld a,Interupt_vector>>8      ; high byte of INT table
-                        	  1718: 		; ld I,A
-00:032C F3              	  1719: 		di
-                        	  1720: ;----------******************* PIO PORT B
-00:032D 3ECF            	  1721: 		ld A, %11001111                 ;mode 3 in/out
-00:032F D303            	  1722: 		out (portB_Contr), A         ; set port B as output
-00:0331 3E00            	  1723: 		ld A, $00                    ;mode 0 output 
-00:0333 D303            	  1724: 		out (portB_Contr), A         ; set port B as output
-00:0335 3E03            	  1725: 		ld A, $03
-00:0337 D303            	  1726: 		out (portB_Contr), A         ; PIO B interrupt disable
-00:0339 3E00            	  1727: 		ld a,0
-00:033B 32D0F1          	  1728: 		ld (PIO_B_value),a
-00:033E D302            	  1729: 		out (portB_Data), a
-00:0340 C9              	  1730: 	ret
-                        	  1731: 
-                        	  1732: 	if DOALIGN
-                        	  1733: 		align 4
-                        	  1734: 	endif
+                        	  1706: PIO_Init:
+                        	  1707: ;----------******************* PIO PORT A
+00:0320 3ECF            	  1708: 		ld A, %11001111                 ;mode 3 in/out
+00:0322 D301            	  1709: 		out (portA_Contr), A         ; set port A as output
+00:0324 3E00            	  1710: 		ld 	A,%00000000					; msb=input lsb = output, 0-mosi, 1-clk, 2-ssel, 7-miso
+00:0326 D301            	  1711: 		out (portA_Contr), A         ; set port A as 4 input/ 4 output
+                        	  1712: 		; ld A, Interupt_vector&0xFF                   ; low byte of INT table
+                        	  1713: 		; out (portA_Contr), A         ; PIO A interrupt vector
+00:0328 3E03            	  1714: 		ld A, $03
+00:032A D301            	  1715: 		out (portA_Contr), A         ; PIO A interrupt disable
+                        	  1716: 		; ld a,Interupt_vector>>8      ; high byte of INT table
+                        	  1717: 		; ld I,A
+00:032C F3              	  1718: 		di
+                        	  1719: ;----------******************* PIO PORT B
+00:032D 3ECF            	  1720: 		ld A, %11001111                 ;mode 3 in/out
+00:032F D303            	  1721: 		out (portB_Contr), A         ; set port B as output
+00:0331 3E00            	  1722: 		ld A, $00                    ;mode 0 output 
+00:0333 D303            	  1723: 		out (portB_Contr), A         ; set port B as output
+00:0335 3E03            	  1724: 		ld A, $03
+00:0337 D303            	  1725: 		out (portB_Contr), A         ; PIO B interrupt disable
+00:0339 3E00            	  1726: 		ld a,0
+00:033B 32D0F1          	  1727: 		ld (PIO_B_value),a
+00:033E D302            	  1728: 		out (portB_Data), a
+00:0340 C9              	  1729: 	ret
+                        	  1730: 
+                        	  1731: 	if DOALIGN
+                        	  1732: 		align 4
+                        	  1733: 	endif
+                        	  1734: 
                         	  1735: 
-                        	  1736: 
+                        	  1736: ;********************************************************************************************     
                         	  1737: ;********************************************************************************************     
-                        	  1738: ;********************************************************************************************     
-                        	  1739: 
-                        	  1740: 		xdef CTC_CH0_Interrupt_Handler,CTC_CH1_Interrupt_Handler,CTC_CH2_Interrupt_Handler,CTC_CH3_Interrupt_Handler
-                        	  1741: 
-                        	  1742: CTC_CH0_Interrupt_Handler:
-                        	  1743: CTC_CH1_Interrupt_Handler:
-                        	  1744: 
-                        	  1745: 		; call 	TX_NAK
-00:0341 CD6602          	  1746: 		call 	TX_C
-00:0344 3A0000          	  1747: 		ld 		A,(TempVar1)
-00:0347 3C              	  1748: 		inc 	A
-00:0348 320000          	  1749: 		ld 		(TempVar1),A
+                        	  1738: 
+                        	  1739: 		xdef CTC_CH0_Interrupt_Handler,CTC_CH1_Interrupt_Handler,CTC_CH2_Interrupt_Handler,CTC_CH3_Interrupt_Handler
+                        	  1740: 
+                        	  1741: CTC_CH0_Interrupt_Handler:
+                        	  1742: CTC_CH1_Interrupt_Handler:
+                        	  1743: 
+                        	  1744: 		; call 	TX_NAK
+00:0341 CD6602          	  1745: 		call 	TX_C
+00:0344 3A0000          	  1746: 		ld 		A,(TempVar1)
+00:0347 3C              	  1747: 		inc 	A
+00:0348 320000          	  1748: 		ld 		(TempVar1),A
+                        	  1749: 
                         	  1750: 
-                        	  1751: 
-00:034B FE10            	  1752: 		cp 		16							; Z is set 
-00:034D F25503          	  1753: 		jp 		P,showtimeout				; check if loop should timeout... A>16
-                        	  1754: 
-                        	  1755: 		; call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
-                        	  1756: 
-00:0350 B7              	  1757: 		or 		A							; clear carry - > wait for next.
-00:0351 1E0A            	  1758: 		ld 		E,CTCpulse					; ret from CTC = 0A
-                        	  1759: 
-00:0353 ED4D            	  1760: 		reti
-                        	  1761: 
-                        	  1762: ;------------------------------------------------------------------------------
+00:034B FE10            	  1751: 		cp 		16							; Z is set 
+00:034D F25503          	  1752: 		jp 		P,showtimeout				; check if loop should timeout... A>16
+                        	  1753: 
+                        	  1754: 		; call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
+                        	  1755: 
+00:0350 B7              	  1756: 		or 		A							; clear carry - > wait for next.
+00:0351 1E0A            	  1757: 		ld 		E,CTCpulse					; ret from CTC = 0A
+                        	  1758: 
+00:0353 ED4D            	  1759: 		reti
+                        	  1760: 
+                        	  1761: ;------------------------------------------------------------------------------
+                        	  1762: 
                         	  1763: 
-                        	  1764: 
-                        	  1765: CTC_CH2_Interrupt_Handler:
-                        	  1766: CTC_CH3_Interrupt_Handler:
+                        	  1764: CTC_CH2_Interrupt_Handler:
+                        	  1765: CTC_CH3_Interrupt_Handler:
+                        	  1766: 
                         	  1767: 
-                        	  1768: 
-                        	  1769: showtimeout:
-                        	  1770: 		; call 	writeSTRBelow_CRLF
-                        	  1771: 		; defb    "\0\r\n"
-                        	  1772: 		; defb	"A timout on XMODEM occured !",00
-00:0355 97              	  1773: 		sub  	A
-00:0356 320000          	  1774: 		ld 		(TempVar1),A
-00:0359 D302            	  1775: 		out 	(portB_Data),A
-                        	  1776: 
-00:035B 37              	  1777: 		scf								; set carry flag 
-                        	  1778: 
-00:035C FB              	  1779: 		ei
-00:035D 1E0B            	  1780: 		ld 		E,CTCtimeout					; ret from CTC = 0B (timeout)
-00:035F ED4D            	  1781: 		reti 
+                        	  1768: showtimeout:
+                        	  1769: 		; call 	writeSTRBelow_CRLF
+                        	  1770: 		; defb    "\0\r\n"
+                        	  1771: 		; defb	"A timout on XMODEM occured !",00
+00:0355 97              	  1772: 		sub  	A
+00:0356 320000          	  1773: 		ld 		(TempVar1),A
+00:0359 D302            	  1774: 		out 	(portB_Data),A
+                        	  1775: 
+00:035B 37              	  1776: 		scf								; set carry flag 
+                        	  1777: 
+00:035C FB              	  1778: 		ei
+00:035D 1E0B            	  1779: 		ld 		E,CTCtimeout					; ret from CTC = 0B (timeout)
+00:035F ED4D            	  1780: 		reti 
+                        	  1781: 
                         	  1782: 
                         	  1783: 
                         	  1784: 
                         	  1785: 
-                        	  1786: 
+                        	  1786: ;********************************************************************************************     
                         	  1787: ;********************************************************************************************     
-                        	  1788: ;********************************************************************************************     
+                        	  1788: 
                         	  1789: 
                         	  1790: 
-                        	  1791: 
-                        	  1792: CTC_Init:
-                        	  1793: 
-                        	  1794: 		; ------Reset all---------------
-00:0361 3E03            	  1795: 		ld		A,_Reset|_CW		; reset channel
-00:0363 D300            	  1796: 		out		(CH0),A
-00:0365 D301            	  1797: 		out		(CH1),A
-00:0367 D302            	  1798: 		out		(CH2),A
-00:0369 D303            	  1799: 		out		(CH3),A
-                        	  1800: 
-                        	  1801: 		; ------INIT interrupt vectors for SIO /CTC---------------
-00:036B 2110F4          	  1802: 		ld 		HL,CTC_CH0_I_Vector          (F410)
-00:036E 7D              	  1803: 		ld  	A,L					; copy low byte
-00:036F D300            	  1804: 		out 	(CH0),A
+                        	  1791: CTC_Init:
+                        	  1792: 
+                        	  1793: 		; ------Reset all---------------
+00:0361 3E03            	  1794: 		ld		A,_Reset|_CW		; reset channel
+00:0363 D300            	  1795: 		out		(CH0),A
+00:0365 D301            	  1796: 		out		(CH1),A
+00:0367 D302            	  1797: 		out		(CH2),A
+00:0369 D303            	  1798: 		out		(CH3),A
+                        	  1799: 
+                        	  1800: 		; ------INIT interrupt vectors for SIO /CTC---------------
+00:036B 2110F4          	  1801: 		ld 		HL,CTC_CH0_I_Vector          (F410)
+00:036E 7D              	  1802: 		ld  	A,L					; copy low byte
+00:036F D300            	  1803: 		out 	(CH0),A
+                        	  1804: 
                         	  1805: 
-                        	  1806: 
-00:0371 3E47            	  1807: 		ld 	 	A,_Counter|_TC_Follow|_Reset|_CW
-00:0373 D302            	  1808: 		out		(CH2),A
-00:0375 3E02            	  1809: 		ld		A,2				; time constant defined
-00:0377 D302            	  1810: 		out		(CH2),A			; and loaded into channel 2
+00:0371 3E47            	  1806: 		ld 	 	A,_Counter|_TC_Follow|_Reset|_CW
+00:0373 D302            	  1807: 		out		(CH2),A
+00:0375 3E02            	  1808: 		ld		A,2				; time constant defined
+00:0377 D302            	  1809: 		out		(CH2),A			; and loaded into channel 2
+                        	  1810: 
                         	  1811: 
-                        	  1812: 
-                        	  1813: 		;--------init CTC3 (Unused...)----------------------------------
-00:0379 3E03            	  1814: 		ld		A,00000011b		; int on, counter on, prescaler don't care, edge don't care,11000111b
-00:037B D303            	  1815: 		out		(CH3),A
-00:037D 3EAF            	  1816: 		ld		A,0AFh			; time constant AFh defined
-00:037F D303            	  1817: 		out		(CH3),A			; and loaded into channel 3
-                        	  1818: 		; ld		A,10h			; it vector defined in bit 7­3,bit 2­1 don't care, bit 0 = 0
-                        	  1819: 
-                        	  1820: 		; out		(CH0),A			; and loaded into channel 0
-00:0381 C9              	  1821: 		ret
-                        	  1822: 
-                        	  1823: 		; ------INIT CTC2 Baud frequence  for  10 MHz version SIO------- 
-                        	  1824: 		; 		Baud 		SIO_0,clockmode  CTCprescaler freq
-                        	  1825: 		;		115200		16x				2			3,684	
-                        	  1826: 		;		57600		16x				4			3,684
-                        	  1827: 		;		38400		16x				6			3,684
-                        	  1828: 		;		19200		16x				12			3,684
-                        	  1829: 		; 		9600		16x				24			3,684
+                        	  1812: 		;--------init CTC3 (Unused...)----------------------------------
+00:0379 3E03            	  1813: 		ld		A,00000011b		; int on, counter on, prescaler don't care, edge don't care,11000111b
+00:037B D303            	  1814: 		out		(CH3),A
+00:037D 3EAF            	  1815: 		ld		A,0AFh			; time constant AFh defined
+00:037F D303            	  1816: 		out		(CH3),A			; and loaded into channel 3
+                        	  1817: 		; ld		A,10h			; it vector defined in bit 7­3,bit 2­1 don't care, bit 0 = 0
+                        	  1818: 
+                        	  1819: 		; out		(CH0),A			; and loaded into channel 0
+00:0381 C9              	  1820: 		ret
+                        	  1821: 
+                        	  1822: 		; ------INIT CTC2 Baud frequence  for  10 MHz version SIO------- 
+                        	  1823: 		; 		Baud 		SIO_0,clockmode  CTCprescaler freq
+                        	  1824: 		;		115200		16x				2			3,684	
+                        	  1825: 		;		57600		16x				4			3,684
+                        	  1826: 		;		38400		16x				6			3,684
+                        	  1827: 		;		19200		16x				12			3,684
+                        	  1828: 		; 		9600		16x				24			3,684
+                        	  1829: 
                         	  1830: 
-                        	  1831: 
-                        	  1832: ;********************************************************************************************     
-                        	  1833: 
-                        	  1834: .end
+                        	  1831: ;********************************************************************************************     
+                        	  1832: 
+                        	  1833: .end
+                        	  1834: 
                         	  1835: 
-                        	  1836: 
 
 
 Symbols by name:
