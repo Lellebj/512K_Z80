@@ -4,10 +4,6 @@
 		include 	"Salea_Logic.inc"
 	
 
-; ;***********************************************************************
-; 		section	Monitor
-; ;***********************************************************************
-
 
 
 
@@ -24,15 +20,14 @@
 		
 		xref 	SIO_A_RTS_OFF,SIO_A_RTS_ON
 
-
 	;***************************************************************
 	;SAMPLE EXECUTION:
 	;***************************************************************
+GPIODEBUG EQU 1
 
 DO_Debug:	equ	0		; Set to 1 to show debug printing, else 0 
 
-	GLOBAL SD_USB_startup,MONITOR_Start
-
+	GLOBAL  MONITOR_Start, SD_USB_startup
 ;************************************************************************************************
 ;************************************************************************************************
 ;***		SDcard/USB startup sequence
@@ -41,59 +36,84 @@ DO_Debug:	equ	0		; Set to 1 to show debug printing, else 0
 		section SD_USB_Start
 
 
-		jp 		MONITOR_Start0 		; jump to MONITOR_Start if hard call to $8000
+		; jp 		MONITOR_Start0 		; jump to MONITOR_Start if hard call to $D000
 
 SD_USB_startup:
 
-	ifd 	GPIODEBUG
+	ifdef  	GPIODEBUG
 	ld 		A,$33
 	out 	(gpio_out),A
-	endif
 
+	; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
 
-		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
+	ld 		(SP_value),SP
 
-
-		ld 		(SP_value),SP
-	
-	ifd 	GPIODEBUG
 	ld 		A,$AA
 	out 	(gpio_out),A
-	endif
+	
+	CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+			; initialize buffer counters and pointers.
+	ld 		A,$BB
+	out 	(gpio_out),A
+
+		call	PIO_Init
+	ld 		A,$CC
+	out 	(gpio_out),A
+		call 	CTC_Init
+	ld 		A,$DD
+	out 	(gpio_out),A
+		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+	ld 		A,$DF
+	out 	(gpio_out),A
+		call	S_head_tail			; save input heads and tails
+	ld 		A,$81
+	out 	(gpio_out),A
+	
+	else
 	
 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
 			; initialize buffer counters and pointers.
-	ifd 	GPIODEBUG
-	ld 		A,$BB
-	out 	(gpio_out),A
+		call	PIO_Init
+		call 	CTC_Init
+		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+		call	S_head_tail			; save input heads and tails
 	endif
 
-		call	PIO_Init
-	ifd 	GPIODEBUG
-	ld 		A,$CC
-	out 	(gpio_out),A
-	endif
-		call 	CTC_Init
-	ifd 	GPIODEBUG
-	ld 		A,$DD
-	out 	(gpio_out),A
-	endif
-		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-	ifd 	GPIODEBUG
-	ld 		A,$DF
-	out 	(gpio_out),A
-	endif
-		call	S_head_tail			; save input heads and tails
-	ifd 	GPIODEBUG
-	ld 		A,$81
-	out 	(gpio_out),A
-	endif
 
 		; call	sh_test
 		; call 	Flash_WR_Test
 		; ld	HL,$2010
 		; call	Flash_SE_Erase
 
+		; check  $D008-$D00B for $33333333 -> Startup code is preloaded from Arduino 
+		; check  $D008-$D00B for $CCCCCCCC -> start from Flash 
+
+		ld 		HL,BootCodeAdr
+		ld 		B,04
+		ld 		A,'3'
+.checkBootCode:
+		cp 		(HL)	
+		inc 	HL
+		jp 		NZ,.SDstart
+		djnz 	.checkBootCode
+
+
+		call	CRLF
+		call 	writeSTRBelow
+		defb   	"\r\n"
+		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-\r\n"
+		defb	"Start from Arduino preloaded monitor\r\n"
+		defb	"    git: @@GIT_VERSION@@\r\n"
+		defb	"    build: @@DATE@@\r\n"
+		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"\0"
+
+		call 	waitForFinishedPrintout
+		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
+		
+
+.SDstart:
+		
 		call	CRLF
 		call 	writeSTRBelow
 		defb   	"\r\n"
@@ -152,12 +172,11 @@ SD_USB_startup:
 		call 	writeSTRBelow
 		defb   "\r\nUSE RAM bank #0, Copy FLASH Boot seq\r\n"
 		defb   "To RAM bank #1 ($0-$2000) \r\n"
-		defb	"Jump to _RAMSTART! \r\n",0,0,0
+		defb	"Jump to MONITOR_Start! ($D000)\r\n",0,0,0
 
-		jp 		_RAMSTART 		; monitor start $D000
+		jp 		MONITOR_Start			; monitor start $D000 MONITOR_Start:
 
 .loopINF:
-		halt
 	ifd 	GPIODEBUG	
 	ld 		A,$99
 	out 	(gpio_out),A
@@ -232,55 +251,82 @@ SDabort:
 MONITOR_Start0:	
 
 ;***********************************************************************
-		section	Monitor			; enter point for monitor
 ;***********************************************************************
 
-MONITOR_Start:	
+		section	Monitor			; enter point for monitor
+
+;***********************************************************************
+;***	MONITOR_Start:  entry point for monitor, should be at $D000.
+;***********************************************************************
+
+MONITOR_Start:		
 
 		; ***	should be start address $D000
-		jr 		.initRH
-		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
-		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
-		; db 		"AAAA"
-		db 		"CCCC"
+		;jr 		.makeShadowRAM
+		jr 		.skipBlockCopy		; use Flash mem and SRAM normally
+	align 3
+		; Ref. vlink_Z80_.ld
+		; BootCode in $D008-D00B = $00000000 - $AAAAAAAA': copy from flash
+		; BootCode in $D008-D00B = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
+		; BootCode in $D008-D00B = $33333333: code uploaded from Arduino. Do not copy from flash, 
+		defl 	    $01010101
+		;defl 		BootCode
 		align	3
 
-.initRH:
-	call 	waitForFinishedPrintout
+
+	;call 	waitForFinishedPrintout
 	
+.makeShadowRAM:
 
 	ifd 	GPIODEBUG
 	ld 		A,$33
 	out 	(gpio_out),A
 	endif
 ;		***  	NOFLASH - Don not use the FLASH mem -> 64kRAM
-; 		*** 	Copy Flash boot sequence to RAM bank #0 $0-$1800
+; 		*** 	Copy Flash boot sequence to RAM bank #1
 ; 		*** 	first to temp storage area.
-		ld		DE,$B000		; temp storage area 0xB000
-		ld		hl,0000
 
-		ld 		BC,$1800			;Boot seq size ~6kb
-		ldir							; (DE)<-(HL)
-; 		*** 	secondly: to Rambank #1 storage area.
+;		***	 	Copy 128 blocks of 256 bytes from flash to RAM bank #0, then copy to RAM bank #1
 
-;		***		deselect FLASH mem
-; 		***		Swithch to RAM bank #1
+			ld  	B,128		; count 128 blocks of 256 bytes
+.loopBlocks:
+			push  	BC 			; save BC as block counter
+			ld     	BC,128		; byte counter
 
-		call  	p_FOFF_No_Print
-		ld 		A,1
-		call 	p_srbank0
-		ld		DE,0000		; temp storage area 0xB000
-		ld		hl,$B000
+			ld 		HL,$7FFF		; end of flash memory area
+			ld 		DE,$CFFF		; temp storage area 0xCF00-CFFF		
+			push 	HL
+			push 	DE
+			lddr					; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0		
 
-		ld 		BC,$1800			;Boot seq size ~6kb
-		ldir							; (DE)<-(HL)
+	; 		*** 	secondly: to Rambank #1 storage area. deselect FLASH mem
+	; 		***		Swithch to RAM bank #1
+			call  	p_FOFF_No_Print	; ***		Disable Flash memory 
+			ld 		A,1
+			call 	p_srbank0; 		***		Swithch to RAM bank #1
+
+					; from old area (HL), $7FFF  to new area ram area (DE), 0x7FFF
+			pop 	HL			; HL point to temp storage area 0xCFFF (old DE value)
+			pop 	DE 			; DE point to new area in ram bank #1 0xCFFF (old HL value)
+			ld     	BC,128
+			lddr				; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0
+
+	;		***		Enable Flash again and set ram bank #0	
+			call  	p_FOFF_No_Print
+			ld 		A,0
+			call 	p_flbank0; 		***		Swithch to FLASH bank #0
 
 
+			pop 	BC			; restore BC as block counter
+			djnz	.loopBlocks
+			
 
 		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
 
+.skipBlockCopy:
 
 		ld 		(SP_value),SP
+	halt
 
 	ifd 	GPIODEBUG
 	ld 		A,$AA
@@ -322,22 +368,29 @@ MONITOR_Start:
 		; call 	Flash_WR_Test
 		; ld	HL,$2010
 		; call	Flash_SE_Erase
+			ld 		iy,testdumpText
+			call	WriteLineCRNL
+
 
 		call	CRLF
 		call 	writeSTRBelow
-		defb   	"\0\r\n"
+		defb   	"\r\n"
 		defb	"##########################################################\r\n"
-		defb	"The Z80 Board Awakened 2025\r\n"
+		defb	"The Z80 Board Awakened 2026\r\n"
 		defb	"    git: @@GIT_VERSION@@\r\n"
 		defb	"    build: @@DATE@@\r\n"
 		defb	"    FLASH->SRAM 0xD000.\r\n"
 		defb	"\0"
+
 
 	ifd 	GPIODEBUG
 	ld 		A,$83
 	out 	(gpio_out),A
 	endif
 		call	CRLF
+	jr  next_line
+
+testdumpText: defb		" Test Dump Test Dump ABC123\r\n",0
 
 next_line:
 
@@ -1276,6 +1329,7 @@ p_flbank:
 	call 	p_FON				; enable  the  flash memory
 	ld 		A,(commLvl1) 			; load param into A
 ; ***	set the FLASH bank ID; Bank ID in A
+p_flbank0:
 
 	push 	HL
 	push 	BC
@@ -1308,6 +1362,7 @@ p_FON:
 	call 	writeSTRBelow
 	DB 		0," Use 256k FLASH (7 banks),lower 32k and SRAM (16 banks),upper 32k !",CR,LF,00
 	call 	waitForFinishedPrintout
+p_FON_No_Print: 		;; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0) without printout		
 	push 	HL
 	ld 		HL,rstBankID
 	res 	3,(HL)				; clear bit 3 -> enable FLASH
@@ -1329,7 +1384,7 @@ p_FOFF:
 	DB 		" Use only SRAM (16 banks),upper 32k !",CR,LF,00
 	call 	waitForFinishedPrintout
 
-p_FOFF_No_Print:
+p_FOFF_No_Print:		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1) without printout
 	push 	HL
 	ld 		HL,rstBankID
 	set 	2,(HL) 			; temp disable reset of IC622

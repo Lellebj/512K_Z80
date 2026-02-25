@@ -570,121 +570,122 @@ Source: "stdin"
 00:0166 C9              	   281: 		ret
                         	   282: 
                         	   283: 
-                        	   284: timeOutErr:
-00:0167 CD3001          	   285: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
-00:016A CD0000          	   286: 		call 	writeSTRBelow_CRLF
-00:016D 000D0A          	   287: 		defb    "\0\r\n"
-00:0170 412074696D6F7574	   288: 		defb	"A timout on XMODEM occured !",00
+                        	   284: 		
+                        	   285: timeOutErr:
+00:0167 CD3001          	   286: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+00:016A CD0000          	   287: 		call 	writeSTRBelow_CRLF
+00:016D 000D0A          	   288: 		defb    "\0\r\n"
+00:0170 412074696D6F7574	   289: 		defb	"A timout on XMODEM occured !",00
 00:0178 206F6E20584D4F44
 00:0180 454D206F63637572
 00:0188 65642021
 00:018C 00
-00:018D C9              	   289: 		ret
-                        	   290: 
-                        	   291: blockErrors1_3:
-00:018E CD3001          	   292: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
-00:0191 CD0000          	   293: 		call 	writeSTRBelow_CRLF
-00:0194 000D0A          	   294: 		defb    "\0\r\n"
-00:0197 46696C6520747261	   295: 		defb	"File transfer error: Format, Block ID, ... !",00
+00:018D C9              	   290: 		ret
+                        	   291: 
+                        	   292: blockErrors1_3:
+00:018E CD3001          	   293: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+00:0191 CD0000          	   294: 		call 	writeSTRBelow_CRLF
+00:0194 000D0A          	   295: 		defb    "\0\r\n"
+00:0197 46696C6520747261	   296: 		defb	"File transfer error: Format, Block ID, ... !",00
 00:019F 6E73666572206572
 00:01A7 726F723A20466F72
 00:01AF 6D61742C20426C6F
 00:01B7 636B2049442C202E
 00:01BF 2E2E2021
 00:01C3 00
-00:01C4 C9              	   296: 		ret
-                        	   297: 
-                        	   298: retry9Err:
-00:01C5 CD3001          	   299: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
-00:01C8 CD0000          	   300: 		call 	writeSTRBelow_CRLF
-00:01CB 000D0A          	   301: 		defb    "\0\r\n"
-00:01CE 584D4F44454D3A20	   302: 		defb	"XMODEM: Block retry 9 times... !",00
+00:01C4 C9              	   297: 		ret
+                        	   298: 
+                        	   299: retry9Err:
+00:01C5 CD3001          	   300: 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+00:01C8 CD0000          	   301: 		call 	writeSTRBelow_CRLF
+00:01CB 000D0A          	   302: 		defb    "\0\r\n"
+00:01CE 584D4F44454D3A20	   303: 		defb	"XMODEM: Block retry 9 times... !",00
 00:01D6 426C6F636B207265
 00:01DE 7472792039207469
 00:01E6 6D65732E2E2E2021
 00:01EE 00
-00:01EF C9              	   303: 		ret
-                        	   304: 
+00:01EF C9              	   304: 		ret
                         	   305: 
                         	   306: 
-                        	   307: ;************
-                        	   308: 
-                        	   309: checkSumErr: 
-00:01F0 CD0000          	   310: 		call 	TX_NAK 			;on chk sum error
-00:01F3 37              	   311: 		scf
-00:01F4 3F              	   312: 		ccf						;clear carry flag
-00:01F5 118000          	   313: 		ld		DE,0080h		;subtract 80h
-00:01F8 ED52            	   314: 		sbc 	HL,DE 			;from HL, so HL is reset to block start address
-                        	   315: 
-00:01FA 3A0000          	   316: 		ld		A,(TempVar2)		;count bad blocks in TempVar2
-00:01FD 3C              	   317: 		inc		A
-00:01FE 320000          	   318: 		ld		(TempVar2),A
-00:0201 FE09            	   319: 		cp		09h
-00:0203 CAC501          	   320: 		jp		z,retry9Err		;abort download after 9 attempts to transfer a block
-00:0206 C35D00          	   321: 		jp 		nextBlock		;repeat block reception
-                        	   322: 
+                        	   307: 
+                        	   308: ;************
+                        	   309: 
+                        	   310: checkSumErr: 
+00:01F0 CD0000          	   311: 		call 	TX_NAK 			;on chk sum error
+00:01F3 37              	   312: 		scf
+00:01F4 3F              	   313: 		ccf						;clear carry flag
+00:01F5 118000          	   314: 		ld		DE,0080h		;subtract 80h
+00:01F8 ED52            	   315: 		sbc 	HL,DE 			;from HL, so HL is reset to block start address
+                        	   316: 
+00:01FA 3A0000          	   317: 		ld		A,(TempVar2)		;count bad blocks in TempVar2
+00:01FD 3C              	   318: 		inc		A
+00:01FE 320000          	   319: 		ld		(TempVar2),A
+00:0201 FE09            	   320: 		cp		09h
+00:0203 CAC501          	   321: 		jp		z,retry9Err		;abort download after 9 attempts to transfer a block
+00:0206 C35D00          	   322: 		jp 		nextBlock		;repeat block reception
                         	   323: 
-                        	   324: ; Calculating XMODEM CRC-16 in Z80
-                        	   325: ; ================================
-                        	   326: 
-                        	   327: ; Calculate an XMODEM 16-bit CRC from data in memory. This code is as
-                        	   328: ; tight and as fast as it can be, moving as much code out of inner
-                        	   329: ; loops as possible. Can be made shorter, but slower, by replacing
-                        	   330: ; JP with JR.
-                        	   331: 
-                        	   332: ; On entry, crc..crc+1   =  incoming CRC
-                        	   333: ;           addr..addr+1 => start address of data
-                        	   334: ;           num..num+1   =  number of bytes
-                        	   335: ; On exit,  crc..crc+1   =  updated CRC
-                        	   336: ;           addr..addr+1 => undefined
-                        	   337: ;           num..num+1   =  undefined
-                        	   338: 
-                        	   339: ; Multiple passes over data in memory can be made to update the CRC.
-                        	   340: ; For XMODEM, initial CRC must be 0. Result in DE..
-                        	   341: 
-                        	   342: CRC16:
-00:0209 110000          	   343: 		ld 		DE,$00					; Incoming CRC
-                        	   344: 		; Enter here with HL=>data, BC=count, DE=incoming CRC
-                        	   345: bytelp:
-00:020C C5              	   346: 		push 	BC					; Save count
-00:020D 7E              	   347: 		ld 		A,(HL)				; Fetch byte from memory
-                        	   348: ;		 The following code updates the CRC with the byte in A -----+
-00:020E AA              	   349: 		xor 	D					; XOR byte into CRC top byte		|
-00:020F 0608            	   350: 		ld 		B,8					; Prepare to rotate 8 bits			|
-                        	   351: rotlp:                    ;											|
-00:0211 CB23            	   352: 		sla 	E
-00:0213 8F              	   353: 		adc 	A,A					; Rotate CRC						|
-00:0214 D21F02          	   354: 		jp 		NC,clear			; b15 was zero						|
-00:0217 57              	   355: 		ld 		D,A					; Put CRC high byte back into D		|
-00:0218 7B              	   356: 		ld 		A,E
-00:0219 EE21            	   357: 		xor 	$21
-00:021B 5F              	   358: 		ld 		E,A					; CRC=CRC XOR $1021, XMODEM polynomic	|
-00:021C 7A              	   359: 		ld 		A,D
-00:021D EE10            	   360: 		xor 	$10					; And get CRC top byte back into A	|
-                        	   361: clear:                    ;											|
-00:021F 05              	   362: 		dec 	B	
-00:0220 C21102          	   363: 		jp 		NZ,rotlp				; Loop for 8 bits					|
-00:0223 57              	   364: 		ld 		D,A					; Put CRC top byte back into D		|
-                        	   365: ;		 -----------------------------------------------------------+
-                        	   366: 
-00:0224 23              	   367: 		inc		HL					; Step to next byte
-00:0225 C1              	   368: 		pop 	BC
-00:0226 0B              	   369: 		dec 	BC					; num=num-1
-00:0227 78              	   370: 		ld 		A,B
-00:0228 B1              	   371: 		or 		C
-00:0229 C20C02          	   372: 		jp 		NZ,bytelp			; Loop until num=0
-                        	   373: 
-00:022C C9              	   374: 		ret
-                        	   375: 
+                        	   324: 
+                        	   325: ; Calculating XMODEM CRC-16 in Z80
+                        	   326: ; ================================
+                        	   327: 
+                        	   328: ; Calculate an XMODEM 16-bit CRC from data in memory. This code is as
+                        	   329: ; tight and as fast as it can be, moving as much code out of inner
+                        	   330: ; loops as possible. Can be made shorter, but slower, by replacing
+                        	   331: ; JP with JR.
+                        	   332: 
+                        	   333: ; On entry, crc..crc+1   =  incoming CRC
+                        	   334: ;           addr..addr+1 => start address of data
+                        	   335: ;           num..num+1   =  number of bytes
+                        	   336: ; On exit,  crc..crc+1   =  updated CRC
+                        	   337: ;           addr..addr+1 => undefined
+                        	   338: ;           num..num+1   =  undefined
+                        	   339: 
+                        	   340: ; Multiple passes over data in memory can be made to update the CRC.
+                        	   341: ; For XMODEM, initial CRC must be 0. Result in DE..
+                        	   342: 
+                        	   343: CRC16:
+00:0209 110000          	   344: 		ld 		DE,$00					; Incoming CRC
+                        	   345: 		; Enter here with HL=>data, BC=count, DE=incoming CRC
+                        	   346: bytelp:
+00:020C C5              	   347: 		push 	BC					; Save count
+00:020D 7E              	   348: 		ld 		A,(HL)				; Fetch byte from memory
+                        	   349: ;		 The following code updates the CRC with the byte in A -----+
+00:020E AA              	   350: 		xor 	D					; XOR byte into CRC top byte		|
+00:020F 0608            	   351: 		ld 		B,8					; Prepare to rotate 8 bits			|
+                        	   352: rotlp:                    ;											|
+00:0211 CB23            	   353: 		sla 	E
+00:0213 8F              	   354: 		adc 	A,A					; Rotate CRC						|
+00:0214 D21F02          	   355: 		jp 		NC,clear			; b15 was zero						|
+00:0217 57              	   356: 		ld 		D,A					; Put CRC high byte back into D		|
+00:0218 7B              	   357: 		ld 		A,E
+00:0219 EE21            	   358: 		xor 	$21
+00:021B 5F              	   359: 		ld 		E,A					; CRC=CRC XOR $1021, XMODEM polynomic	|
+00:021C 7A              	   360: 		ld 		A,D
+00:021D EE10            	   361: 		xor 	$10					; And get CRC top byte back into A	|
+                        	   362: clear:                    ;											|
+00:021F 05              	   363: 		dec 	B	
+00:0220 C21102          	   364: 		jp 		NZ,rotlp				; Loop for 8 bits					|
+00:0223 57              	   365: 		ld 		D,A					; Put CRC top byte back into D		|
+                        	   366: ;		 -----------------------------------------------------------+
+                        	   367: 
+00:0224 23              	   368: 		inc		HL					; Step to next byte
+00:0225 C1              	   369: 		pop 	BC
+00:0226 0B              	   370: 		dec 	BC					; num=num-1
+00:0227 78              	   371: 		ld 		A,B
+00:0228 B1              	   372: 		or 		C
+00:0229 C20C02          	   373: 		jp 		NZ,bytelp			; Loop until num=0
+                        	   374: 
+00:022C C9              	   375: 		ret
                         	   376: 
                         	   377: 
-                        	   378: 	;***************************************************************
-                        	   379: 	;SAMPLE EXECUTION:
-                        	   380: 	;***************************************************************
-                        	   381: 
+                        	   378: 
+                        	   379: 	;***************************************************************
+                        	   380: 	;SAMPLE EXECUTION:
+                        	   381: 	;***************************************************************
                         	   382: 
                         	   383: 
                         	   384: 
+                        	   385: 
 
 
 Symbols by name:

@@ -26,7 +26,8 @@ MAIN=Z80_BOARD
 MEDIA?= $(shell ls /media/lellebj/)
 
 #****************************************************
-SOURCES    := $(wildcard *.s)
+#SOURCES   = $(filter-out I2C*.s , $(wildcard *.s))
+SOURCES   = $(shell find  -maxdepth 1 -name "*.s" ! -name "I2C*.s"  ! -name "XMOD*.s" )
 OBJECTS = $(SOURCES:%$(S_EX)=$(OB_CODE)/%.o)
 
 # SOURCES = $(shell find  -maxdepth 1 -name "*$(S_EX)")
@@ -38,7 +39,7 @@ APPNAME = $(notdir $(CURDIR))
 # $(info    OBJ is $(OBJECTS))
 $(info    APPNAME is $(APPNAME))
 
-
+CODENAME = FlashBoot
 TARGET  = $(BUILD_DIR)/$(APPNAME).$(_EXT)
 _EXT=BIN
 default: $(TARGET)
@@ -54,12 +55,10 @@ OBJ_EX=o
 # AS=z80asm
 
 #	Old VASM Z80 assembler and VLINK
-LDFLAGS=-T LD/vlink_Z80_TEST.ld  -MZ80_BOOT.map  -b rawbin2  -o $@ -L $(SYSLIBDIR)   
-# LDFLAGS=-T LD/vlink_Z80_BOOT.ld  -MZ80_BOOT.map  -b rawbin2  -o $@ -L $(SYSLIBDIR)   
+LDFLAGS=-T LD/vlink_Z80_BOOT.ld  -MZ80_BOOT.map  -multifile -q -b rawbin -o $@  -L $(SYSLIBDIR)   
 ASFLAGS=-Fvobj -esc -z80asm -o $@ $(F_LIST) $(DEFINES)
 LD=vlink
 AS=vasmz80_oldstyle
-
 
 LST=$@.lst
 #F_LIST?=

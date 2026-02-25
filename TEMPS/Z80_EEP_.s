@@ -34,8 +34,7 @@ EPS1:
 		db 0,0,0
 		align 3
 		; section RST38	
-		;jp	DumpRegisters
-		jp	setBanks
+		jp	DumpRegisters
 
 
 ;********************************************************
@@ -245,136 +244,361 @@ EEPIO_Init:
 	ret
  
 
+;************************************************************************************************
+;************************************************************************************************
+;***		SDcard/USB startup sequence
+;************************************************************************************************
+;************************************************************************************************
+		; section SD_USB_Start
 
+
+		; jp 		MONITOR_Start0 		; jump to MONITOR_Start if hard call to $D000
+
+SD_USB_startup:
+
+	ifdef  	GPIODEBUG
+	ld 		A,$33
+	out 	(gpio_out),A
+
+	; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
+
+	ld 		(SP_value),SP
+
+	ld 		A,$AA
+	out 	(gpio_out),A
+	
+	CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+			; initialize buffer counters and pointers.
+	ld 		A,$BB
+	out 	(gpio_out),A
+
+		call	PIO_Init
+	ld 		A,$CC
+	out 	(gpio_out),A
+		call 	CTC_Init
+	ld 		A,$DD
+	out 	(gpio_out),A
+		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+	ld 		A,$DF
+	out 	(gpio_out),A
+		call	S_head_tail			; save input heads and tails
+	ld 		A,$81
+	out 	(gpio_out),A
+	
+	else
+	
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+			; initialize buffer counters and pointers.
+		call	PIO_Init
+		call 	CTC_Init
+		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+		call	S_head_tail			; save input heads and tails
+	endif
+
+
+		; call	sh_test
+		; call 	Flash_WR_Test
+		; ld	HL,$2010
+		; call	Flash_SE_Erase
+
+		; check  $D008-$D00B for $33333333 -> Startup code is preloaded from Arduino 
+		; check  $D008-$D00B for $CCCCCCCC -> start from Flash 
+
+		ld 		HL,BootCodeAdr
+		ld 		B,04
+		ld 		A,'3'
+.checkBootCode:
+		cp 		(HL)	
+		inc 	HL
+		jp 		NZ,.SDstart
+		djnz 	.checkBootCode
+
+
+		call	CRLF
+		call 	writeSTRBelow
+		defb   	"\r\n"
+		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-\r\n"
+		defb	"Start from Arduino preloaded monitor\r\n"
+		defb	"    git: @@GIT_VERSION@@\r\n"
+		defb	"    build: @@DATE@@\r\n"
+		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"\0"
+
+		; call 	waitForFinishedPrintout
+		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
 		
-; ;********************************************************		
-; 		section EEtestprog			; main program in sram
-; ;********************************************************	
 
-; 		; xdef	RDATA_END,RDATA,TB_length
-; hit:
-
-; 		call	EEPIO_Init
-; 		di
-; hit3:
-; 		LD 		A,$81
-; 		; out 	(_CE_RST_BANK),A
-; 		out 	(gpio_out),A
-
-
-; 		LD 		A,$7E
-; 		; out 	(_Z80_BankCS),A
-; 		out 	(gpio_out),A
-
-; 		ld 		ix,$8000
-
-; 		ld 		bc,$0F00
-; 		ld 		A,$3F
-; 		ld 		(IX+0),A
-; 		inc 	IX
-; .nxt1:
-; 		ld 		(IX+0),A
-; 		out 	(gpio_out),A
-; 		inc 	IX
-; 		inc 	A
-; 		djnz 	.nxt1			
-
-; ;***********************************
-; 	 	ld 		A,$1B
-; 		out 	(gpio_out),A
-; 		out 	(gpio_out),A
-; 	 	ld 		A,$E3
-; 		out 	(gpio_out),A
-; 		ld 		A,$0C
-; 		out 	(gpio_out),A
+.SDstart:
 		
-; 		ld 		A,$0F
-; 		out 	(gpio_out),A
+		call	CRLF
+		call 	writeSTRBelow
+		defb   	"\r\n"
+		defb	"=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\r\n"
+		defb	"Start from SD/USB\r\n"
+		; defb	"    git: @@GIT_VERSION@@\r\n"
+		; defb	"    build: @@DATE@@\r\n"
+		; defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"\0"
 
-; 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-; 			; initialize buffer counters and pointers.
+		 call 	waitForFinishedPrintout
 
+	ifd 	GPIODEBUG
+	ld 		A,$83
+	out 	(gpio_out),A
+	endif
+		call	CRLF
 
-; 		call 	CTC_Init
+;*****	Setup Boot load from SD card.
+;***************************************
+		ld 		DE,commStr1					; save filename in commStr1
+		ld 		HL,rfile_name
+.nxtchr:
+		ldi									; (DE) <- (HL) 
+		ld 		A,(HL)
+		or 		A 							; = 0 ?
+		jr  	NZ,.nxtchr
+		ld 		(DE),A						; save '0'
+		ld 		HL,S1x						; result in S1x
+		ld 		(commAdr1),HL
 
-
-; 		ld 		A,$1D
-; 		out 	(gpio_out),A
-; 		ld 		A,$00
-; 		out 	(gpio_out),A
-
-; 		call 	SIO_Init
-; 		; ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
-; 		; call    InitSIO_0Ports			; INITIALIZE SIO_0
-
-
-; 		ld 		A,$1E
-; 		out 	(gpio_out),A
-
-; 		; ld 		A,'#'
-; 		; out		(SIO_A_D),A			;output data
-; 		; call 	TX_EMP
-
-; 		; ld 		A,$18
-; 		; out 	(gpio_out),A
-
-; 		; ld 		A,'A'
-; 		; call  	WriteChar
-
-; 		; ld 		A,'B'
-; 		; call  	WriteChar
-
-; 		; ld 		A,'C'
-; 		; call  	WriteChar
-; 		; call 	CRLF
-
-; 		call 	writeSTRBelow
-; 		defb   	"\0\r\n"
-; 		defb	"##########################################################\r\n"
-; 		defb	"-*-*/-*/-*/-*/-*//-*/-*/-*/-*/-*/-*/**-/-*/-*/-*/-*/-*/-*/\r\n"
-; 		defb	"-+-+-+-+-+-+-+---++--++--++--++--++--+++-+-+-+-+-+-+-+-+-+\r\n"
-; 		defb	"The Z80 Board Awakened 2025\r\n"
-; 		defb	"    FLASH->SRAM 0xD000.\r\n"
-; 		defb	"    2026-02-07 .\r\n"
-; 		defb	"\0\0"
-
-; 		halt
+		call 	p_C_Read_SD
 
 
-; ;***************************
-; 		halt
-; ;**************************
-; 		ld  	HL,$0402
+;***	correct $0A to $00 $00 in S1x (check for ascii lower than $20)
+		ld 		HL,S1x
+		ld 		A,$20
+		ld 		DE,commStr1
 
-; 		call 	EEPIO_Init
-; 		LD 		A,$30
+.find0A:
+		ldi						; (DE) <- (HL) 
+		cp 		(HL)			; char lower than ' '  $20 - (HL)
+		jp 		M,.find0A		; char > ' '...
 
-; 		ld 		B,$40
-; hit2:		
-; 		ld 		(HL),a
-; 		inc 	a
-; 		INC 	HL
-; 		out 	(gpio_in),A
+		ld 		A,00
+		ld 		(de),A
+		inc 	de
+		ld 		(de),A			; strip eventually $0A, $0D, ...
+		inc 	de
+		ld 		(de),A			; Boot file name present in commStr1
+		ld 		HL,_RAMSTART
+		ld 		(commAdr1),HL 	; place adress for boot file...
+		call 	p_C_Read_SD		; read and place boot file.
+
+
+		call 	writeSTRBelow
+		defb   "\r\nUSE RAM bank #0, Copy FLASH Boot seq\r\n"
+		defb   "To RAM bank #1 ($0-$2000) \r\n"
+		defb	"Jump to MONITOR_Start! ($D000)\r\n",0,0,0
+
+		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
+
+.loopINF:
+	ifd 	GPIODEBUG	
+	ld 		A,$99
+	out 	(gpio_out),A
+	endif
+		jr 		.loopINF
+rfile_name:
+	 db "BOOTFILE.TXT",0,0,0,0
+	; db "PROVIDE.txt",0,0,0,0
 
 	
-; 		djnz 	hit2
-	
-; 		LD 		(hl),a
-; 		inc 	a
-; 		INC 	HL
-; 		out 	(gpio_in),A
-; 		LD 		(hl),a
-; 		inc 	a
-; 		INC 	HL
-; 		out 	(gpio_in),A
-; 		LD 		(hl),a
-; 		inc 	a
-; 		INC 	HL
-; 		out 	(gpio_in),A
-; 		LD 		(hl),a
+;************************************************************************************************
+;************************************************************************************************
+p_C_Read_SD:
 
-; 		LD 		A,$0C
-; 		out 	(_CE_RST_BANK),A
+		;call 	checkArgsTAL				; check necessary args
+		;jp		NZ,argumentsError			; show argument error and return
+	
+		ld 		DE,CTC_delay_INT_handler
+		ld 		(CTC_CH1_I_Vector),DE
+	ifd 	GPIODEBUG
+	xor A
+	out (gpio_out),A
+	endif
+		; call  	SIO_A_DI					; disable text output
+	ifd 	GPIODEBUG
+	ld a,4
+	out (gpio_out),A
+	ld a,0
+	out (gpio_out),A
+	endif
+
+		ld a,e	
+
+		call 	purgeRXB					; XMODEM_CRC_SUB.s
+		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
+		call 	HC376S_ResetAll
+		call 	HC376S_CheckConnection
+		; ld 		A,(commParseTable)
+		; cp 		15							; 15 read SD; 17-read USB
+		; jr 		Z,.doSD
+		; cp 		21							; 21 read SD enumerate, 22 read USB enumerate
+		; jr 		Z,.doSD
+		; call 	HC376S_setUSBMode
+		; call 	HC376S_diskConnectionStatus		; dont use with SD card
+		; jr 		.cont
+.doSD:
+		call 	HC376S_setSDMode
+		
+.cont:
+		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+		jr 		NZ,SDabort
+
+
+		call 	HC376S_setFileName
+		call 	HC376S_fileOpen
+		jr 		NZ,SDabort
+		call 	waitForFinishedPrintout
+
+		call 	HC376S_getFileSize
+		call 	HC376S_fileRead
+		call 	HC376S_fileClose
+SDabort:
+
+		; ***	reset the interrupt handler for CTC
+		; call 	SIO_A_EI					; enable text output
+		call 	HC376S_ResetAll
+		call 	CTC1_INT_OFF
+		ld		HL,CTC_CH1_Interrupt_Handler
+		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+		ret
+
+MONITOR_Start0:	
+
+;***********************************************************************
+
+
+
+		
+;********************************************************		
+		section EEtestprog			; main program in sram
+;********************************************************	
+
+		; xdef	RDATA_END,RDATA,TB_length
+hit:
+
+		call	EEPIO_Init
+		di
+hit3:
+		LD 		A,$81
+		; out 	(_CE_RST_BANK),A
+		out 	(gpio_out),A
+
+
+		LD 		A,$7E
+		; out 	(_Z80_BankCS),A
+		out 	(gpio_out),A
+
+		ld 		ix,$8000
+
+		ld 		bc,$0F00
+		ld 		A,$3F
+		ld 		(IX+0),A
+		inc 	IX
+.nxt1:
+		ld 		(IX+0),A
+		out 	(gpio_out),A
+		inc 	IX
+		inc 	A
+		djnz 	.nxt1			
+
+;***********************************
+	 	ld 		A,$1B
+		out 	(gpio_out),A
+		out 	(gpio_out),A
+	 	ld 		A,$E3
+		out 	(gpio_out),A
+		ld 		A,$0C
+		out 	(gpio_out),A
+		
+		ld 		A,$0F
+		out 	(gpio_out),A
+
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+			; initialize buffer counters and pointers.
+
+
+		call 	CTC_Init
+
+
+		ld 		A,$1D
+		out 	(gpio_out),A
+		ld 		A,$00
+		out 	(gpio_out),A
+
+		call 	SIO_Init
+		; ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
+		; call    InitSIO_0Ports			; INITIALIZE SIO_0
+
+
+		ld 		A,$1E
+		out 	(gpio_out),A
+
+		; ld 		A,'#'
+		; out		(SIO_A_D),A			;output data
+		; call 	TX_EMP
+
+		; ld 		A,$18
+		; out 	(gpio_out),A
+
+		; ld 		A,'A'
+		; call  	WriteChar
+
+		; ld 		A,'B'
+		; call  	WriteChar
+
+		; ld 		A,'C'
+		; call  	WriteChar
+		; call 	CRLF
+
+		call 	writeSTRBelow
+		defb   	"\0\r\n"
+		defb	"##########################################################\r\n"
+		defb	"-*-*/-*/-*/-*/-*//-*/-*/-*/-*/-*/-*/**-/-*/-*/-*/-*/-*/-*/\r\n"
+		defb	"-+-+-+-+-+-+-+---++--++--++--++--++--+++-+-+-+-+-+-+-+-+-+\r\n"
+		defb	"The Z80 Board Awakened 2025\r\n"
+		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"    2026-02-07 .\r\n"
+		defb	"\0\0"
+
+		halt
+
+
+;***************************
+		halt
+;**************************
+		ld  	HL,$0402
+
+		call 	EEPIO_Init
+		LD 		A,$30
+
+		ld 		B,$40
+hit2:		
+		ld 		(HL),a
+		inc 	a
+		INC 	HL
+		out 	(gpio_in),A
+
+	
+		djnz 	hit2
+	
+		LD 		(hl),a
+		inc 	a
+		INC 	HL
+		out 	(gpio_in),A
+		LD 		(hl),a
+		inc 	a
+		INC 	HL
+		out 	(gpio_in),A
+		LD 		(hl),a
+		inc 	a
+		INC 	HL
+		out 	(gpio_in),A
+		LD 		(hl),a
+
+		LD 		A,$0C
+		out 	(_CE_RST_BANK),A
 
 		
 

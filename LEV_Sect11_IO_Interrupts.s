@@ -911,6 +911,37 @@ bmve:
 		LD		HL, (inHeadAdr)		;GET   CHARACTER FROM HEAD OF INPUT BUFFER
 		ld 		(Comm_Ptr_list),HL
 		ret
+
+
+;##############################################################
+; Write the null-terminated string starting after the call
+; instruction invoking this subroutine to the console.
+; Clobbers AF, C
+;##############################################################
+writeSTRBelow:
+        ex      (sp),iy                 ; iy = @ of string to print
+		call	WriteLine
+        inc     iy                      ; point past the end of the string
+        ex      (sp),iy
+        ret
+
+writeSTRBelow_CRLF:
+		ex		(sp),iy                 ; iy = @ of string to print
+		call	WriteLineCRNL
+		inc		iy                      ; point past the end of the string
+		ex		(sp),iy
+		ret
+
+;##############################################################
+; Print a CRLF 
+; Clobbers AF, C
+;##############################################################
+puts_crlf:
+        call    writeSTRBelow
+        defb    '\0\r\n\0'
+        ret
+
+
 			; Write line from address in iy (until char = 00)
 WriteLine:
 		; ld 		b,(iy)		; get length
@@ -923,7 +954,6 @@ nxtchr:
 		call	WriteChar
 		pop 	hl
 		inc		iy
-		; djnz	nxtchr
 		jr 		nxtchr
 
 		ret					; return on maxlength
@@ -1670,35 +1700,6 @@ SIO_0INT:
 ; 		JP		ASYNLP				;AND CONTINUE
 ; DONE:
 ; 		JP		LOOP
-
-
-;##############################################################
-; Write the null-terminated string starting after the call
-; instruction invoking this subroutine to the console.
-; Clobbers AF, C
-;##############################################################
-writeSTRBelow:
-        ex      (sp),iy                 ; iy = @ of string to print
-		call	WriteLine
-        inc     iy                      ; point past the end of the string
-        ex      (sp),iy
-        ret
-
-writeSTRBelow_CRLF:
-		ex		(sp),iy                 ; iy = @ of string to print
-		call	WriteLineCRNL
-		inc		iy                      ; point past the end of the string
-		ex		(sp),iy
-		ret
-
-;##############################################################
-; Print a CRLF 
-; Clobbers AF, C
-;##############################################################
-puts_crlf:
-        call    writeSTRBelow
-        defb    '\0\r\n\0'
-        ret
 
 
 

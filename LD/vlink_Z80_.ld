@@ -100,66 +100,75 @@
 	PROVIDE( packetBaseAddress = 	0x400 + _String_HEAP);
 	PROVIDE( prevPacketByte01	=	0x500 + _String_HEAP);	
 
-
+	/*	; Code in $D008-D00D = $00000000 - $AAAAAAAA: copy from flash
+		; Code in $D008-D00D = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
+		; Code in $D008-D00D = $33333333: code uploaded from Arduino. Do not copy from flash, 
+	*/
+	PROVIDE( BootCode		=	0x33333333);	
+/*	PROVIDE( BootCode		=	0xCCCCCCCC);		*/
+	PROVIDE( BootCodeAdr	=	_RAMSTART+8);	
 
 	SECTIONS
 	{
 
-
-		FLASH_block  _FLASHSTART :
-			{
-			KEEP(*.o(FLASH_Startup))
-
-			. = _NMISTART;	
-			KEEP( *.o(INT_IM1))			
-			. = ALIGN (0x80);
-
-			KEEP( *.o(INIT_BODY))
-			. = ALIGN (0x20);
-
-/*			KEEP( *.o(EEtestprog))
-			_EEprog_end = .;
-
-			KEEP(*.o (CH376S_Support))
-			. = ALIGN(0x20);
-*/
-			} > FLASH
-
 	
-		
+
+
+		Dummy_Block  0x8000 :
+			{
+			*.o(I2C_Func)
+			*.o(Xmodems)
+			*.o(EEtestprog)
+			*.o(FLASH_Startup)
+			*.o(INT_IM1)
+			. = ALIGN(0x20);
+			}	> RAM
+
+
+
 		MainBody  _RAMSTART :
 		{
-	
+
 			KEEP(*.o(Monitor))
 			_MonEnd = .;
 			. = ALIGN(0x20);
+
+			KEEP( *.o(INIT_BODY))
+            . = ALIGN(0x20);
 
 			KEEP(*.o (Functions))
 			_Funk_end = .;
 			. = ALIGN(0x20);
 
-			*.o (CodeConversion)
+			KEEP(*.o (CodeConversion))
 			_CodeConv_end = .;
 			. = ALIGN(0x20);
 
-			*.o (Strings)
+			KEEP(*.o (Strings))
 			_Strings_end = .;
 			. = ALIGN(0x20);
 
-			*.o (InOutInterrupt)
+			KEEP(*.o (InOutInterrupt))
 			_IOI_end = .;
 			. = ALIGN(0x20);
 
-			*.o (CH376S_Support)
+		    KEEP( *.o(SD_USB_Start))
+			_USB_EEprog_end = .;
+			. = ALIGN(0x20);
+
+			KEEP(*.o (CH376S_Support))
 			_USB_end = .;
 			. = ALIGN(0x20);
 
-			*.o (LCD_DRIVER)
-			_LCD_END = .;
+			KEEP(*.o (Xmodems))
+			_XMODEM_end = .;
 			. = ALIGN(0x20);
 
-			*.o (Xmodems)
-			_XMODEM_end = .;
+		}	> RAM
+
+/*
+			*.o (LCD_DRIVER)
+			_LCD_END = .;
 			. = ALIGN(0x20);
 
 			*.o (I2C_Func)
@@ -168,11 +177,7 @@
 
 			KEEP ( *.o (SD_SPI_FUNC))
 			_SD_SPI_end = .;
-
-
-		}	> RAM
-
-
+*/
 
 	_end = .;
 

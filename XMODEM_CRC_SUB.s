@@ -281,6 +281,7 @@ exitRecBlock:
 		ret
 
 
+		
 timeOutErr:
 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
 		call 	writeSTRBelow_CRLF

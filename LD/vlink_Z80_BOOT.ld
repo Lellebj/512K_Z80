@@ -1,6 +1,7 @@
 	/*
 	* ------------------------------------------------------------
 	*	Linker script for Z80-512K
+	*	make all -B -f MakeBOOT, kopiera till Flash mem 0000, btm-000
 	*/
 
 	
@@ -96,15 +97,23 @@
 	PROVIDE( Comm_Ptr_list	=	0x300 + _String_HEAP); 	/*	 command pointer list */
 	PROVIDE( packetBaseAddress = 	0x400 + _String_HEAP);
 	PROVIDE( prevPacketByte01	=	0x500 + _String_HEAP);	
-
-
+	
+	/*	; Code in $D008-D00D = $00000000 - $AAAAAAAA: copy from flash
+		; Code in $D008-D00D = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
+		; Code in $D008-D00D = $33333333: code uploaded from Arduino. Do not copy from flash, 
+	*/
+	PROVIDE( BootCode		=	0x33333333);	
+/*	PROVIDE( BootCode		=	0xCCCCCCCC);		*/
+	PROVIDE( BootCodeAdr	=	_RAMSTART+8);	
 
 	SECTIONS
 	{
 
 
+
 		FLASH_block  _FLASHSTART :
 			{
+
 			KEEP(*.o(FLASH_Startup))
 
 			. = _NMISTART;	
@@ -114,34 +123,57 @@
 			KEEP( *.o(INIT_BODY))
             . = ALIGN(0x20);
 
-		    KEEP( *.o(SD_USB_Start))
-			_SDUSB_EEprog_end = .;
-			. = ALIGN(0x20);
+			}  >FLASH
 
-		    KEEP( *.o(EEtestprog))
-			_EET_EEprog_end = .;
-			. = ALIGN(0x20);
+		Mainbody  0x8000 :
+		{
+
+			*.o (EXCLUDE_SECTION (*.o ) Monitor  ) ;
 
 
-			*.o (CodeConversion)
-			_CodeConv_end = .;
-			. = ALIGN(0x20);
-
-			*.o (Strings)
-			_Strings_end = .;
-			. = ALIGN(0x20);
-
-			*.o (InOutInterrupt)
-			_IOI_end = .;
+		     *.o(SD_USB_Start)
+			_BootSDUSB_EEprog_end = .;
 			. = ALIGN(0x20);
 
 			*.o (CH376S_Support)
-			_USB_end = .;
+			_BootUSB_end = .;
 			. = ALIGN(0x20);
 
-		}	> FLASH
+			*.o (Functions) 
+			.= ALIGN(0x20) ;
+/*
+		     *.o(EEtestprog)
+			_EET_EEprog_end = .;
+			. = ALIGN(0x20);
+*/
 
+			*.o (InOutInterrupt)
+			_BootIOI_end = .;
+			. = ALIGN(0x20);
 
+			*.o (CodeConversion)
+			_BootCodeConv_end = .;
+			. = ALIGN(0x20);
+
+			*.o (Strings)
+			_BootStrings_end = .;
+			. = ALIGN(0x20);
+	/*
+
+			EXCLUDE_FILE (*Z80_EEP_.o) *(EEtestprog)
+			EXCLUDE_SECTION(Z80_EEP_.o ) *(EEtestprog)
+
+			*.o (EXCLUDE_FILE(Z80_PLD_PCB_.o  )  Monitor ) ;
+			*.o (EXCLUDE_FILE( I2C_func.o)   I2C_Func) ;
+			*.o (EXCLUDE_FILE(XMODEM*.o )  Xmodems ) ;
+			*.o (EXCLUDE_FILE(I2C_func.o)  I2C_Func)
+			*.o (EXCLUDE_FILE(Z80_PLD_FLash_support.o)  Functions)
+
+			*.o (EXCLUDE_SECTION (I2C_func.o   XMODEM*.o) I2C_*  Xmodems) ;
+			*.o (EXCLUDE_SECTION (*.o ) Functions  ) ;
+			*.o (EXCLUDE_SECTION (*.o ) Monitor  ) ;
+	*/
+		}	> RAM
 	_end = .;
 
 	}

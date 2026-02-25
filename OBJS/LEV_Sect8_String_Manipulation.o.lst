@@ -1453,252 +1453,248 @@ Source: "stdin"
                         	  1154: display_BC_bytes:
 00:02FB C5              	  1155: 		push 	bc					; save the line counter
                         	  1156: 
-00:02FC 216A03          	  1157: 		ld 		HL,dumpText+1		; new buffer for text output
-                        	  1158: 
-                        	  1159: 
-00:02FF CD0000          	  1160: 		call	Bin2Hex16			;address in DE -> result added to (HL)-> to last 0x00. hl updatd (+4)
-                        	  1161: 		
-00:0302 3E3A            	  1162: 		ld  	A,':'
-00:0304 77              	  1163: 		ld 		(HL),A  
-00:0305 23              	  1164: 		inc 	HL
-00:0306 D5              	  1165: 		push 	DE 			; store adress of first char
-                        	  1166: 
-00:0307 AF              	  1167: 		xor 	A						; clear A
-00:0308 320000          	  1168: 		ld 		(generalFlags),A 		; indicate first round , hexvalues
-00:030B CD3303          	  1169: 		call 	displayBytes
-00:030E D1              	  1170: 		pop 	DE					; pop back address of first char.
-                        	  1171:  
-00:030F 3E7C            	  1172: 		ld 		A,'|'
-00:0311 77              	  1173: 				ld 		(HL),A  
-00:0312 23              	  1174: 		inc 	HL
-                        	  1175: 
-                        	  1176: 
-00:0313 3E0F            	  1177: 		ld 		A,$0F
-00:0315 320000          	  1178: 		ld 		(generalFlags),A 		; indicate second round , chars
-00:0318 CD3303          	  1179: 		call 	displayBytes
-                        	  1180: 	
-00:031B 3E7C            	  1181: 		ld 		A,'|'
-00:031D 77              	  1182: 				ld 		(HL),A  
-00:031E 23              	  1183: 		inc 	HL
+00:02FC 216A03          	  1157: 			ld 		HL,dumpText+1		; new buffer for text output
+00:02FF CD0000          	  1158: 			call	Bin2Hex16			;address in DE -> result added to (HL)-> to last 0x00. hl updatd (+4)
+                        	  1159: 			
+00:0302 3E3A            	  1160: 			ld  	A,':'
+00:0304 77              	  1161: 			ld 		(HL),A  
+00:0305 23              	  1162: 			inc 	HL
+00:0306 D5              	  1163: 			push 	DE 			; store adress of first char
+00:0307 AF              	  1164: 				xor 	A						; clear A
+00:0308 320000          	  1165: 				ld 		(generalFlags),A 		; indicate first round , hexvalues
+00:030B CD3303          	  1166: 				call 	displayBytes		; put values in buffer pointed by HL, advance HL
+00:030E D1              	  1167: 			pop 	DE					; pop back address of first char.
+                        	  1168: 	
+00:030F 3E7C            	  1169: 			ld 		A,'|'
+00:0311 77              	  1170: 					ld 		(HL),A  
+00:0312 23              	  1171: 			inc 	HL
+                        	  1172: 
+                        	  1173: 
+00:0313 3E0F            	  1174: 			ld 		A,$0F
+00:0315 320000          	  1175: 			ld 		(generalFlags),A 		; indicate second round , chars
+00:0318 CD3303          	  1176: 			call 	displayBytes
+                        	  1177: 		
+00:031B 3E7C            	  1178: 			ld 		A,'|'
+00:031D 77              	  1179: 					ld 		(HL),A  
+00:031E 23              	  1180: 			inc 	HL
+                        	  1181: 
+00:031F AF              	  1182: 			xor 	a
+00:0320 77              	  1183: 			ld 		(hl),A
                         	  1184: 
-00:031F AF              	  1185: 		xor 	a
-00:0320 77              	  1186: 		ld 		(hl),A
+00:0321 FD216903        	  1185: 			ld 		iy,dumpText
+00:0325 CD0000          	  1186: 			call	WriteLineCRNL
                         	  1187: 
-00:0321 FD216903        	  1188: 		ld 		iy,dumpText
-00:0325 CD0000          	  1189: 		call	WriteLineCRNL
-                        	  1190: 
-00:0328 C1              	  1191: 		pop 	bc						; pop back the line counter
-00:0329 0B              	  1192: 		dec 	bc 						; decrease # lines...
-00:032A 3E00            	  1193: 		ld  	A,0
-00:032C B8              	  1194: 		cp    	B
-00:032D 20CC            	  1195: 		jr 		NZ,display_BC_bytes
-00:032F B9              	  1196: 		cp 		C
-00:0330 20C9            	  1197: 		jr 		NZ,display_BC_bytes
-                        	  1198: 
+00:0328 C1              	  1188: 		pop 	bc						; pop back the line counter
+00:0329 0B              	  1189: 		dec 	bc 						; decrease # lines...
+00:032A 3E00            	  1190: 		ld  	A,0
+00:032C B8              	  1191: 		cp    	B
+00:032D 20CC            	  1192: 		jr 		NZ,display_BC_bytes
+00:032F B9              	  1193: 		cp 		C
+00:0330 20C9            	  1194: 		jr 		NZ,display_BC_bytes
+                        	  1195: 
+                        	  1196: 
+                        	  1197: 
+00:0332 C9              	  1198: 		ret
                         	  1199: 
                         	  1200: 
-00:0332 C9              	  1201: 		ret
-                        	  1202: 
+                        	  1201: 
+                        	  1202: displayBytes:
                         	  1203: 
-                        	  1204: 
-                        	  1205: displayBytes:
-                        	  1206: 
-00:0333 0610            	  1207: 		ld 		b,$10
-                        	  1208: displayLoop:
-00:0335 78              	  1209: 		ld 		A,B
-00:0336 C5              	  1210: 		push 	BC			; save the # byte counter
-                        	  1211: 	
-00:0337 FE08            	  1212: 		cp 		$08			; is B ( A-8) 8 bytes ?
-00:0339 3E01            	  1213: 		ld 		A,$01
-00:033B 2002            	  1214: 		jr 		NZ,.noextraSpace
-00:033D C603            	  1215: 		add 	$03 	
-                        	  1216: .noextraSpace:
-00:033F 47              	  1217: 		ld 		B,A
-                        	  1218: 			; add (b) spaces to (hl), advance hl	
-00:0340 CD0000          	  1219: 		call	add_space
+00:0333 0610            	  1204: 		ld 		b,$10
+                        	  1205: displayLoop:
+00:0335 78              	  1206: 		ld 		A,B
+00:0336 C5              	  1207: 		push 	BC			; save the # byte counter
+                        	  1208: 	
+00:0337 FE08            	  1209: 		cp 		$08			; is B ( A-8) 8 bytes ?
+00:0339 3E01            	  1210: 		ld 		A,$01
+00:033B 2002            	  1211: 		jr 		NZ,.noextraSpace
+00:033D C603            	  1212: 		add 	$03 	
+                        	  1213: .noextraSpace:
+00:033F 47              	  1214: 		ld 		B,A
+00:0340 CD0000          	  1215: 		call	add_space		; add (b) spaces to (hl), advance hl	
+                        	  1216: 
+00:0343 3A0000          	  1217: 		ld  	A,(generalFlags)
+00:0346 B7              	  1218: 		or  	A 				; check if zero ->  first round - Hex values
+00:0347 280C            	  1219: 		jr  	Z,firstRound
                         	  1220: 
-00:0343 3A0000          	  1221: 		ld  	A,(generalFlags)
-00:0346 B7              	  1222: 		or  	A 				; check if zero ->  first round - Hex values
-00:0347 280C            	  1223: 		jr  	Z,firstRound
-                        	  1224: 
-                        	  1225: 		; ***	print out the ascii characters.
-                        	  1226: 		; ***	if val isChar	
-                        	  1227: 
-00:0349 EB              	  1228: 		ex 		DE,HL 				; HL -> memory bytes
-00:034A CD7C00          	  1229: 		call 	isChar				; is (HL) char ? return with Carry-> value in A is always '.'
-00:034D EB              	  1230: 		ex 		DE,HL				; swithch HL back to text buf dumpText		
-                        	  1231: 		
-00:034E 77              	  1232: 		ld 		(HL),A
-00:034F 23              	  1233: 		inc 	HL
-00:0350 13              	  1234: 		inc 	DE
-00:0351 C1              	  1235:  		pop 	bc					; pop back the # byte counter
-00:0352 10E1            	  1236: 		djnz 	displayLoop			; display (b) bytes  with spaces...
+                        	  1221: 		; ***	print out the ascii characters.
+                        	  1222: 		; ***	if val isChar	
+                        	  1223: 
+00:0349 EB              	  1224: 		ex 		DE,HL 				; HL -> memory bytes
+00:034A CD7C00          	  1225: 		call 	isChar				; is (HL) char ? return with Carry-> value in A is always '.'
+00:034D EB              	  1226: 		ex 		DE,HL				; swithch HL back to text buf dumpText		
+                        	  1227: 		
+00:034E 77              	  1228: 		ld 		(HL),A
+00:034F 23              	  1229: 		inc 	HL
+00:0350 13              	  1230: 		inc 	DE
+00:0351 C1              	  1231:  		pop 	bc					; pop back the # byte counter
+00:0352 10E1            	  1232: 		djnz 	displayLoop			; display (b) bytes  with spaces...
+                        	  1233: 
+00:0354 C9              	  1234: 		ret 
+                        	  1235: 
+                        	  1236: 
                         	  1237: 
-00:0354 C9              	  1238: 		ret 
-                        	  1239: 
-                        	  1240: 
-                        	  1241: 
-                        	  1242: firstRound:		
-00:0355 D5              	  1243: 		push 	DE
-00:0356 1A              	  1244: 		ld		A,(DE)				; get value from memory to E..?
-00:0357 5F              	  1245: 		ld 		E,A
-                        	  1246: 
-00:0358 CD0000          	  1247: 		call	Bin2Hex8			;result added to (HL)-> to last 0x00. hl updatd (+4)
-                        	  1248: 		
-00:035B D1              	  1249: 		pop 	DE
-00:035C 13              	  1250: 		inc 	DE
+                        	  1238: firstRound:		
+00:0355 D5              	  1239: 		push 	DE
+00:0356 1A              	  1240: 		ld		A,(DE)				; get value from memory to E..?
+00:0357 5F              	  1241: 		ld 		E,A
+                        	  1242: 
+00:0358 CD0000          	  1243: 		call	Bin2Hex8			;result added to (HL)-> to last 0x00. hl updatd (+4)
+                        	  1244: 		
+00:035B D1              	  1245: 		pop 	DE
+00:035C 13              	  1246: 		inc 	DE
+                        	  1247: 
+                        	  1248: 
+00:035D C1              	  1249: 		pop 	bc					; pop back the # byte counter
+00:035E 10D5            	  1250: 		djnz 	displayLoop			; display (b) bytes  with spaces...
                         	  1251: 
-                        	  1252: 
-00:035D C1              	  1253: 		pop 	bc					; pop back the # byte counter
-00:035E 10D5            	  1254: 		djnz 	displayLoop			; display (b) bytes  with spaces...
-                        	  1255: 
-00:0360 C9              	  1256: 		ret 
-                        	  1257: 
-                        	  1258: checkZero16:
-                        	  1259: 		; ***	check if (HL),(HL+1) = 0 ?		
-00:0361 3E00            	  1260: 		ld 		A,00
-00:0363 BE              	  1261: 		cp 		(HL)				; ix zero		
-00:0364 C0              	  1262: 		ret 	NZ	
-00:0365 23              	  1263: 		inc 	HL
-00:0366 BE              	  1264: 		cp 		(HL)				; is zero ?	
-00:0367 2B              	  1265: 		dec  	HL	
-00:0368 C9              	  1266: 		ret							; return with either Z or NZ
+00:0360 C9              	  1252: 		ret 
+                        	  1253: 
+                        	  1254: checkZero16:
+                        	  1255: 		; ***	check if (HL),(HL+1) = 0 ?		
+00:0361 3E00            	  1256: 		ld 		A,00
+00:0363 BE              	  1257: 		cp 		(HL)				; ix zero		
+00:0364 C0              	  1258: 		ret 	NZ	
+00:0365 23              	  1259: 		inc 	HL
+00:0366 BE              	  1260: 		cp 		(HL)				; is zero ?	
+00:0367 2B              	  1261: 		dec  	HL	
+00:0368 C9              	  1262: 		ret							; return with either Z or NZ
+                        	  1263: 
+                        	  1264: 
+                        	  1265: 
+00:0369 00              	  1266: dumpText: DC	$80 '/'
+00:036A *
                         	  1267: 
                         	  1268: 
-                        	  1269: 
-00:0369 00              	  1270: dumpText: DC	$80 00
-00:036A *
-                        	  1271: 
+                        	  1269: ;***************************************************************************************************
+                        	  1270: ;***************************************************************************************************
+                        	  1271: ;***************************************************************************************************
                         	  1272: 
-                        	  1273: ;***************************************************************************************************
-                        	  1274: ;***************************************************************************************************
-                        	  1275: ;***************************************************************************************************
-                        	  1276: 
-                        	  1277: 
-                        	  1278: 
-                        	  1279: 
-                        	  1280: 		;section 	STR_HEAP 
-                        	  1281: 		;	space for string constants
-                        	  1282: 		GLOBAL	DateBuf,MsgText1,st2g1,st1g2,steq,subst
-                        	  1283: 		GLOBAL	RegLabels1,RegLabels2,RegLabels3,RegFlags
-                        	  1284: 		xdef	Str0,Str2,Str3,Str4,Str7,sourctext1,sourctext2,endtext,src_size
-                        	  1285: 		
-                        	  1286: 	if DOALIGN
-                        	  1287: 		align 1
-                        	  1288: 	endif
-                        	  1289:  	
-                        	  1290: String_HEAP_Start:
-00:03E9 2020323032322D31	  1291: DateBuf:		DB		"  2022-12-30_17:22   ",0,0
+                        	  1273: 
+                        	  1274: 
+                        	  1275: 
+                        	  1276: 		;section 	STR_HEAP 
+                        	  1277: 		;	space for string constants
+                        	  1278: 		GLOBAL	DateBuf,MsgText1,st2g1,st1g2,steq,subst
+                        	  1279: 		GLOBAL	RegLabels1,RegLabels2,RegLabels3,RegFlags
+                        	  1280: 		xdef	Str0,Str2,Str3,Str4,Str7,sourctext1,sourctext2,endtext,src_size
+                        	  1281: 		
+                        	  1282: 	if DOALIGN
+                        	  1283: 		align 1
+                        	  1284: 	endif
+                        	  1285:  	
+                        	  1286: String_HEAP_Start:
+00:03E9 2020323032322D31	  1287: DateBuf:		DB		"  2022-12-30_17:22   ",0,0
 00:03F1 322D33305F31373A
 00:03F9 3232202020
 00:03FE 00
 00:03FF 00
-                        	  1292: 
-00:0400 48656C6C6F2C2065	  1293: MsgText1:		DB		"Hello, enter command: >_",  0, 0
+                        	  1288: 
+00:0400 48656C6C6F2C2065	  1289: MsgText1:		DB		"Hello, enter command: >_",  0, 0
 00:0408 6E74657220636F6D
 00:0410 6D616E643A203E5F
 00:0418 00
 00:0419 00
-                        	  1294: 
-00:041A 0F              	  1295: st2g1:			DB		0x0F,"Str 2 > Str 1 !",0,0
+                        	  1290: 
+00:041A 0F              	  1291: st2g1:			DB		0x0F,"Str 2 > Str 1 !",0,0
 00:041B 5374722032203E20
 00:0423 53747220312021
 00:042A 00
 00:042B 00
-00:042C 0F              	  1296: st1g2:			DB		0x0F,"Str 1 > Str 2 !",0,0
+00:042C 0F              	  1292: st1g2:			DB		0x0F,"Str 1 > Str 2 !",0,0
 00:042D 5374722031203E20
 00:0435 53747220322021
 00:043C 00
 00:043D 00
-00:043E 0F              	  1297: steq:			DB		0x0F,"Strings Equal !",0,0
+00:043E 0F              	  1293: steq:			DB		0x0F,"Strings Equal !",0,0
 00:043F 537472696E677320
 00:0447 457175616C2021
 00:044E 00
 00:044F 00
-00:0450 04              	  1298: subst:			DB		4,"seco",0,0
+00:0450 04              	  1294: subst:			DB		4,"seco",0,0
 00:0451 7365636F
 00:0455 00
 00:0456 00
-                        	  1299: 
-                        	  1300: 
-00:0457 207C2E2E2E50432E	  1301: RegLabels1:		DB		" |...PC...|...SP...|...IX...|...IY...|",0
+                        	  1295: 
+                        	  1296: 
+00:0457 207C2E2E2E50432E	  1297: RegLabels1:		DB		" |...PC...|...SP...|...IX...|...IY...|",0
 00:045F 2E2E7C2E2E2E5350
 00:0467 2E2E2E7C2E2E2E49
 00:046F 582E2E2E7C2E2E2E
 00:0477 49592E2E2E7C
 00:047D 00
-00:047E 207C2E2E2E41462E	  1302: RegLabels2:		DB		" |...AF...|...BC...|...DE...|...HL...|",0
+00:047E 207C2E2E2E41462E	  1298: RegLabels2:		DB		" |...AF...|...BC...|...DE...|...HL...|",0
 00:0486 2E2E7C2E2E2E4243
 00:048E 2E2E2E7C2E2E2E44
 00:0496 452E2E2E7C2E2E2E
 00:049E 484C2E2E2E7C
 00:04A4 00
-00:04A5 207C2E2E2E414627	  1303: RegLabels3:		DB		" |...AF'..|...BC'..|...DE'..|...HL'..|",0
+00:04A5 207C2E2E2E414627	  1299: RegLabels3:		DB		" |...AF'..|...BC'..|...DE'..|...HL'..|",0
 00:04AD 2E2E7C2E2E2E4243
 00:04B5 272E2E7C2E2E2E44
 00:04BD 45272E2E7C2E2E2E
 00:04C5 484C272E2E7C
 00:04CB 00
-00:04CC 2053205A20582048	  1304: RegFlags:		DB		" S Z X H X P N C",0
+00:04CC 2053205A20582048	  1300: RegFlags:		DB		" S Z X H X P N C",0
 00:04D4 20582050204E2043
 00:04DC 00
-                        	  1305: 
-00:04DD 17              	  1306: Str0:			defb 	23,"Hello, finnally here !",0,0
+                        	  1301: 
+00:04DD 17              	  1302: Str0:			defb 	23,"Hello, finnally here !",0,0
 00:04DE 48656C6C6F2C2066
 00:04E6 696E6E616C6C7920
 00:04EE 686572652021
 00:04F4 00
 00:04F5 00
-00:04F6 17              	  1307: Str2:			defb	23,"This is the second Bank",0,0
+00:04F6 17              	  1303: Str2:			defb	23,"This is the second Bank",0,0
 00:04F7 5468697320697320
 00:04FF 746865207365636F
 00:0507 6E642042616E6B
 00:050E 00
 00:050F 00
-00:0510 17              	  1308: Str3:			defb	23,"This is the third Bank",0,0
+00:0510 17              	  1304: Str3:			defb	23,"This is the third Bank",0,0
 00:0511 5468697320697320
 00:0519 7468652074686972
 00:0521 642042616E6B
 00:0527 00
 00:0528 00
-00:0529 17              	  1309: Str4:			defb	23,"This is the 4'th Bank",0,0
+00:0529 17              	  1305: Str4:			defb	23,"This is the 4'th Bank",0,0
 00:052A 5468697320697320
 00:0532 7468652034277468
 00:053A 2042616E6B
 00:053F 00
 00:0540 00
-00:0541 17              	  1310: Str7:			defb	23,"This is the 7'th Bank",0,0
+00:0541 17              	  1306: Str7:			defb	23,"This is the 7'th Bank",0,0
 00:0542 5468697320697320
 00:054A 7468652037277468
 00:0552 2042616E6B
 00:0557 00
 00:0558 00
-                        	  1311: 
-00:0559 0A              	  1312: sourctext1:		DB		10,"First Str:",0,0
+                        	  1307: 
+00:0559 0A              	  1308: sourctext1:		DB		10,"First Str:",0,0
 00:055A 4669727374205374
 00:0562 723A
 00:0564 00
 00:0565 00
-00:0566 0E              	  1313: sourctext2:		DB		14,"Appendix..../a",0,0	
+00:0566 0E              	  1309: sourctext2:		DB		14,"Appendix..../a",0,0	
 00:0567 417070656E646978
 00:056F 2E2E2E2E2F61
 00:0575 00
 00:0576 00
-                        	  1314: 
-                        	  1315: src_size:		equ		sourctext2-sourctext1
+                        	  1310: 
+                        	  1311: src_size:		equ		sourctext2-sourctext1
+                        	  1312: 
+                        	  1313: endtext:
+                        	  1314: String_HEAP_end:
+                        	  1315: 
                         	  1316: 
-                        	  1317: endtext:
-                        	  1318: String_HEAP_end:
-                        	  1319: 
+                        	  1317: 	if DOALIGN
+                        	  1318: 		align 4
+                        	  1319: 	endif
                         	  1320: 
-                        	  1321: 	if DOALIGN
-                        	  1322: 		align 4
-                        	  1323: 	endif
+                        	  1321: 
+                        	  1322: 
+                        	  1323: .END
                         	  1324: 
-                        	  1325: 
-                        	  1326: 
-                        	  1327: .END
-                        	  1328: 
 
 
 Symbols by name:

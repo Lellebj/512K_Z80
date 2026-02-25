@@ -1099,12 +1099,12 @@ Source: "stdin"
                         	   821: R_LOOP:
 00:000C CD5C00          	   822: 		call	ReadChar				;read character
 00:000F F5              	   823: 		push	AF
-00:0010 CDA900          	   824: 		call	WriteChar				;echo character
+00:0010 CDC500          	   824: 		call	WriteChar				;echo character
 00:0013 F1              	   825: 		pop		AF
 00:0014 FE0D            	   826: 		cp		CRChar					;is character an cr?
 00:0016 20F4            	   827: 		jr		NZ,R_LOOP				;stay in loop if not
                         	   828: 
-00:0018 CDA500          	   829: 		call	CRNL
+00:0018 CDC100          	   829: 		call	CRNL
                         	   830: 			; copy from inbuf to cursor buffer...
                         	   831: waitEntry:
 00:001B CD7A00          	   832: 		call	S_head_tail			; save input heads and tails
@@ -1161,7 +1161,7 @@ Source: "stdin"
 00:0065 35              	   883: 		DEC		(HL)
 00:0066 2A0000          	   884: 		LD		HL, (inHeadAdr)		;Get   character from head of input buffer
 00:0069 4E              	   885: 		LD		C, (HL)
-00:006A CDB302          	   886: 		CALL	incInPointer			;Move head pointer up 1
+00:006A CDCF02          	   886: 		CALL	incInPointer			;Move head pointer up 1
 00:006D 220000          	   887: 		LD		(inHeadAdr) ,HL
 00:0070 79              	   888: 		LD		A,C
 00:0071 FB              	   889: 		EI						;Reenable interrupts
@@ -1189,928 +1189,929 @@ Source: "stdin"
 00:008A 2A0000          	   911: 		LD		HL, (inHeadAdr)		;GET   CHARACTER FROM HEAD OF INPUT BUFFER
 00:008D 220000          	   912: 		ld 		(Comm_Ptr_list),HL
 00:0090 C9              	   913: 		ret
-                        	   914: 			; Write line from address in iy (until char = 00)
-                        	   915: WriteLine:
-                        	   916: 		; ld 		b,(iy)		; get length
-00:0091 FD23            	   917: 		inc		iy			; First pos point to str length, Dont check length, skip first len byte 22.05.01
-                        	   918: nxtchr:
-00:0093 FD7E00          	   919: 		ld 		a,(iy)
-00:0096 B7              	   920: 		or		A			; = 0 ??
-00:0097 C8              	   921: 		ret 	z
-00:0098 E5              	   922: 		push	hl
-00:0099 CDA900          	   923: 		call	WriteChar
-00:009C E1              	   924: 		pop 	hl
-00:009D FD23            	   925: 		inc		iy
-                        	   926: 		; djnz	nxtchr
-00:009F 18F2            	   927: 		jr 		nxtchr
-                        	   928: 
-00:00A1 C9              	   929: 		ret					; return on maxlength
-                        	   930: 			; WriteLine from address (iy) (until char = 00)and add CRLF 
-                        	   931: WriteLineCRNL:
-00:00A2 CD9100          	   932: 		call	WriteLine
-                        	   933: 			; Entry for excl. output CRNL
-                        	   934: CRNL:
-                        	   935: CRLF:
-00:00A5 CD1803          	   936: 		call	puts_crlf
-00:00A8 C9              	   937: 		ret
-                        	   938: 
-                        	   939: 			;Write character
-                        	   940: WriteChar:
-00:00A9 C5              	   941: 		push 	BC
-00:00AA D5              	   942: 		push 	DE
-00:00AB E5              	   943: 		push 	HL				; save the reg  for hexdump...
-00:00AC F5              	   944: 		PUSH	AF				;SAVE CHARACTER TO OUTPUT
-                        	   945: 			;wait for output buffer not full, then store next character
-                        	   946: WaitOutBuff:
-00:00AD CDCE00          	   947: 		call	GetOutStatus			; get output status. Carry=1 if buffer full, 0 if not
-00:00B0 38FB            	   948: 		jr		C,WaitOutBuff			; wait if output buffer is full
-00:00B2 F3              	   949: 		di                     			; disable interrupts while looking at
-                        	   950: 										; buffer, interrupt status
-00:00B3 210000          	   951: 		ld		HL,OutBufCount
-00:00B6 34              	   952: 		inc		(HL)					; increase output buffer count by 1
-00:00B7 2A0000          	   953: 		ld		HL, (outTailAdr)		; point to next empty byte in buffer
-00:00BA F1              	   954: 		pop		AF						; get character
-00:00BB 77              	   955: 		ld		(HL),A					; store character at tail of buffer
-00:00BC CDC102          	   956: 		call	incOutPointer			; move tail pointer up 1
-00:00BF 220000          	   957: 		ld		(outTailAdr),HL
-00:00C2 3A0000          	   958: 		ld		A,(OutINTExpect)		; test output interrupt expected flag
-00:00C5 B7              	   959: 		or		A
-00:00C6 CC9D02          	   960: 		call	Z,CharToSIO_0			; output character immediately if
-                        	   961: 										; output interrupt not expected
-00:00C9 E1              	   962: 		pop 	HL		
-00:00CA D1              	   963: 		pop 	DE	
-00:00CB C1              	   964: 		pop 	BC			
-00:00CC FB              	   965: 		ei						;reenable interrupts
-00:00CD C9              	   966: 		ret
-                        	   967: 			;output status (carry=1 if buffer is full)
-                        	   968: GetOutStatus:
-00:00CE 3A0000          	   969: 		ld		A, (OutBufCount)		; get current output buffer count
-00:00D1 FE00            	   970: 		cp		outBufferSize			; compare to maximum
-00:00D3 3F              	   971: 		ccf						; complement carry
-00:00D4 C9              	   972: 		ret						; carry = 1 if buffer full, 0 if not
-                        	   973: 			; INITIALIZE SIO_0, Interrupt system
-                        	   974: InitBuffers:
-                        	   975: 			; initialize buffer counters and pointers.
-00:00D5 97              	   976: 		sub		A					; zero A
-00:00D6 320000          	   977: 		ld		(OutINTExpect),A	; indicate no output interruptS
-00:00D9 320000          	   978: 		ld		(inBufCount),A		; buffer counters = 0
-00:00DC 320000          	   979: 		ld		(OutBufCount),A
-00:00DF CDE900          	   980: 		call	cleanInBuffer
-00:00E2 CDFA00          	   981: 		call	cleanOutBuffer
-00:00E5 CD0F01          	   982: 		call 	InitInterrupt		; init interrupt vectors
-00:00E8 C9              	   983: 		ret
-                        	   984: 
-                        	   985: cleanInBuffer:
-00:00E9 97              	   986: 		sub		A					; zero A
-00:00EA 320000          	   987: 		ld		(inBufCount),A		; buffer counters = 0
-00:00ED 320000          	   988: 		ld 		(inbufferDeactivate),A  ; clear flag for input buffer update...
-00:00F0 210000          	   989: 		ld		HL,inBuffer			; all buffer pointers = base address
-00:00F3 220000          	   990: 		ld		(inHeadAdr),HL
-00:00F6 220000          	   991: 		ld		(inTailAdr),HL
-00:00F9 C9              	   992: 		ret
-                        	   993: cleanOutBuffer:
-00:00FA 97              	   994: 		sub		A					; zero A
-00:00FB 320000          	   995: 		ld		(OutBufCount),A
-00:00FE 210000          	   996: 		ld		HL,outBuffer
-00:0101 220000          	   997: 		ld		(outHeadAdr),HL
-00:0104 220000          	   998: 		ld		(outTailAdr),HL
-00:0107 C9              	   999: 		ret
-                        	  1000: 
-                        	  1001: waitForFinishedPrintout:
-                        	  1002: 		;  wait for print to finish
-                        	  1003: .waitmore:
-00:0108 3A0000          	  1004: 		ld		A, (OutBufCount)	;get output buffer counter
-00:010B B7              	  1005: 		or 		A 					;=0 ?
-00:010C 20FA            	  1006: 		jr 		nz,.waitmore
-00:010E C9              	  1007: 		ret
-                        	  1008: 
-                        	  1009: ;******************************************************************************
-                        	  1010: InitInterrupt:
-                        	  1011: 			;INITIALIZE INTERRUPT VECTORS (SIO_0)
-                        	  1012: 			; initialize . interrupt flag
-00:010F 3EF4            	  1013: 		ld		A,SIO_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE   (F400 >> 8 = F4)
-00:0111 ED47            	  1014: 		ld		I,A             ;SET INTERRUPT VECTOR IN zao
-00:0113 ED5E            	  1015: 		im		2               ; INTERRUPT MODE 2 - VECTORS IN TABLE
-00:0115 216601          	  1016: 		ld		HL,ReadINTHandler      	 ; ON INTERRUPT PAGE
-00:0118 220CF4          	  1017: 		ld		(SIO_Int_Read_Vec),HL		;STORE READ VECTOR
-00:011B 219301          	  1018: 		ld		HL,WriteINTHandler
-00:011E 2208F4          	  1019: 		ld		(SIO_Int_WR_Vec),HL		;STORE WRITE VECTOR
-00:0121 218B02          	  1020: 		ld		HL,ExternINTHandler
-00:0124 220AF4          	  1021: 		ld		(SIO_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
-00:0127 219402          	  1022: 		ld		HL,SpecINTHandler
-00:012A 220EF4          	  1023: 		ld		(SIO_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
-00:012D 21B801          	  1024: 		ld		HL,ReadUSBHandler      	 ; ON INTERRUPT PAGE
-00:0130 2204F4          	  1025: 		ld		(SIO_USB_Read_Vec),HL		;STORE READ VECTOR
-                        	  1026: 		
-00:0133 21C201          	  1027: 		ld 		HL,Write_USB_Handler
-00:0136 2200F4          	  1028: 		ld		(SIO_USB_WR_Vec),HL		;STORE READ VECTOR
-00:0139 21C601          	  1029: 		ld 		HL,Extern_B_USB_Handler
-00:013C 2202F4          	  1030: 		ld 		(SIO_USB_EXT_Vec),HL
-00:013F 21CA01          	  1031: 		ld 		HL,SpecINT_B_USB_Handler
-00:0142 2206F4          	  1032: 		ld 		(SIO_USB_Spec_Vec),HL
-                        	  1033: 		
-                        	  1034: 				; INT Vectors  for the CTC 
-00:0145 214103          	  1035: 		ld		HL,CTC_CH0_Interrupt_Handler
-00:0148 2210F4          	  1036: 		ld		(CTC_CH0_I_Vector),HL		;STORE CTC channel 0 VECTOR
-00:014B 214103          	  1037: 		ld		HL,CTC_CH1_Interrupt_Handler
-00:014E 2212F4          	  1038: 		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
-00:0151 215503          	  1039: 		ld		HL,CTC_CH2_Interrupt_Handler
-00:0154 2214F4          	  1040: 		ld		(CTC_CH2_I_Vector),HL		;STORE CTC channel 2 VECTOR
-00:0157 215503          	  1041: 		ld		HL,CTC_CH3_Interrupt_Handler
-00:015A 2216F4          	  1042: 		ld		(CTC_CH3_I_Vector),HL		;STORE CTC channel 3 VECTOR
-                        	  1043: 
-00:015D C9              	  1044: 		ret
-                        	  1045: SIO_Init:		
-                        	  1046: 		;INITIALIZE I/O PORTS
-00:015E 21E302          	  1047: 		ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
-00:0161 CDCF02          	  1048: 		call    InitSIO_0Ports			; INITIALIZE SIO_0
-00:0164 FB              	  1049: 		ei						; ENABLE INTERRUPTS
-00:0165 C9              	  1050: 		ret
-                        	  1051: 
-                        	  1052: 
-                        	  1053: ;******************************************************************************
-                        	  1054: 				;Channel A: INPUT (READ) INTERRUPT HANDLER
-                        	  1055: ReadINTHandler:
-00:0166 F5              	  1056: 		push	AF				;SAVE REGISTERS
-00:0167 C5              	  1057: 		push	BC
-00:0168 D5              	  1058: 		push	DE
-00:0169 E5              	  1059: 		push   	HL
-                        	  1060: 	
-00:016A DB00            	  1061: 		in		A,(SIO_A_D)		; read data from SIO_0
-00:016C 4F              	  1062: 		ld		C,A					; save data in register c
-00:016D 3A0000          	  1063: 		ld 		a,(inbufferDeactivate)
-00:0170 FE00            	  1064: 		cp 		$00 					; =0 		
-00:0172 2013            	  1065: 		jr 		nz,exitRHandler
-                        	  1066: 
-00:0174 210000          	  1067: 		ld		HL,inBufCount		; any room in input buffer?
-00:0177 7E              	  1068: 		ld		A, (HL)
-00:0178 FE00            	  1069: 		cp		bufferSize
-00:017A 300B            	  1070: 		jr		NC,exitRHandler		; jump if no room
-00:017C 34              	  1071: 		inc		(HL)				; increment input buffer counter
-00:017D 2A0000          	  1072: 		ld		HL, (inTailAdr)		; store character at tail of input buffer
-00:0180 71              	  1073: 		ld		(HL),C
-00:0181 CDB302          	  1074: 		call	incInPointer		; increment tail pointer
-00:0184 220000          	  1075: 		ld		(inTailAdr), HL
-                        	  1076: exitRHandler:
-00:0187 3E00            	  1077: 		ld 		A,00
-00:0189 320000          	  1078: 		ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
-                        	  1079: 
-00:018C E1              	  1080: 		pop		HL				;restore registers
-00:018D D1              	  1081: 		pop		DE
-00:018E C1              	  1082: 		pop		BC
-00:018F F1              	  1083: 		pop		AF
-00:0190 FB              	  1084: 		ei						;reenable interrupts
-00:0191 ED4D            	  1085: 		reti
-                        	  1086: 
-                        	  1087: ;******************************************************************************
-                        	  1088: 			;Channel A: output (write) interrupt handler
-                        	  1089: WriteINTHandler:
-00:0193 F5              	  1090: 		push	AF					;save registers
-00:0194 C5              	  1091: 		push	BC
-00:0195 D5              	  1092: 		push	DE
-00:0196 E5              	  1093: 		push	HL
-00:0197 3A0000          	  1094: 		ld		A, (OutBufCount)	;get output buffer counter
-00:019A B7              	  1095: 		or		A					;test for empty buffer
-00:019B 2805            	  1096: 		jr		Z,nodata			;jump if no data to transmit
-00:019D CD9D02          	  1097: 		call	CharToSIO_0			;else output data
-00:01A0 180A            	  1098: 		jr		wrdone
-                        	  1099: 			;if an output interrupt occurs when no data is available.
-                        	  1100: 			; we must disable output interrupts to avoid an endless loop.
-                        	  1101: 			; when the next character is ready, it must be sent immediately
-                        	  1102: 			; since no interrupt will occur. this state in which an output
-                        	  1103: 			; interrupt has occurred but has not been serviced is indicated
-                        	  1104: 			; by clearing ole (output interrupt expected flag).
-                        	  1105: nodata:
-00:01A2 97              	  1106: 		sub		A
-00:01A3 320000          	  1107: 		ld		(OutINTExpect),a				;00 not expect an interrupt
-00:01A6 D302            	  1108: 		out		(SIO_A_C),a			;select register 0
-00:01A8 3E28            	  1109: 		ld		a,00101000b			;reset transmitter interrupt
-00:01AA D302            	  1110: 		out		(SIO_A_C),a
-                        	  1111: wrdone:
-00:01AC 3E00            	  1112: 		ld 		A,00
-00:01AE 320000          	  1113: 		ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
-00:01B1 E1              	  1114: 		pop		HL					;restore registers
-00:01B2 D1              	  1115: 		pop		DE
-00:01B3 C1              	  1116: 		pop		BC
-00:01B4 F1              	  1117: 		pop		AF
-00:01B5 FB              	  1118: 		ei
-00:01B6 ED4D            	  1119: 		reti
-                        	  1120: ;******************************************************************************
-                        	  1121: 
-                        	  1122: 
-                        	  1123: 
-                        	  1124: 		; *** 	interrupt at input from HC376S
-                        	  1125: ReadUSBHandler:
-00:01B8 DB01            	  1126: 		in  	A,(sio_bd)		  		;read char from SIO B
-00:01BA 5F              	  1127: 		ld 		E,A
-                        	  1128: 	ifd 	GPIODEBUG	
-                        	  1129: 		ld a,1
-                        	  1130: 		out (gpio_out),A
-                        	  1131: 		ld a,0
-                        	  1132: 		out (gpio_out),A
-                        	  1133: 	endif
-                        	  1134: 	
-00:01BB 7B              	  1135: 		ld a,e
-00:01BC CD4902          	  1136: 		call 	purgeRXB
-                        	  1137: 
-                        	  1138: 		; in  	A,(CH1)
-                        	  1139: 		; ld 		(TempVar8),A
-                        	  1140: 		; in  	A,(CH0)
-                        	  1141: 		; ld 		(TempVar7),A
-                        	  1142: ; 		cp 		USB_INT_CONNECT
-                        	  1143: ; 		jr  	NZ,.p2
-                        	  1144: ; 		call 	writeSTRBelow_CRLF
-                        	  1145: ; 		db		0,">USB_INT_CONNECT",0,0
-                        	  1146: ; 		jr 		.p3
-                        	  1147: ; .p2:
-                        	  1148: ; 		cp 		USB_INT_DISCONNECT
-                        	  1149: ; 		jr 		NZ,.p3
-                        	  1150: ; 		call 	writeSTRBelow_CRLF
-                        	  1151: ; 		db		0,">USB_INT_DISCONNECT",0,0
-                        	  1152: .p3:
-                        	  1153: 		
-                        	  1154: 
-00:01BF FB              	  1155: 		ei
-00:01C0 ED4D            	  1156: 		reti
-                        	  1157: 
-                        	  1158: ;********************************************************************************************     
-                        	  1159: 
-                        	  1160: Write_USB_Handler:
-                        	  1161: 
-                        	  1162: 	ifd 	GPIODEBUG	
-                        	  1163: 		ld a,20
-                        	  1164: 		out (gpio_out),A
-                        	  1165: 		ld a,0
-                        	  1166: 		out (gpio_out),A
-                        	  1167: 	endif
-                        	  1168: 
-00:01C2 7B              	  1169: 		ld a,e
-00:01C3 FB              	  1170: 		ei
-00:01C4 ED4D            	  1171: 		reti
-                        	  1172: 			;external/status changed interrupt handler
-                        	  1173: Extern_B_USB_Handler:
-                        	  1174: 	ifd 	GPIODEBUG
-                        	  1175: 		ld a,21
-                        	  1176: 		out (gpio_out),A
-                        	  1177: 		ld a,0
-                        	  1178: 		out (gpio_out),A
-                        	  1179: 	endif
-00:01C6 7B              	  1180: 		ld a,e
-00:01C7 FB              	  1181: 		ei							; dcd or cts line changed state. or a
-00:01C8 ED4D            	  1182: 		reti						; break was detected
-                        	  1183: 									; service here if necessary
-                        	  1184: 			;special receive error interrupt
-                        	  1185: SpecINT_B_USB_Handler:
-                        	  1186: 	ifd 	GPIODEBUG
-                        	  1187: 		ld a,22
-                        	  1188: 		out (gpio_out),A
-                        	  1189: 		ld a,0
-                        	  1190: 		out (gpio_out),A
-                        	  1191: 	endif
-                        	  1192: 	
-00:01CA 7B              	  1193: 		ld a,e
-00:01CB FB              	  1194: 		ei							;framing error or overrun error occurred
-00:01CC ED4D            	  1195: 		reti						; service here if necessary
-                        	  1196: 
-                        	  1197: ;********************************************************************************************     
+                        	   914: 
+                        	   915: 
+                        	   916: ;##############################################################
+                        	   917: ; Write the null-terminated string starting after the call
+                        	   918: ; instruction invoking this subroutine to the console.
+                        	   919: ; Clobbers AF, C
+                        	   920: ;##############################################################
+                        	   921: writeSTRBelow:
+00:0091 FDE3            	   922:         ex      (sp),iy                 ; iy = @ of string to print
+00:0093 CDAD00          	   923: 		call	WriteLine
+00:0096 FD23            	   924:         inc     iy                      ; point past the end of the string
+00:0098 FDE3            	   925:         ex      (sp),iy
+00:009A C9              	   926:         ret
+                        	   927: 
+                        	   928: writeSTRBelow_CRLF:
+00:009B FDE3            	   929: 		ex		(sp),iy                 ; iy = @ of string to print
+00:009D CDBE00          	   930: 		call	WriteLineCRNL
+00:00A0 FD23            	   931: 		inc		iy                      ; point past the end of the string
+00:00A2 FDE3            	   932: 		ex		(sp),iy
+00:00A4 C9              	   933: 		ret
+                        	   934: 
+                        	   935: ;##############################################################
+                        	   936: ; Print a CRLF 
+                        	   937: ; Clobbers AF, C
+                        	   938: ;##############################################################
+                        	   939: puts_crlf:
+00:00A5 CD9100          	   940:         call    writeSTRBelow
+00:00A8 000D0A00        	   941:         defb    '\0\r\n\0'
+00:00AC C9              	   942:         ret
+                        	   943: 
+                        	   944: 
+                        	   945: 			; Write line from address in iy (until char = 00)
+                        	   946: WriteLine:
+                        	   947: 		; ld 		b,(iy)		; get length
+00:00AD FD23            	   948: 		inc		iy			; First pos point to str length, Dont check length, skip first len byte 22.05.01
+                        	   949: nxtchr:
+00:00AF FD7E00          	   950: 		ld 		a,(iy)
+00:00B2 B7              	   951: 		or		A			; = 0 ??
+00:00B3 C8              	   952: 		ret 	z
+00:00B4 E5              	   953: 		push	hl
+00:00B5 CDC500          	   954: 		call	WriteChar
+00:00B8 E1              	   955: 		pop 	hl
+00:00B9 FD23            	   956: 		inc		iy
+00:00BB 18F2            	   957: 		jr 		nxtchr
+                        	   958: 
+00:00BD C9              	   959: 		ret					; return on maxlength
+                        	   960: 			; WriteLine from address (iy) (until char = 00)and add CRLF 
+                        	   961: WriteLineCRNL:
+00:00BE CDAD00          	   962: 		call	WriteLine
+                        	   963: 			; Entry for excl. output CRNL
+                        	   964: CRNL:
+                        	   965: CRLF:
+00:00C1 CDA500          	   966: 		call	puts_crlf
+00:00C4 C9              	   967: 		ret
+                        	   968: 
+                        	   969: 			;Write character
+                        	   970: WriteChar:
+00:00C5 C5              	   971: 		push 	BC
+00:00C6 D5              	   972: 		push 	DE
+00:00C7 E5              	   973: 		push 	HL				; save the reg  for hexdump...
+00:00C8 F5              	   974: 		PUSH	AF				;SAVE CHARACTER TO OUTPUT
+                        	   975: 			;wait for output buffer not full, then store next character
+                        	   976: WaitOutBuff:
+00:00C9 CDEA00          	   977: 		call	GetOutStatus			; get output status. Carry=1 if buffer full, 0 if not
+00:00CC 38FB            	   978: 		jr		C,WaitOutBuff			; wait if output buffer is full
+00:00CE F3              	   979: 		di                     			; disable interrupts while looking at
+                        	   980: 										; buffer, interrupt status
+00:00CF 210000          	   981: 		ld		HL,OutBufCount
+00:00D2 34              	   982: 		inc		(HL)					; increase output buffer count by 1
+00:00D3 2A0000          	   983: 		ld		HL, (outTailAdr)		; point to next empty byte in buffer
+00:00D6 F1              	   984: 		pop		AF						; get character
+00:00D7 77              	   985: 		ld		(HL),A					; store character at tail of buffer
+00:00D8 CDDD02          	   986: 		call	incOutPointer			; move tail pointer up 1
+00:00DB 220000          	   987: 		ld		(outTailAdr),HL
+00:00DE 3A0000          	   988: 		ld		A,(OutINTExpect)		; test output interrupt expected flag
+00:00E1 B7              	   989: 		or		A
+00:00E2 CCB902          	   990: 		call	Z,CharToSIO_0			; output character immediately if
+                        	   991: 										; output interrupt not expected
+00:00E5 E1              	   992: 		pop 	HL		
+00:00E6 D1              	   993: 		pop 	DE	
+00:00E7 C1              	   994: 		pop 	BC			
+00:00E8 FB              	   995: 		ei						;reenable interrupts
+00:00E9 C9              	   996: 		ret
+                        	   997: 			;output status (carry=1 if buffer is full)
+                        	   998: GetOutStatus:
+00:00EA 3A0000          	   999: 		ld		A, (OutBufCount)		; get current output buffer count
+00:00ED FE00            	  1000: 		cp		outBufferSize			; compare to maximum
+00:00EF 3F              	  1001: 		ccf						; complement carry
+00:00F0 C9              	  1002: 		ret						; carry = 1 if buffer full, 0 if not
+                        	  1003: 			; INITIALIZE SIO_0, Interrupt system
+                        	  1004: InitBuffers:
+                        	  1005: 			; initialize buffer counters and pointers.
+00:00F1 97              	  1006: 		sub		A					; zero A
+00:00F2 320000          	  1007: 		ld		(OutINTExpect),A	; indicate no output interruptS
+00:00F5 320000          	  1008: 		ld		(inBufCount),A		; buffer counters = 0
+00:00F8 320000          	  1009: 		ld		(OutBufCount),A
+00:00FB CD0501          	  1010: 		call	cleanInBuffer
+00:00FE CD1601          	  1011: 		call	cleanOutBuffer
+00:0101 CD2B01          	  1012: 		call 	InitInterrupt		; init interrupt vectors
+00:0104 C9              	  1013: 		ret
+                        	  1014: 
+                        	  1015: cleanInBuffer:
+00:0105 97              	  1016: 		sub		A					; zero A
+00:0106 320000          	  1017: 		ld		(inBufCount),A		; buffer counters = 0
+00:0109 320000          	  1018: 		ld 		(inbufferDeactivate),A  ; clear flag for input buffer update...
+00:010C 210000          	  1019: 		ld		HL,inBuffer			; all buffer pointers = base address
+00:010F 220000          	  1020: 		ld		(inHeadAdr),HL
+00:0112 220000          	  1021: 		ld		(inTailAdr),HL
+00:0115 C9              	  1022: 		ret
+                        	  1023: cleanOutBuffer:
+00:0116 97              	  1024: 		sub		A					; zero A
+00:0117 320000          	  1025: 		ld		(OutBufCount),A
+00:011A 210000          	  1026: 		ld		HL,outBuffer
+00:011D 220000          	  1027: 		ld		(outHeadAdr),HL
+00:0120 220000          	  1028: 		ld		(outTailAdr),HL
+00:0123 C9              	  1029: 		ret
+                        	  1030: 
+                        	  1031: waitForFinishedPrintout:
+                        	  1032: 		;  wait for print to finish
+                        	  1033: .waitmore:
+00:0124 3A0000          	  1034: 		ld		A, (OutBufCount)	;get output buffer counter
+00:0127 B7              	  1035: 		or 		A 					;=0 ?
+00:0128 20FA            	  1036: 		jr 		nz,.waitmore
+00:012A C9              	  1037: 		ret
+                        	  1038: 
+                        	  1039: ;******************************************************************************
+                        	  1040: InitInterrupt:
+                        	  1041: 			;INITIALIZE INTERRUPT VECTORS (SIO_0)
+                        	  1042: 			; initialize . interrupt flag
+00:012B 3EF4            	  1043: 		ld		A,SIO_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE   (F400 >> 8 = F4)
+00:012D ED47            	  1044: 		ld		I,A             ;SET INTERRUPT VECTOR IN zao
+00:012F ED5E            	  1045: 		im		2               ; INTERRUPT MODE 2 - VECTORS IN TABLE
+00:0131 218201          	  1046: 		ld		HL,ReadINTHandler      	 ; ON INTERRUPT PAGE
+00:0134 220CF4          	  1047: 		ld		(SIO_Int_Read_Vec),HL		;STORE READ VECTOR
+00:0137 21AF01          	  1048: 		ld		HL,WriteINTHandler
+00:013A 2208F4          	  1049: 		ld		(SIO_Int_WR_Vec),HL		;STORE WRITE VECTOR
+00:013D 21A702          	  1050: 		ld		HL,ExternINTHandler
+00:0140 220AF4          	  1051: 		ld		(SIO_Int_EXT_Vec),HL		;STORE EXTERNAL/STATUS VECTOR
+00:0143 21B002          	  1052: 		ld		HL,SpecINTHandler
+00:0146 220EF4          	  1053: 		ld		(SIO_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
+00:0149 21D401          	  1054: 		ld		HL,ReadUSBHandler      	 ; ON INTERRUPT PAGE
+00:014C 2204F4          	  1055: 		ld		(SIO_USB_Read_Vec),HL		;STORE READ VECTOR
+                        	  1056: 		
+00:014F 21DE01          	  1057: 		ld 		HL,Write_USB_Handler
+00:0152 2200F4          	  1058: 		ld		(SIO_USB_WR_Vec),HL		;STORE READ VECTOR
+00:0155 21E201          	  1059: 		ld 		HL,Extern_B_USB_Handler
+00:0158 2202F4          	  1060: 		ld 		(SIO_USB_EXT_Vec),HL
+00:015B 21E601          	  1061: 		ld 		HL,SpecINT_B_USB_Handler
+00:015E 2206F4          	  1062: 		ld 		(SIO_USB_Spec_Vec),HL
+                        	  1063: 		
+                        	  1064: 				; INT Vectors  for the CTC 
+00:0161 214103          	  1065: 		ld		HL,CTC_CH0_Interrupt_Handler
+00:0164 2210F4          	  1066: 		ld		(CTC_CH0_I_Vector),HL		;STORE CTC channel 0 VECTOR
+00:0167 214103          	  1067: 		ld		HL,CTC_CH1_Interrupt_Handler
+00:016A 2212F4          	  1068: 		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+00:016D 215503          	  1069: 		ld		HL,CTC_CH2_Interrupt_Handler
+00:0170 2214F4          	  1070: 		ld		(CTC_CH2_I_Vector),HL		;STORE CTC channel 2 VECTOR
+00:0173 215503          	  1071: 		ld		HL,CTC_CH3_Interrupt_Handler
+00:0176 2216F4          	  1072: 		ld		(CTC_CH3_I_Vector),HL		;STORE CTC channel 3 VECTOR
+                        	  1073: 
+00:0179 C9              	  1074: 		ret
+                        	  1075: SIO_Init:		
+                        	  1076: 		;INITIALIZE I/O PORTS
+00:017A 21FF02          	  1077: 		ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
+00:017D CDEB02          	  1078: 		call    InitSIO_0Ports			; INITIALIZE SIO_0
+00:0180 FB              	  1079: 		ei						; ENABLE INTERRUPTS
+00:0181 C9              	  1080: 		ret
+                        	  1081: 
+                        	  1082: 
+                        	  1083: ;******************************************************************************
+                        	  1084: 				;Channel A: INPUT (READ) INTERRUPT HANDLER
+                        	  1085: ReadINTHandler:
+00:0182 F5              	  1086: 		push	AF				;SAVE REGISTERS
+00:0183 C5              	  1087: 		push	BC
+00:0184 D5              	  1088: 		push	DE
+00:0185 E5              	  1089: 		push   	HL
+                        	  1090: 	
+00:0186 DB00            	  1091: 		in		A,(SIO_A_D)		; read data from SIO_0
+00:0188 4F              	  1092: 		ld		C,A					; save data in register c
+00:0189 3A0000          	  1093: 		ld 		a,(inbufferDeactivate)
+00:018C FE00            	  1094: 		cp 		$00 					; =0 		
+00:018E 2013            	  1095: 		jr 		nz,exitRHandler
+                        	  1096: 
+00:0190 210000          	  1097: 		ld		HL,inBufCount		; any room in input buffer?
+00:0193 7E              	  1098: 		ld		A, (HL)
+00:0194 FE00            	  1099: 		cp		bufferSize
+00:0196 300B            	  1100: 		jr		NC,exitRHandler		; jump if no room
+00:0198 34              	  1101: 		inc		(HL)				; increment input buffer counter
+00:0199 2A0000          	  1102: 		ld		HL, (inTailAdr)		; store character at tail of input buffer
+00:019C 71              	  1103: 		ld		(HL),C
+00:019D CDCF02          	  1104: 		call	incInPointer		; increment tail pointer
+00:01A0 220000          	  1105: 		ld		(inTailAdr), HL
+                        	  1106: exitRHandler:
+00:01A3 3E00            	  1107: 		ld 		A,00
+00:01A5 320000          	  1108: 		ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
+                        	  1109: 
+00:01A8 E1              	  1110: 		pop		HL				;restore registers
+00:01A9 D1              	  1111: 		pop		DE
+00:01AA C1              	  1112: 		pop		BC
+00:01AB F1              	  1113: 		pop		AF
+00:01AC FB              	  1114: 		ei						;reenable interrupts
+00:01AD ED4D            	  1115: 		reti
+                        	  1116: 
+                        	  1117: ;******************************************************************************
+                        	  1118: 			;Channel A: output (write) interrupt handler
+                        	  1119: WriteINTHandler:
+00:01AF F5              	  1120: 		push	AF					;save registers
+00:01B0 C5              	  1121: 		push	BC
+00:01B1 D5              	  1122: 		push	DE
+00:01B2 E5              	  1123: 		push	HL
+00:01B3 3A0000          	  1124: 		ld		A, (OutBufCount)	;get output buffer counter
+00:01B6 B7              	  1125: 		or		A					;test for empty buffer
+00:01B7 2805            	  1126: 		jr		Z,nodata			;jump if no data to transmit
+00:01B9 CDB902          	  1127: 		call	CharToSIO_0			;else output data
+00:01BC 180A            	  1128: 		jr		wrdone
+                        	  1129: 			;if an output interrupt occurs when no data is available.
+                        	  1130: 			; we must disable output interrupts to avoid an endless loop.
+                        	  1131: 			; when the next character is ready, it must be sent immediately
+                        	  1132: 			; since no interrupt will occur. this state in which an output
+                        	  1133: 			; interrupt has occurred but has not been serviced is indicated
+                        	  1134: 			; by clearing ole (output interrupt expected flag).
+                        	  1135: nodata:
+00:01BE 97              	  1136: 		sub		A
+00:01BF 320000          	  1137: 		ld		(OutINTExpect),a				;00 not expect an interrupt
+00:01C2 D302            	  1138: 		out		(SIO_A_C),a			;select register 0
+00:01C4 3E28            	  1139: 		ld		a,00101000b			;reset transmitter interrupt
+00:01C6 D302            	  1140: 		out		(SIO_A_C),a
+                        	  1141: wrdone:
+00:01C8 3E00            	  1142: 		ld 		A,00
+00:01CA 320000          	  1143: 		ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
+00:01CD E1              	  1144: 		pop		HL					;restore registers
+00:01CE D1              	  1145: 		pop		DE
+00:01CF C1              	  1146: 		pop		BC
+00:01D0 F1              	  1147: 		pop		AF
+00:01D1 FB              	  1148: 		ei
+00:01D2 ED4D            	  1149: 		reti
+                        	  1150: ;******************************************************************************
+                        	  1151: 
+                        	  1152: 
+                        	  1153: 
+                        	  1154: 		; *** 	interrupt at input from HC376S
+                        	  1155: ReadUSBHandler:
+00:01D4 DB01            	  1156: 		in  	A,(sio_bd)		  		;read char from SIO B
+00:01D6 5F              	  1157: 		ld 		E,A
+                        	  1158: 	ifd 	GPIODEBUG	
+                        	  1159: 		ld a,1
+                        	  1160: 		out (gpio_out),A
+                        	  1161: 		ld a,0
+                        	  1162: 		out (gpio_out),A
+                        	  1163: 	endif
+                        	  1164: 	
+00:01D7 7B              	  1165: 		ld a,e
+00:01D8 CD6502          	  1166: 		call 	purgeRXB
+                        	  1167: 
+                        	  1168: 		; in  	A,(CH1)
+                        	  1169: 		; ld 		(TempVar8),A
+                        	  1170: 		; in  	A,(CH0)
+                        	  1171: 		; ld 		(TempVar7),A
+                        	  1172: ; 		cp 		USB_INT_CONNECT
+                        	  1173: ; 		jr  	NZ,.p2
+                        	  1174: ; 		call 	writeSTRBelow_CRLF
+                        	  1175: ; 		db		0,">USB_INT_CONNECT",0,0
+                        	  1176: ; 		jr 		.p3
+                        	  1177: ; .p2:
+                        	  1178: ; 		cp 		USB_INT_DISCONNECT
+                        	  1179: ; 		jr 		NZ,.p3
+                        	  1180: ; 		call 	writeSTRBelow_CRLF
+                        	  1181: ; 		db		0,">USB_INT_DISCONNECT",0,0
+                        	  1182: .p3:
+                        	  1183: 		
+                        	  1184: 
+00:01DB FB              	  1185: 		ei
+00:01DC ED4D            	  1186: 		reti
+                        	  1187: 
+                        	  1188: ;********************************************************************************************     
+                        	  1189: 
+                        	  1190: Write_USB_Handler:
+                        	  1191: 
+                        	  1192: 	ifd 	GPIODEBUG	
+                        	  1193: 		ld a,20
+                        	  1194: 		out (gpio_out),A
+                        	  1195: 		ld a,0
+                        	  1196: 		out (gpio_out),A
+                        	  1197: 	endif
                         	  1198: 
-                        	  1199: SIO_A_EI:
-                        	  1200: 		;enable SIO_0 channel A RX
-                        	  1201: 
-                        	  1202: 		; ld		a,003h			;write into WR0: select WR3
-                        	  1203: 		; out		(SIO_A_C),A
-                        	  1204: 		; ld		a,_Rx_Enable|_RX_8_bits|_Auto_Enable 			;RX 8bit, auto enable on, RX on
-                        	  1205: 		; out		(SIO_A_C),A	Channel A RX active
-                        	  1206: 
-00:01CE 3E05            	  1207: 		ld		a,005h			;write into WR0: select WR5
-00:01D0 D302            	  1208: 		out		(SIO_A_C),A
-00:01D2 3E6A            	  1209: 		ld		a,_RTS_Enable|_Tx_Enable|_Tx_8bits_char			
-00:01D4 D302            	  1210: 		out		(SIO_A_C),A	Channel A RX active
-                        	  1211: 
-                        	  1212: 		; ld		a,001h			;write into WR0: select WR3
-                        	  1213: 		; out		(SIO_A_C),A
-                        	  1214: 		; ld		a,_Tx_INT_EN|_Int_All_Rx_Char_NP		
-                        	  1215: 		; out		(SIO_A_C),A	Channel A RX active
-                        	  1216: 
-                        	  1217: 
-                        	  1218: 
-00:01D6 C9              	  1219: 		RET
-                        	  1220: 	
-                        	  1221: SIO_A_DI:
-                        	  1222: 		;disable SIO_0 channel A RX
-                        	  1223: 		; ld		a,WR3			;write into WR0: select WR3
-                        	  1224: 		; out		(SIO_A_C),A
-                        	  1225: 		; ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
-                        	  1226: 		; out		(SIO_A_C),A
-00:01D7 3E05            	  1227: 		ld		a,005h			;write into WR0: select WR3
-00:01D9 D302            	  1228: 		out		(SIO_A_C),A
-00:01DB 3E60            	  1229: 		ld		a,_Tx_8bits_char			
-00:01DD D302            	  1230: 		out		(SIO_A_C),A	Channel A RX active
+00:01DE 7B              	  1199: 		ld a,e
+00:01DF FB              	  1200: 		ei
+00:01E0 ED4D            	  1201: 		reti
+                        	  1202: 			;external/status changed interrupt handler
+                        	  1203: Extern_B_USB_Handler:
+                        	  1204: 	ifd 	GPIODEBUG
+                        	  1205: 		ld a,21
+                        	  1206: 		out (gpio_out),A
+                        	  1207: 		ld a,0
+                        	  1208: 		out (gpio_out),A
+                        	  1209: 	endif
+00:01E2 7B              	  1210: 		ld a,e
+00:01E3 FB              	  1211: 		ei							; dcd or cts line changed state. or a
+00:01E4 ED4D            	  1212: 		reti						; break was detected
+                        	  1213: 									; service here if necessary
+                        	  1214: 			;special receive error interrupt
+                        	  1215: SpecINT_B_USB_Handler:
+                        	  1216: 	ifd 	GPIODEBUG
+                        	  1217: 		ld a,22
+                        	  1218: 		out (gpio_out),A
+                        	  1219: 		ld a,0
+                        	  1220: 		out (gpio_out),A
+                        	  1221: 	endif
+                        	  1222: 	
+00:01E6 7B              	  1223: 		ld a,e
+00:01E7 FB              	  1224: 		ei							;framing error or overrun error occurred
+00:01E8 ED4D            	  1225: 		reti						; service here if necessary
+                        	  1226: 
+                        	  1227: ;********************************************************************************************     
+                        	  1228: 
+                        	  1229: SIO_A_EI:
+                        	  1230: 		;enable SIO_0 channel A RX
                         	  1231: 
-                        	  1232: 
-                        	  1233: 		;Channel A RX inactive
-00:01DF C9              	  1234: 		ret
-                        	  1235: 
+                        	  1232: 		; ld		a,003h			;write into WR0: select WR3
+                        	  1233: 		; out		(SIO_A_C),A
+                        	  1234: 		; ld		a,_Rx_Enable|_RX_8_bits|_Auto_Enable 			;RX 8bit, auto enable on, RX on
+                        	  1235: 		; out		(SIO_A_C),A	Channel A RX active
                         	  1236: 
-                        	  1237: SIO_A_TXRX_INTon:
-                        	  1238: 		;enable SIO_0 channel A RX
-00:01E0 3E01            	  1239: 		ld		A,WR1							;write into WR0: select WR1
-00:01E2 D302            	  1240: 		out		(SIO_A_C),A
-00:01E4 3E1A            	  1241: 		ld		A,_Tx_INT_EN|_Int_All_Rx_Char_NP		 			;RX and TX interrupt on
-00:01E6 D302            	  1242: 		out		(SIO_A_C),A						; Channel A RX active
-00:01E8 C9              	  1243: 		RET
-                        	  1244: 
-                        	  1245: 
+00:01EA 3E05            	  1237: 		ld		a,005h			;write into WR0: select WR5
+00:01EC D302            	  1238: 		out		(SIO_A_C),A
+00:01EE 3E6A            	  1239: 		ld		a,_RTS_Enable|_Tx_Enable|_Tx_8bits_char			
+00:01F0 D302            	  1240: 		out		(SIO_A_C),A	Channel A RX active
+                        	  1241: 
+                        	  1242: 		; ld		a,001h			;write into WR0: select WR3
+                        	  1243: 		; out		(SIO_A_C),A
+                        	  1244: 		; ld		a,_Tx_INT_EN|_Int_All_Rx_Char_NP		
+                        	  1245: 		; out		(SIO_A_C),A	Channel A RX active
                         	  1246: 
-                        	  1247: SIO_A_TXRX_INToff:
-                        	  1248: 		;enable SIO_0 channel A RX
-00:01E9 3E01            	  1249: 		ld		A,WR1			;write into WR0: select WR1
-00:01EB D302            	  1250: 		out		(SIO_A_C),A
-00:01ED 3E00            	  1251: 		ld		A,00h			;RX and TX interrupt off
-00:01EF D302            	  1252: 		out		(SIO_A_C),A		;	Channel A RX 
-00:01F1 C9              	  1253: 		RET
-                        	  1254: 
-                        	  1255: SIO_A_TX_INTon:
-                        	  1256: 		;enable SIO_0 channel A RX
-00:01F2 3E01            	  1257: 		ld		A,WR1							;write into WR0: select WR1
-00:01F4 D302            	  1258: 		out		(SIO_A_C),A
-00:01F6 3E02            	  1259: 		ld		A,_Tx_INT_EN		 			;TX interrupt on
-00:01F8 D302            	  1260: 		out		(SIO_A_C),A						; Channel A TX active
-00:01FA C9              	  1261: 		RET
+                        	  1247: 
+                        	  1248: 
+00:01F2 C9              	  1249: 		RET
+                        	  1250: 	
+                        	  1251: SIO_A_DI:
+                        	  1252: 		;disable SIO_0 channel A RX
+                        	  1253: 		; ld		a,WR3			;write into WR0: select WR3
+                        	  1254: 		; out		(SIO_A_C),A
+                        	  1255: 		; ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
+                        	  1256: 		; out		(SIO_A_C),A
+00:01F3 3E05            	  1257: 		ld		a,005h			;write into WR0: select WR3
+00:01F5 D302            	  1258: 		out		(SIO_A_C),A
+00:01F7 3E60            	  1259: 		ld		a,_Tx_8bits_char			
+00:01F9 D302            	  1260: 		out		(SIO_A_C),A	Channel A RX active
+                        	  1261: 
                         	  1262: 
-                        	  1263: SIO_A_RX_INTon:
-                        	  1264: 		;enable SIO_0 channel A RX
-00:01FB 3E01            	  1265: 		ld		A,WR1							;write into WR0: select WR1
-00:01FD D302            	  1266: 		out		(SIO_A_C),A
-00:01FF 3E18            	  1267: 		ld		A,_Int_All_Rx_Char_NP		 	;RX interrupt on
-00:0201 D302            	  1268: 		out		(SIO_A_C),A						;Channel A RX active
-00:0203 C9              	  1269: 		RET
-                        	  1270: 
-                        	  1271: SIO_A_RTS_OFF:
-                        	  1272: 		;signaling the host go or nogo for reception
-00:0204 3E05            	  1273: 		ld		a,005h			;write into WR0: select WR5
-00:0206 D302            	  1274: 		out		(SIO_A_C),A
-00:0208 3E68            	  1275: 		ld		a,_Tx_8bits_char|_Tx_Enable 				;TX 8bit, BREAK off, TX on, RTS inactive
-00:020A 3EE8            	  1276: 		ld		a,0E8h			
-00:020C D302            	  1277: 		out		(SIO_A_C),A 
-00:020E C9              	  1278: 		ret 
-                        	  1279: 		
-                        	  1280: 		
-                        	  1281: SIO_A_RTS_ON:
-                        	  1282: 		; signaling the host go or nogo for reception
-00:020F 3E05            	  1283: 		ld		a,005h			;write into WR0: select WR5
-00:0211 D302            	  1284: 		out		(SIO_A_C),A
-                        	  1285: 		; ld		a,_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
-00:0213 3EEA            	  1286: 		ld		a,0EAh	
-00:0215 D302            	  1287: 		out		(SIO_A_C),A 
-00:0217 C9              	  1288: 		ret 
-                        	  1289: 		
-                        	  1290: 	
-                        	  1291: 
+                        	  1263: 		;Channel A RX inactive
+00:01FB C9              	  1264: 		ret
+                        	  1265: 
+                        	  1266: 
+                        	  1267: SIO_A_TXRX_INTon:
+                        	  1268: 		;enable SIO_0 channel A RX
+00:01FC 3E01            	  1269: 		ld		A,WR1							;write into WR0: select WR1
+00:01FE D302            	  1270: 		out		(SIO_A_C),A
+00:0200 3E1A            	  1271: 		ld		A,_Tx_INT_EN|_Int_All_Rx_Char_NP		 			;RX and TX interrupt on
+00:0202 D302            	  1272: 		out		(SIO_A_C),A						; Channel A RX active
+00:0204 C9              	  1273: 		RET
+                        	  1274: 
+                        	  1275: 
+                        	  1276: 
+                        	  1277: SIO_A_TXRX_INToff:
+                        	  1278: 		;enable SIO_0 channel A RX
+00:0205 3E01            	  1279: 		ld		A,WR1			;write into WR0: select WR1
+00:0207 D302            	  1280: 		out		(SIO_A_C),A
+00:0209 3E00            	  1281: 		ld		A,00h			;RX and TX interrupt off
+00:020B D302            	  1282: 		out		(SIO_A_C),A		;	Channel A RX 
+00:020D C9              	  1283: 		RET
+                        	  1284: 
+                        	  1285: SIO_A_TX_INTon:
+                        	  1286: 		;enable SIO_0 channel A RX
+00:020E 3E01            	  1287: 		ld		A,WR1							;write into WR0: select WR1
+00:0210 D302            	  1288: 		out		(SIO_A_C),A
+00:0212 3E02            	  1289: 		ld		A,_Tx_INT_EN		 			;TX interrupt on
+00:0214 D302            	  1290: 		out		(SIO_A_C),A						; Channel A TX active
+00:0216 C9              	  1291: 		RET
                         	  1292: 
-                        	  1293: SIO_B_RX_INTon:
+                        	  1293: SIO_A_RX_INTon:
                         	  1294: 		;enable SIO_0 channel A RX
-00:0218 3E01            	  1295: 		ld		A,WR1							;write into WR0: select WR1
-00:021A D303            	  1296: 		out		(sio_bc),A
-00:021C 3E1C            	  1297: 		ld 		A,_Int_All_Rx_Char_NP|_Status_Vector  		;RX interrupt on
-00:021E D303            	  1298: 		out		(sio_bc),A						;Channel A RX active
-00:0220 C9              	  1299: 		RET
+00:0217 3E01            	  1295: 		ld		A,WR1							;write into WR0: select WR1
+00:0219 D302            	  1296: 		out		(SIO_A_C),A
+00:021B 3E18            	  1297: 		ld		A,_Int_All_Rx_Char_NP		 	;RX interrupt on
+00:021D D302            	  1298: 		out		(SIO_A_C),A						;Channel A RX active
+00:021F C9              	  1299: 		RET
                         	  1300: 
-                        	  1301: 
-                        	  1302: SIO_B_TXRX_INToff:
-                        	  1303: 		;enable SIO_0 channel B RX
-00:0221 3E01            	  1304: 		ld		A,WR1			; write into WR0: select WR1
-00:0223 D303            	  1305: 		out		(sio_bc),A
-00:0225 3E00            	  1306: 		ld		A,00h			; RX and TX interrupt off
-00:0227 D303            	  1307: 		out		(sio_bc),A		; Channel B RX 
-00:0229 C9              	  1308: 		RET
-                        	  1309: 
-                        	  1310: SIO_B_EI:
-                        	  1311: 		;enable SIO_0 channel B RX
-00:022A 3E03            	  1312: 		ld		a,003h			;write into WR0: select WR3
-00:022C D303            	  1313: 		out		(sio_bc),A
-00:022E 3EC1            	  1314: 		ld		a,0C1h			;RX 8bit, auto enable off, RX on
-00:0230 D303            	  1315: 		out		(sio_bc),A		; Channel A RX active
-00:0232 C9              	  1316: 		RET
-                        	  1317: 	
-                        	  1318: 	
-                        	  1319: SIO_B_DI:
-                        	  1320: 		;disable SIO_0 channel B RX
-00:0233 3E03            	  1321: 		ld		a,WR3			;write into WR0: select WR3
-00:0235 D303            	  1322: 		out		(sio_bc),A
-00:0237 3EC0            	  1323: 		ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
-00:0239 D303            	  1324: 		out		(sio_bc),A
-                        	  1325: 		;Channel A RX inactive
-00:023B C9              	  1326: 		ret
-                        	  1327: 
-                        	  1328: 
-                        	  1329: purgeRXA:
-                        	  1330: 		; flushing the receive buffer
-                        	  1331: 		;check for RX buffer empty
-                        	  1332: 		;modifies A
-00:023C 97              	  1333: 		sub		a				;clear a, write into WR0: select RR0
-00:023D D302            	  1334: 		out		(SIO_A_C),A
-00:023F DB02            	  1335: 		in		A,(SIO_A_C)		;read RRx
-00:0241 CB47            	  1336: 		bit		0,A
-00:0243 C8              	  1337: 		ret		z				;if any rx char left in rx buffer
-                        	  1338: 
-00:0244 DB00            	  1339: 		in		A,(SIO_A_D)		;read that char
-00:0246 C33C02          	  1340: 		jp		purgeRXA		
-                        	  1341: 
-                        	  1342: 
-                        	  1343: purgeRXB:
-                        	  1344: 		; flushing the receive buffer, check for RX(B) buffer empty
-                        	  1345: 		;modifies A
-00:0249 97              	  1346: 		sub		a				;clear a, write into WR0: select RR0
-00:024A D303            	  1347: 		out		(sio_bc),A
-00:024C DB03            	  1348: 		in		A,(sio_bc)		;read RRx
-00:024E CB47            	  1349: 		bit		0,A
-00:0250 C8              	  1350: 		ret		z				;if any rx char left in rx buffer
-                        	  1351: 
-00:0251 DB01            	  1352: 		in		A,(sio_bd)		;read that char
-00:0253 C33C02          	  1353: 		jp		purgeRXA		
-                        	  1354: 
-                        	  1355: TX_NAK:
-00:0256 3E15            	  1356: 		ld 		a,NAK				;send NAK 15h to host
-00:0258 D300            	  1357: 		out		(SIO_A_D),A
-00:025A CD7602          	  1358: 		call	TX_EMP
-00:025D C9              	  1359: 		RET
-                        	  1360: 
-                        	  1361: 
-                        	  1362: 
-                        	  1363: TX_ACK:
-00:025E 3E06            	  1364: 		ld		 A,ACK				;send AK to host
-00:0260 D300            	  1365: 		out		(SIO_A_D),A
-00:0262 CD7602          	  1366: 		call	TX_EMP
-00:0265 C9              	  1367: 		ret
+                        	  1301: SIO_A_RTS_OFF:
+                        	  1302: 		;signaling the host go or nogo for reception
+00:0220 3E05            	  1303: 		ld		a,005h			;write into WR0: select WR5
+00:0222 D302            	  1304: 		out		(SIO_A_C),A
+00:0224 3E68            	  1305: 		ld		a,_Tx_8bits_char|_Tx_Enable 				;TX 8bit, BREAK off, TX on, RTS inactive
+00:0226 3EE8            	  1306: 		ld		a,0E8h			
+00:0228 D302            	  1307: 		out		(SIO_A_C),A 
+00:022A C9              	  1308: 		ret 
+                        	  1309: 		
+                        	  1310: 		
+                        	  1311: SIO_A_RTS_ON:
+                        	  1312: 		; signaling the host go or nogo for reception
+00:022B 3E05            	  1313: 		ld		a,005h			;write into WR0: select WR5
+00:022D D302            	  1314: 		out		(SIO_A_C),A
+                        	  1315: 		; ld		a,_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
+00:022F 3EEA            	  1316: 		ld		a,0EAh	
+00:0231 D302            	  1317: 		out		(SIO_A_C),A 
+00:0233 C9              	  1318: 		ret 
+                        	  1319: 		
+                        	  1320: 	
+                        	  1321: 
+                        	  1322: 
+                        	  1323: SIO_B_RX_INTon:
+                        	  1324: 		;enable SIO_0 channel A RX
+00:0234 3E01            	  1325: 		ld		A,WR1							;write into WR0: select WR1
+00:0236 D303            	  1326: 		out		(sio_bc),A
+00:0238 3E1C            	  1327: 		ld 		A,_Int_All_Rx_Char_NP|_Status_Vector  		;RX interrupt on
+00:023A D303            	  1328: 		out		(sio_bc),A						;Channel A RX active
+00:023C C9              	  1329: 		RET
+                        	  1330: 
+                        	  1331: 
+                        	  1332: SIO_B_TXRX_INToff:
+                        	  1333: 		;enable SIO_0 channel B RX
+00:023D 3E01            	  1334: 		ld		A,WR1			; write into WR0: select WR1
+00:023F D303            	  1335: 		out		(sio_bc),A
+00:0241 3E00            	  1336: 		ld		A,00h			; RX and TX interrupt off
+00:0243 D303            	  1337: 		out		(sio_bc),A		; Channel B RX 
+00:0245 C9              	  1338: 		RET
+                        	  1339: 
+                        	  1340: SIO_B_EI:
+                        	  1341: 		;enable SIO_0 channel B RX
+00:0246 3E03            	  1342: 		ld		a,003h			;write into WR0: select WR3
+00:0248 D303            	  1343: 		out		(sio_bc),A
+00:024A 3EC1            	  1344: 		ld		a,0C1h			;RX 8bit, auto enable off, RX on
+00:024C D303            	  1345: 		out		(sio_bc),A		; Channel A RX active
+00:024E C9              	  1346: 		RET
+                        	  1347: 	
+                        	  1348: 	
+                        	  1349: SIO_B_DI:
+                        	  1350: 		;disable SIO_0 channel B RX
+00:024F 3E03            	  1351: 		ld		a,WR3			;write into WR0: select WR3
+00:0251 D303            	  1352: 		out		(sio_bc),A
+00:0253 3EC0            	  1353: 		ld		a,_RX_8_bits|_Rx_Disable			;RX 8bit, auto enable off, RX off
+00:0255 D303            	  1354: 		out		(sio_bc),A
+                        	  1355: 		;Channel A RX inactive
+00:0257 C9              	  1356: 		ret
+                        	  1357: 
+                        	  1358: 
+                        	  1359: purgeRXA:
+                        	  1360: 		; flushing the receive buffer
+                        	  1361: 		;check for RX buffer empty
+                        	  1362: 		;modifies A
+00:0258 97              	  1363: 		sub		a				;clear a, write into WR0: select RR0
+00:0259 D302            	  1364: 		out		(SIO_A_C),A
+00:025B DB02            	  1365: 		in		A,(SIO_A_C)		;read RRx
+00:025D CB47            	  1366: 		bit		0,A
+00:025F C8              	  1367: 		ret		z				;if any rx char left in rx buffer
                         	  1368: 
-                        	  1369: 
-                        	  1370: TX_C:
-00:0266 3E43            	  1371: 		ld		 A,'C'				;send 'C' to host
-00:0268 D300            	  1372: 		out		(SIO_A_D),A
-00:026A CD7602          	  1373: 		call	TX_EMP
-00:026D C9              	  1374: 		RET
-                        	  1375: 
-                        	  1376: TX_X:
-00:026E 3E58            	  1377: 		ld		 a,'X'				;send 'C' to host
-00:0270 D300            	  1378: 		out		(SIO_A_D),A
-00:0272 CD7602          	  1379: 		call	TX_EMP
-00:0275 C9              	  1380: 		RET
+00:0260 DB00            	  1369: 		in		A,(SIO_A_D)		;read that char
+00:0262 C35802          	  1370: 		jp		purgeRXA		
+                        	  1371: 
+                        	  1372: 
+                        	  1373: purgeRXB:
+                        	  1374: 		; flushing the receive buffer, check for RX(B) buffer empty
+                        	  1375: 		;modifies A
+00:0265 97              	  1376: 		sub		a				;clear a, write into WR0: select RR0
+00:0266 D303            	  1377: 		out		(sio_bc),A
+00:0268 DB03            	  1378: 		in		A,(sio_bc)		;read RRx
+00:026A CB47            	  1379: 		bit		0,A
+00:026C C8              	  1380: 		ret		z				;if any rx char left in rx buffer
                         	  1381: 
-                        	  1382: 
-                        	  1383: TX_EMP:
-                        	  1384: 		; ransmitting a character to host
-                        	  1385: 		; check for TX buffer empty
-00:0276 97              	  1386: 		sub		a				;clear a, write into WR0: select RR0
-00:0277 3C              	  1387: 		inc		a				;select RR1
-00:0278 D302            	  1388: 		out		(SIO_A_C),A
-00:027A DB02            	  1389: 		in		A,(SIO_A_C)	;read TRx, all sent
-00:027C CB47            	  1390: 		bit		0,A
-00:027E CA7602          	  1391: 		jp		z,TX_EMP
-00:0281 C9              	  1392: 		ret
-                        	  1393: 		
-                        	  1394: 					
-                        	  1395: 
-                        	  1396: ;********************************************************************************************     
-                        	  1397: 
+00:026D DB01            	  1382: 		in		A,(sio_bd)		;read that char
+00:026F C35802          	  1383: 		jp		purgeRXA		
+                        	  1384: 
+                        	  1385: TX_NAK:
+00:0272 3E15            	  1386: 		ld 		a,NAK				;send NAK 15h to host
+00:0274 D300            	  1387: 		out		(SIO_A_D),A
+00:0276 CD9202          	  1388: 		call	TX_EMP
+00:0279 C9              	  1389: 		RET
+                        	  1390: 
+                        	  1391: 
+                        	  1392: 
+                        	  1393: TX_ACK:
+00:027A 3E06            	  1394: 		ld		 A,ACK				;send AK to host
+00:027C D300            	  1395: 		out		(SIO_A_D),A
+00:027E CD9202          	  1396: 		call	TX_EMP
+00:0281 C9              	  1397: 		ret
                         	  1398: 
-                        	  1399: 				; return with A=0, Z set
-                        	  1400: CTC1_INT_OFF:
-00:0282 3E53            	  1401: 		ld		A,_Counter|_Rising|_Reset|_CW	
-00:0284 D301            	  1402: 		out		(CH1),A			; reset and turn off interrupt CH1
-00:0286 AF              	  1403: 		xor 	A 				; clear A
-00:0287 320000          	  1404: 		ld 		(CTCdelayFlag),A ; reset timeout flag
-00:028A C9              	  1405: 		ret							; return with A=0, Z set
-                        	  1406: ;******************************************************************************
-                        	  1407: 
-                        	  1408: 
-                        	  1409: 			;external/status changed interrupt handler
-                        	  1410: ExternINTHandler:
-00:028B F5              	  1411: 		push	AF
-00:028C 3E10            	  1412: 		ld		A,00010000b			;reset status interrupt
-                        	  1413: 
-00:028E D302            	  1414: 		out		(SIO_A_C),a
-00:0290 F1              	  1415: 		pop		AF
-00:0291 FB              	  1416: 		ei							; dcd or cts line changed state. or a
-00:0292 ED4D            	  1417: 		reti						; break was detected
-                        	  1418: 									; service here if necessary
-                        	  1419: 			;special receive error interrupt
-                        	  1420: SpecINTHandler:
-00:0294 F5              	  1421: 		push	AF
-00:0295 3E30            	  1422: 		ld		A,00110000b			;reset receive error interrupt
-00:0297 D302            	  1423: 		out		(SIO_A_C),a
-00:0299 F1              	  1424: 		pop		AF
-00:029A FB              	  1425: 		ei							;framing error or overrun error occurred
-00:029B ED4D            	  1426: 		reti						; service here if necessary
+                        	  1399: 
+                        	  1400: TX_C:
+00:0282 3E43            	  1401: 		ld		 A,'C'				;send 'C' to host
+00:0284 D300            	  1402: 		out		(SIO_A_D),A
+00:0286 CD9202          	  1403: 		call	TX_EMP
+00:0289 C9              	  1404: 		RET
+                        	  1405: 
+                        	  1406: TX_X:
+00:028A 3E58            	  1407: 		ld		 a,'X'				;send 'C' to host
+00:028C D300            	  1408: 		out		(SIO_A_D),A
+00:028E CD9202          	  1409: 		call	TX_EMP
+00:0291 C9              	  1410: 		RET
+                        	  1411: 
+                        	  1412: 
+                        	  1413: TX_EMP:
+                        	  1414: 		; ransmitting a character to host
+                        	  1415: 		; check for TX buffer empty
+00:0292 97              	  1416: 		sub		a				;clear a, write into WR0: select RR0
+00:0293 3C              	  1417: 		inc		a				;select RR1
+00:0294 D302            	  1418: 		out		(SIO_A_C),A
+00:0296 DB02            	  1419: 		in		A,(SIO_A_C)	;read TRx, all sent
+00:0298 CB47            	  1420: 		bit		0,A
+00:029A CA9202          	  1421: 		jp		z,TX_EMP
+00:029D C9              	  1422: 		ret
+                        	  1423: 		
+                        	  1424: 					
+                        	  1425: 
+                        	  1426: ;********************************************************************************************     
                         	  1427: 
-                        	  1428: 		;*************************************
-                        	  1429: 		; 	routine: chartoSIO_0
-                        	  1430: 		; 	purpose: send character to SIO_0
-                        	  1431: 		; 	entry: none
-                        	  1432: 		;	exit: none
-                        	  1433: 		;	registers used: af.de.hl
-                        	  1434: 		;***************************************
-                        	  1435: CharToSIO_0:
-00:029D 2A0000          	  1436: 		ld		HL,(outHeadAdr)
-00:02A0 7E              	  1437: 		ld		A, (HL)					;get data from head of output buffer
-00:02A1 D300            	  1438: 		out		(SIO_A_D),A			;output data
-                        	  1439: 
-                        	  1440: 
-00:02A3 CDC102          	  1441: 		call	incOutPointer			; increment head pointer
-00:02A6 220000          	  1442: 		ld		(outHeadAdr),HL
-00:02A9 210000          	  1443: 		ld		HL,OutBufCount			;decrement output buffer count
-00:02AC 35              	  1444: 		dec		(HL)
-00:02AD 3EFF            	  1445: 		ld		a,0ffh
-00:02AF 320000          	  1446: 		ld		(OutINTExpect),a		;expect an output interrupt
-00:02B2 C9              	  1447: 		ret
-                        	  1448: 
-                        	  1449: 
-                        	  1450: 		;*************************************
-                        	  1451: 		; routine: incinpointer
-                        	  1452: 		; purpose: increment pointer into input
-                        	  1453: 		;			buffer with wraparound
-                        	  1454: 		; entry: hl = pointer
-                        	  1455: 		;exit: hl = pointer incremented with wraparound
-                        	  1456: 		;registers used: af.de.hl
-                        	  1457: 		;***************************************
-                        	  1458: incInPointer:
-00:02B3 23              	  1459: 		INC		HL					; increment pointer
-00:02B4 110000          	  1460: 		LD		DE,inBufferEnd			;compare pointer. end of buffer
-00:02B7 7D              	  1461: 		LD		A,L
-00:02B8 BB              	  1462: 		CP		E
-00:02B9 C0              	  1463: 		RET		NZ
-00:02BA 7C              	  1464: 		LD		A,H
-00:02BB BA              	  1465: 		CP		D
-00:02BC C0              	  1466: 		RET		NZ					;return if not equal
-00:02BD 210000          	  1467: 		LD		HL,inBuffer				;if pointer at end of buffer.
-00:02C0 C9              	  1468: 		RET                   	  ; set it back to base address
-                        	  1469: 		
-                        	  1470: 		
-                        	  1471: 		;*************************************
-                        	  1472: 		; routine: incoutpointer
-                        	  1473: 		; purpose: increment pointer into output
-                        	  1474: 		;			buffer with wraparound
-                        	  1475: 		; entry: HL =  pointer
-                        	  1476: 		;exit: HL   =  pointer incremented with wraparound
-                        	  1477: 		;registers used: AF.DE.HL
-                        	  1478: 		;***************************************
-                        	  1479: incOutPointer:
-00:02C1 23              	  1480: 		inc		HL					; increment pointer
-00:02C2 110000          	  1481: 		ld		DE,endOutBuffer			;compare pointer. end of buffer
-00:02C5 7D              	  1482: 		ld		A,L
-00:02C6 BB              	  1483: 		cp		E
-00:02C7 C0              	  1484: 		ret		NZ
-00:02C8 7C              	  1485: 		ld		A,H
-00:02C9 BA              	  1486: 		cp		D
-00:02CA C0              	  1487: 		ret		NZ
-00:02CB 210000          	  1488: 		ld		HL,outBuffer				;if pointer at end of buffer.
-00:02CE C9              	  1489: 		ret							; set it back to base address
-                        	  1490: 
-                        	  1491: 
-                        	  1492: 		;**************************************
-                        	  1493: 		; routine: initSIO_0ports
-                        	  1494: 		; purpose: initialize i/o ports
-                        	  1495: 		; entry: hl = base address of initialization array
-                        	  1496: 		;exit: data output to ports
-                        	  1497: 		;registers used: af.bc.hl
-                        	  1498: 		;************************************
-                        	  1499: InitSIO_0Ports:
-                        	  1500: 		;get number of data bytes to send to current port
-                        	  1501: 		;exit if number of bytes is o. indicating terminator
-00:02CF 7E              	  1502: 		ld		A,(HL)			;get number of bytes
-00:02D0 B7              	  1503: 		or		A				;test for zero (terminator)
-00:02D1 C8              	  1504: 		ret		Z				;return if number of bytes = 0
-00:02D2 47              	  1505: 		ld		B,A
-00:02D3 23              	  1506: 		inc		HL				;point to port address (next byte)
-                        	  1507: 
-                        	  1508: 			;c = port address
-                        	  1509: 			;hl   base address of output data
-00:02D4 4E              	  1510: 		ld		C,(HL)			;get port address
-00:02D5 23              	  1511: 		inc		HL				;point to first data value (next byte)
-                        	  1512: 			;output data and continue to next port
-00:02D6 EDB3            	  1513: 		otir					;send data values to port
-00:02D8 18F5            	  1514: 		jr      InitSIO_0Ports			;continue to next port entry
-                        	  1515: 		
-                        	  1516: 		;SIO_0 initialization data
-                        	  1517: 
-                        	  1518: 		; sio_ac
-                        	  1519: 		; sio_ad
-                        	  1520: 		; sio_bc
-                        	  1521: 		; sio_bd
-                        	  1522: initSIOBInterrupt:
-00:02DA 3E01            	  1523: 		ld 		A,WR1
-00:02DC D303            	  1524: 		out 	(sio_bc),A
-00:02DE 3E1C            	  1525: 		ld 		A,_Int_All_Rx_Char_NP|_Status_Vector
-00:02E0 D303            	  1526: 		out 	(sio_bc),A					; interrupt on HC376S read
-00:02E2 C9              	  1527: 		ret
-                        	  1528: 	
-                        	  1529: SIO_0INT:
-                        	  1530: 		; Reset channel a
-00:02E3 01              	  1531: 		db	1					;output 1 byte
-00:02E4 02              	  1532: 		db	sio_ac			;to channel a command/status
-00:02E5 18              	  1533: 		db	_Ch_Reset			;select write register 0
-                        	  1534: 								;bits 2.1.0    0 (write register 0)
-                        	  1535: 								;bits 5,4,3 = 011 (channel reset)
-                        	  1536: 								;bits 7,6 = 0 (do not care)
-00:02E6 01              	  1537: 		db	1					;output 1 byte
-00:02E7 03              	  1538: 		db	sio_bc			;to channel a command/status
-00:02E8 18              	  1539: 		db	_Ch_Reset			;select write register 0
-                        	  1540: 
-                        	  1541: 
-                        	  1542: 		;sET INTERRUPT VECTOR AND ALLOW STATUS TO AFFECT IT
-00:02E9 04              	  1543: 		db	4					;OUTPUT 4 BYTES
-00:02EA 03              	  1544: 		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
-00:02EB 02              	  1545: 		db	WR2					;SELECT WRITE REGISTER 2
-00:02EC 00              	  1546: 		db	SIO_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR SIO_0
-00:02ED 01              	  1547: 		db	WR1					;SELECT WRITE REGISTER 1
-00:02EE 04              	  1548: 		db	_Status_Vector		;TURN ON STATUS AFFECTS VECTOR
-                        	  1549: 
-                        	  1550: 		; INITIALIZE CHANNEL A
-00:02EF 08              	  1551: 		db	8					;OUTPUT 8 BYTES
-00:02F0 02              	  1552: 		db	SIO_A_C			;DESTINATION IS COMMAND REGISTER A
-                        	  1553: 
-                        	  1554: 		;iNITIALIZE BAUD RATE CONTROL
-00:02F1 14              	  1555: 		db	_Reset_STAT_INT|4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
-00:02F2 44              	  1556: 		db	_Stop_1_bit|_X16_Clock_mode
-                        	  1557: 								;BIT 0 = 0 (NO PARITY)
-                        	  1558: 								;BIT 1 = 0 (DON'T CARE)
-                        	  1559: 								;BITS 3,2 = 01 (1 1/2 STOP BITS)
-                        	  1560: 								; BITS 5.4 = 00 (DON-'T CARE)
-                        	  1561: 								;BITS 7.6 = 10 (32 TIMES CLOCK)
-                        	  1562: 	
-                        	  1563: 		; INITIALIZE RECEIVE CONTROL
-00:02F3 03              	  1564: 		db	WR3		;SELECT WRITE REGISTER 3
-00:02F4 E1              	  1565: 		db	_Rx_Enable|_RX_8_bits|_Auto_Enable  (0xC1)
-                        	  1566: 								;BIT 0 = 1 (RECEIVE ENABLE)
-                        	  1567: 								; BITS 4,3,2,1 = 0 (DON-'T CARE)
-                        	  1568: 								;BIT 5 = 0 (NO AUTO ENABLE)
-                        	  1569: 								;BIT 7.6 = 11 (RECEIVE 8 BITS/CHAR)
-                        	  1570: 		;iNITIALIZE TRANSMIT CONTROL
-00:02F5 05              	  1571: 		db	WR5					;SELECT WRITE REGISTER 5
-00:02F6 6A              	  1572: 		db	_RTS_Enable|_Tx_Enable|_Tx_8bits_char   (0x6A)
-                        	  1573: 								;BIT 0 = 0 (NO CRC ON TRANSMIT)
-                        	  1574: 								;BIT 1 = 1 (REQUEST TO SEND)
-                        	  1575: 								;BIT 2 = 0 (DON'T CARE)
-                        	  1576: 								;BIT 3 = 1 (TRANSMIT ENABLE)
-                        	  1577: 								;BIT 4 = 0 (DO NOT SEND BREAK)
-                        	  1578: 								;BITS 6.5 = 11 (TRANSMIT 8 BITS/CHAR)
-                        	  1579: 								;BIT 7 = 1 (DATA TERMINAL READY)
-00:02F7 01              	  1580: 		DB	WR1					;SELECT WRITE REGISTER 1
-00:02F8 1A              	  1581: 		DB	_Tx_INT_EN|_Int_All_Rx_Char_NP		(0x1A)
-                        	  1582: 		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
-                        	  1583: 								;BIT 0 = 1 (EXTERNAL INTERRUPTS)
-                        	  1584: 								;BIT 1 = 1 (ENABLE TRANSMIT INTERRUPT)
-                        	  1585: 								;BIT 2 = 0 (DO NOT CARE)
-                        	  1586: 								;BITS 4. 3 = 11 (RECEIVE INTERRUPTS ON ALL CHARS. PARITY DOES NOT AFFECT VECTOR)
-                        	  1587: 								;BITS 7.6.5 = 000 (NO WAIT/READY FUNCTION)
-                        	  1588: 
-                        	  1589: 
-                        	  1590: 
-                        	  1591: 		; INITIALIZE CHANNEL B
-                        	  1592: 		; _____________________________
-                        	  1593: 
-00:02F9 08              	  1594: 		db	8					;OUTPUT 8 BYTES
-00:02FA 03              	  1595: 		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
-                        	  1596: 
-                        	  1597: 		;iNITIALIZE BAUD RATE CONTROL
-00:02FB 14              	  1598: 		db	_Reset_STAT_INT|WR4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
-00:02FC 44              	  1599: 		db	_Stop_1_bit|_X16_Clock_mode
-                        	  1600: 	
-                        	  1601: 		; ; INITIALIZE RECEIVE CONTROL
-00:02FD 03              	  1602: 		db	WR3		;SELECT WRITE REGISTER 3
-00:02FE C1              	  1603: 		db	_Rx_Enable|_RX_8_bits
-                        	  1604: 		; ;iNITIALIZE TRANSMIT CONTROL
-00:02FF 05              	  1605: 		db	WR5					;SELECT WRITE REGISTER 5
-00:0300 68              	  1606: 		db	_Tx_Enable|_Tx_8bits_char
-                        	  1607: 		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
-00:0301 01              	  1608: 		DB	WR1					;SELECT WRITE REGISTER 1
-00:0302 04              	  1609: 		DB	_Status_Vector
-                        	  1610: 		; DB	_Tx_INT_EN|_Int_All_Rx_Char_NP|_Status_Vector
-                        	  1611: 
-00:0303 00              	  1612: 		DB	0               ; END OF TABLE
-                        	  1613: 		
-                        	  1614: ;****************************************************************************************************************
-                        	  1615: ;****************************************************************************************************************
-                        	  1616: ;****************************************************************************************************************
-                        	  1617: ;****************************************************************************************************************
-                        	  1618: ;****************************************************************************************************************
-                        	  1619: 		; DATA SECTION
-                        	  1620: 		; Moved to linker script 
-                        	  1621: ; inHeadAdr:	DS	2					; address of oldest character in input buffer
-                        	  1622: ; inTailAdr:	DS	2					; address of newest character in input buffer
-                        	  1623: ; inBufCount:	DS	1					;number of characters in input buffer 
-                        	  1624: ; outHeadAdr:	DS	2					;address of oldest character in output buffer
-                        	  1625: ; outTailAdr:	DS	2					;address of newest character in output buffer
-                        	  1626: ; OutBufCount:	DS	1				;number of characters in output buffer
-                        	  1627: ; OutINTExpect:	DS	1					;output interrupt expected
-                        	  1628: ; 								; (0 = no interrupt expected.
-                        	  1629: ; 								; ff = interrupt expected)
-                        	  1630: 
-                        	  1631: 
-                        	  1632: 		; SAMPLE EXECUTION:
-                        	  1633: 
-                        	  1634: 
-                        	  1635: 		;CHARACTER EQUATES
-                        	  1636: ; ; ESCAPE	EQU     1BH					;ASCII ESCAPE CHARACTER
-                        	  1637: ; ; TESTCH	EQU     'A'					;TEST CHARACTER = A
-                        	  1638: ; 		global SC11C
-                        	  1639: ; SC11C:
-                        	  1640: ; 		CALL	InitBuffers				;INITIALIZE SIO_0. INTERRUPT SYSTEM
-                        	  1641: ; 			;SIMPLE EXAMPLE - READ AND ECHO CHARACTER
-                        	  1642: ; 			; UNTIL AN ESC IS RECEIVED
-                        	  1643: ; LOOP:
-                        	  1644: ; 		CALL	ReadChar				;READ CHARACTER
-                        	  1645: ; 		PUSH	AF
-                        	  1646: ; 		CALL	WriteChar				;ECHO CHARACTER
-                        	  1647: ; 		POP		AF
-                        	  1648: ; 		CP		ESCAPE				;IS CHARACTER AN ESCAPE?
-                        	  1649: ; 		JR		NZ,LOOP				;STAY IN LOOP IF NOT
-                        	  1650: ; 			;AN ASYNCHRONOUS EXAMPLE
-                        	  1651: ; 			; OUTPUT "A" TO CONSOLE CONTINUOUSLY BUT ALSO LOOK AT
-                        	  1652: ; 			; INPUT SIDE. READING AND ECHOING ANY INPUT CHARACTERS
-                        	  1653: ; ASYNLP:
-                        	  1654: ; 			;OUTPUT   AN "A" IF OUTPUT IS NOT BUSY
-                        	  1655: ; 		CALL	RetOutStatus				;IS OUTPUT BUSY?
-                        	  1656: ; 		JR		C,ASYNLP			;JUMP IF IT IS
-                        	  1657: ; 		LD		A,TESTCH
-                        	  1658: ; 		CALL	WriteChar				;OUTPUT CHARACTER
-                        	  1659: ; 			;CHECK INPUT PORT
-                        	  1660: ; 			;ECHO CHARACTER IF ONE IS AVAILABLE
-                        	  1661: ; 			;EXIT ON ESCAPE CHARACTER
-                        	  1662: ; 		CALL	RetInpStatus				;IS INPUT DATA AVAILABLE?
-                        	  1663: ; 		JR		NC, ASYNLP			;JUMP I F NOT (SEND ANOTHER .. A" )
-                        	  1664: ; 		CALL	ReadChar				; GET CHARACTER
-                        	  1665: ; 		CP		ESCAPE				;IS IT AN ESCAPE CHARACTER?
-                        	  1666: ; 		JR		Z,DONE				;BRANCH IF IT IS
-                        	  1667: 
-                        	  1668: 
-                        	  1669: ; 		CALL	WriteChar				;ELSE ECHO CHARACTER
-                        	  1670: ; 		JP		ASYNLP				;AND CONTINUE
-                        	  1671: ; DONE:
-                        	  1672: ; 		JP		LOOP
-                        	  1673: 
-                        	  1674: 
-                        	  1675: ;##############################################################
-                        	  1676: ; Write the null-terminated string starting after the call
-                        	  1677: ; instruction invoking this subroutine to the console.
-                        	  1678: ; Clobbers AF, C
-                        	  1679: ;##############################################################
-                        	  1680: writeSTRBelow:
-00:0304 FDE3            	  1681:         ex      (sp),iy                 ; iy = @ of string to print
-00:0306 CD9100          	  1682: 		call	WriteLine
-00:0309 FD23            	  1683:         inc     iy                      ; point past the end of the string
-00:030B FDE3            	  1684:         ex      (sp),iy
-00:030D C9              	  1685:         ret
-                        	  1686: 
-                        	  1687: writeSTRBelow_CRLF:
-00:030E FDE3            	  1688: 		ex		(sp),iy                 ; iy = @ of string to print
-00:0310 CDA200          	  1689: 		call	WriteLineCRNL
-00:0313 FD23            	  1690: 		inc		iy                      ; point past the end of the string
-00:0315 FDE3            	  1691: 		ex		(sp),iy
-00:0317 C9              	  1692: 		ret
-                        	  1693: 
-                        	  1694: ;##############################################################
-                        	  1695: ; Print a CRLF 
-                        	  1696: ; Clobbers AF, C
-                        	  1697: ;##############################################################
-                        	  1698: puts_crlf:
-00:0318 CD0403          	  1699:         call    writeSTRBelow
-00:031B 000D0A00        	  1700:         defb    '\0\r\n\0'
-00:031F C9              	  1701:         ret
-                        	  1702: 
+                        	  1428: 
+                        	  1429: 				; return with A=0, Z set
+                        	  1430: CTC1_INT_OFF:
+00:029E 3E53            	  1431: 		ld		A,_Counter|_Rising|_Reset|_CW	
+00:02A0 D301            	  1432: 		out		(CH1),A			; reset and turn off interrupt CH1
+00:02A2 AF              	  1433: 		xor 	A 				; clear A
+00:02A3 320000          	  1434: 		ld 		(CTCdelayFlag),A ; reset timeout flag
+00:02A6 C9              	  1435: 		ret							; return with A=0, Z set
+                        	  1436: ;******************************************************************************
+                        	  1437: 
+                        	  1438: 
+                        	  1439: 			;external/status changed interrupt handler
+                        	  1440: ExternINTHandler:
+00:02A7 F5              	  1441: 		push	AF
+00:02A8 3E10            	  1442: 		ld		A,00010000b			;reset status interrupt
+                        	  1443: 
+00:02AA D302            	  1444: 		out		(SIO_A_C),a
+00:02AC F1              	  1445: 		pop		AF
+00:02AD FB              	  1446: 		ei							; dcd or cts line changed state. or a
+00:02AE ED4D            	  1447: 		reti						; break was detected
+                        	  1448: 									; service here if necessary
+                        	  1449: 			;special receive error interrupt
+                        	  1450: SpecINTHandler:
+00:02B0 F5              	  1451: 		push	AF
+00:02B1 3E30            	  1452: 		ld		A,00110000b			;reset receive error interrupt
+00:02B3 D302            	  1453: 		out		(SIO_A_C),a
+00:02B5 F1              	  1454: 		pop		AF
+00:02B6 FB              	  1455: 		ei							;framing error or overrun error occurred
+00:02B7 ED4D            	  1456: 		reti						; service here if necessary
+                        	  1457: 
+                        	  1458: 		;*************************************
+                        	  1459: 		; 	routine: chartoSIO_0
+                        	  1460: 		; 	purpose: send character to SIO_0
+                        	  1461: 		; 	entry: none
+                        	  1462: 		;	exit: none
+                        	  1463: 		;	registers used: af.de.hl
+                        	  1464: 		;***************************************
+                        	  1465: CharToSIO_0:
+00:02B9 2A0000          	  1466: 		ld		HL,(outHeadAdr)
+00:02BC 7E              	  1467: 		ld		A, (HL)					;get data from head of output buffer
+00:02BD D300            	  1468: 		out		(SIO_A_D),A			;output data
+                        	  1469: 
+                        	  1470: 
+00:02BF CDDD02          	  1471: 		call	incOutPointer			; increment head pointer
+00:02C2 220000          	  1472: 		ld		(outHeadAdr),HL
+00:02C5 210000          	  1473: 		ld		HL,OutBufCount			;decrement output buffer count
+00:02C8 35              	  1474: 		dec		(HL)
+00:02C9 3EFF            	  1475: 		ld		a,0ffh
+00:02CB 320000          	  1476: 		ld		(OutINTExpect),a		;expect an output interrupt
+00:02CE C9              	  1477: 		ret
+                        	  1478: 
+                        	  1479: 
+                        	  1480: 		;*************************************
+                        	  1481: 		; routine: incinpointer
+                        	  1482: 		; purpose: increment pointer into input
+                        	  1483: 		;			buffer with wraparound
+                        	  1484: 		; entry: hl = pointer
+                        	  1485: 		;exit: hl = pointer incremented with wraparound
+                        	  1486: 		;registers used: af.de.hl
+                        	  1487: 		;***************************************
+                        	  1488: incInPointer:
+00:02CF 23              	  1489: 		INC		HL					; increment pointer
+00:02D0 110000          	  1490: 		LD		DE,inBufferEnd			;compare pointer. end of buffer
+00:02D3 7D              	  1491: 		LD		A,L
+00:02D4 BB              	  1492: 		CP		E
+00:02D5 C0              	  1493: 		RET		NZ
+00:02D6 7C              	  1494: 		LD		A,H
+00:02D7 BA              	  1495: 		CP		D
+00:02D8 C0              	  1496: 		RET		NZ					;return if not equal
+00:02D9 210000          	  1497: 		LD		HL,inBuffer				;if pointer at end of buffer.
+00:02DC C9              	  1498: 		RET                   	  ; set it back to base address
+                        	  1499: 		
+                        	  1500: 		
+                        	  1501: 		;*************************************
+                        	  1502: 		; routine: incoutpointer
+                        	  1503: 		; purpose: increment pointer into output
+                        	  1504: 		;			buffer with wraparound
+                        	  1505: 		; entry: HL =  pointer
+                        	  1506: 		;exit: HL   =  pointer incremented with wraparound
+                        	  1507: 		;registers used: AF.DE.HL
+                        	  1508: 		;***************************************
+                        	  1509: incOutPointer:
+00:02DD 23              	  1510: 		inc		HL					; increment pointer
+00:02DE 110000          	  1511: 		ld		DE,endOutBuffer			;compare pointer. end of buffer
+00:02E1 7D              	  1512: 		ld		A,L
+00:02E2 BB              	  1513: 		cp		E
+00:02E3 C0              	  1514: 		ret		NZ
+00:02E4 7C              	  1515: 		ld		A,H
+00:02E5 BA              	  1516: 		cp		D
+00:02E6 C0              	  1517: 		ret		NZ
+00:02E7 210000          	  1518: 		ld		HL,outBuffer				;if pointer at end of buffer.
+00:02EA C9              	  1519: 		ret							; set it back to base address
+                        	  1520: 
+                        	  1521: 
+                        	  1522: 		;**************************************
+                        	  1523: 		; routine: initSIO_0ports
+                        	  1524: 		; purpose: initialize i/o ports
+                        	  1525: 		; entry: hl = base address of initialization array
+                        	  1526: 		;exit: data output to ports
+                        	  1527: 		;registers used: af.bc.hl
+                        	  1528: 		;************************************
+                        	  1529: InitSIO_0Ports:
+                        	  1530: 		;get number of data bytes to send to current port
+                        	  1531: 		;exit if number of bytes is o. indicating terminator
+00:02EB 7E              	  1532: 		ld		A,(HL)			;get number of bytes
+00:02EC B7              	  1533: 		or		A				;test for zero (terminator)
+00:02ED C8              	  1534: 		ret		Z				;return if number of bytes = 0
+00:02EE 47              	  1535: 		ld		B,A
+00:02EF 23              	  1536: 		inc		HL				;point to port address (next byte)
+                        	  1537: 
+                        	  1538: 			;c = port address
+                        	  1539: 			;hl   base address of output data
+00:02F0 4E              	  1540: 		ld		C,(HL)			;get port address
+00:02F1 23              	  1541: 		inc		HL				;point to first data value (next byte)
+                        	  1542: 			;output data and continue to next port
+00:02F2 EDB3            	  1543: 		otir					;send data values to port
+00:02F4 18F5            	  1544: 		jr      InitSIO_0Ports			;continue to next port entry
+                        	  1545: 		
+                        	  1546: 		;SIO_0 initialization data
+                        	  1547: 
+                        	  1548: 		; sio_ac
+                        	  1549: 		; sio_ad
+                        	  1550: 		; sio_bc
+                        	  1551: 		; sio_bd
+                        	  1552: initSIOBInterrupt:
+00:02F6 3E01            	  1553: 		ld 		A,WR1
+00:02F8 D303            	  1554: 		out 	(sio_bc),A
+00:02FA 3E1C            	  1555: 		ld 		A,_Int_All_Rx_Char_NP|_Status_Vector
+00:02FC D303            	  1556: 		out 	(sio_bc),A					; interrupt on HC376S read
+00:02FE C9              	  1557: 		ret
+                        	  1558: 	
+                        	  1559: SIO_0INT:
+                        	  1560: 		; Reset channel a
+00:02FF 01              	  1561: 		db	1					;output 1 byte
+00:0300 02              	  1562: 		db	sio_ac			;to channel a command/status
+00:0301 18              	  1563: 		db	_Ch_Reset			;select write register 0
+                        	  1564: 								;bits 2.1.0    0 (write register 0)
+                        	  1565: 								;bits 5,4,3 = 011 (channel reset)
+                        	  1566: 								;bits 7,6 = 0 (do not care)
+00:0302 01              	  1567: 		db	1					;output 1 byte
+00:0303 03              	  1568: 		db	sio_bc			;to channel a command/status
+00:0304 18              	  1569: 		db	_Ch_Reset			;select write register 0
+                        	  1570: 
+                        	  1571: 
+                        	  1572: 		;sET INTERRUPT VECTOR AND ALLOW STATUS TO AFFECT IT
+00:0305 04              	  1573: 		db	4					;OUTPUT 4 BYTES
+00:0306 03              	  1574: 		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
+00:0307 02              	  1575: 		db	WR2					;SELECT WRITE REGISTER 2
+00:0308 00              	  1576: 		db	SIO_Int_Vec&0FFH	;SET INTERRUPT VECTOR FOR SIO_0
+00:0309 01              	  1577: 		db	WR1					;SELECT WRITE REGISTER 1
+00:030A 04              	  1578: 		db	_Status_Vector		;TURN ON STATUS AFFECTS VECTOR
+                        	  1579: 
+                        	  1580: 		; INITIALIZE CHANNEL A
+00:030B 08              	  1581: 		db	8					;OUTPUT 8 BYTES
+00:030C 02              	  1582: 		db	SIO_A_C			;DESTINATION IS COMMAND REGISTER A
+                        	  1583: 
+                        	  1584: 		;iNITIALIZE BAUD RATE CONTROL
+00:030D 14              	  1585: 		db	_Reset_STAT_INT|4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
+00:030E 44              	  1586: 		db	_Stop_1_bit|_X16_Clock_mode
+                        	  1587: 								;BIT 0 = 0 (NO PARITY)
+                        	  1588: 								;BIT 1 = 0 (DON'T CARE)
+                        	  1589: 								;BITS 3,2 = 01 (1 1/2 STOP BITS)
+                        	  1590: 								; BITS 5.4 = 00 (DON-'T CARE)
+                        	  1591: 								;BITS 7.6 = 10 (32 TIMES CLOCK)
+                        	  1592: 	
+                        	  1593: 		; INITIALIZE RECEIVE CONTROL
+00:030F 03              	  1594: 		db	WR3		;SELECT WRITE REGISTER 3
+00:0310 E1              	  1595: 		db	_Rx_Enable|_RX_8_bits|_Auto_Enable  (0xC1)
+                        	  1596: 								;BIT 0 = 1 (RECEIVE ENABLE)
+                        	  1597: 								; BITS 4,3,2,1 = 0 (DON-'T CARE)
+                        	  1598: 								;BIT 5 = 0 (NO AUTO ENABLE)
+                        	  1599: 								;BIT 7.6 = 11 (RECEIVE 8 BITS/CHAR)
+                        	  1600: 		;iNITIALIZE TRANSMIT CONTROL
+00:0311 05              	  1601: 		db	WR5					;SELECT WRITE REGISTER 5
+00:0312 6A              	  1602: 		db	_RTS_Enable|_Tx_Enable|_Tx_8bits_char   (0x6A)
+                        	  1603: 								;BIT 0 = 0 (NO CRC ON TRANSMIT)
+                        	  1604: 								;BIT 1 = 1 (REQUEST TO SEND)
+                        	  1605: 								;BIT 2 = 0 (DON'T CARE)
+                        	  1606: 								;BIT 3 = 1 (TRANSMIT ENABLE)
+                        	  1607: 								;BIT 4 = 0 (DO NOT SEND BREAK)
+                        	  1608: 								;BITS 6.5 = 11 (TRANSMIT 8 BITS/CHAR)
+                        	  1609: 								;BIT 7 = 1 (DATA TERMINAL READY)
+00:0313 01              	  1610: 		DB	WR1					;SELECT WRITE REGISTER 1
+00:0314 1A              	  1611: 		DB	_Tx_INT_EN|_Int_All_Rx_Char_NP		(0x1A)
+                        	  1612: 		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
+                        	  1613: 								;BIT 0 = 1 (EXTERNAL INTERRUPTS)
+                        	  1614: 								;BIT 1 = 1 (ENABLE TRANSMIT INTERRUPT)
+                        	  1615: 								;BIT 2 = 0 (DO NOT CARE)
+                        	  1616: 								;BITS 4. 3 = 11 (RECEIVE INTERRUPTS ON ALL CHARS. PARITY DOES NOT AFFECT VECTOR)
+                        	  1617: 								;BITS 7.6.5 = 000 (NO WAIT/READY FUNCTION)
+                        	  1618: 
+                        	  1619: 
+                        	  1620: 
+                        	  1621: 		; INITIALIZE CHANNEL B
+                        	  1622: 		; _____________________________
+                        	  1623: 
+00:0315 08              	  1624: 		db	8					;OUTPUT 8 BYTES
+00:0316 03              	  1625: 		db	SIO_B_C			;DESTINATION IS COMMAND REGISTER B
+                        	  1626: 
+                        	  1627: 		;iNITIALIZE BAUD RATE CONTROL
+00:0317 14              	  1628: 		db	_Reset_STAT_INT|WR4	;SELECT WRITE REGISTER 4 & RESET EXTERNAL/STATUS INTERRUPT
+00:0318 44              	  1629: 		db	_Stop_1_bit|_X16_Clock_mode
+                        	  1630: 	
+                        	  1631: 		; ; INITIALIZE RECEIVE CONTROL
+00:0319 03              	  1632: 		db	WR3		;SELECT WRITE REGISTER 3
+00:031A C1              	  1633: 		db	_Rx_Enable|_RX_8_bits
+                        	  1634: 		; ;iNITIALIZE TRANSMIT CONTROL
+00:031B 05              	  1635: 		db	WR5					;SELECT WRITE REGISTER 5
+00:031C 68              	  1636: 		db	_Tx_Enable|_Tx_8bits_char
+                        	  1637: 		; DB	_Ext_INT_EN|_Tx_INT_EN|_Int_All_Rx_Char_NP|_WAIT_READY_R_T|_WAIT_READY_EN
+00:031D 01              	  1638: 		DB	WR1					;SELECT WRITE REGISTER 1
+00:031E 04              	  1639: 		DB	_Status_Vector
+                        	  1640: 		; DB	_Tx_INT_EN|_Int_All_Rx_Char_NP|_Status_Vector
+                        	  1641: 
+00:031F 00              	  1642: 		DB	0               ; END OF TABLE
+                        	  1643: 		
+                        	  1644: ;****************************************************************************************************************
+                        	  1645: ;****************************************************************************************************************
+                        	  1646: ;****************************************************************************************************************
+                        	  1647: ;****************************************************************************************************************
+                        	  1648: ;****************************************************************************************************************
+                        	  1649: 		; DATA SECTION
+                        	  1650: 		; Moved to linker script 
+                        	  1651: ; inHeadAdr:	DS	2					; address of oldest character in input buffer
+                        	  1652: ; inTailAdr:	DS	2					; address of newest character in input buffer
+                        	  1653: ; inBufCount:	DS	1					;number of characters in input buffer 
+                        	  1654: ; outHeadAdr:	DS	2					;address of oldest character in output buffer
+                        	  1655: ; outTailAdr:	DS	2					;address of newest character in output buffer
+                        	  1656: ; OutBufCount:	DS	1				;number of characters in output buffer
+                        	  1657: ; OutINTExpect:	DS	1					;output interrupt expected
+                        	  1658: ; 								; (0 = no interrupt expected.
+                        	  1659: ; 								; ff = interrupt expected)
+                        	  1660: 
+                        	  1661: 
+                        	  1662: 		; SAMPLE EXECUTION:
+                        	  1663: 
+                        	  1664: 
+                        	  1665: 		;CHARACTER EQUATES
+                        	  1666: ; ; ESCAPE	EQU     1BH					;ASCII ESCAPE CHARACTER
+                        	  1667: ; ; TESTCH	EQU     'A'					;TEST CHARACTER = A
+                        	  1668: ; 		global SC11C
+                        	  1669: ; SC11C:
+                        	  1670: ; 		CALL	InitBuffers				;INITIALIZE SIO_0. INTERRUPT SYSTEM
+                        	  1671: ; 			;SIMPLE EXAMPLE - READ AND ECHO CHARACTER
+                        	  1672: ; 			; UNTIL AN ESC IS RECEIVED
+                        	  1673: ; LOOP:
+                        	  1674: ; 		CALL	ReadChar				;READ CHARACTER
+                        	  1675: ; 		PUSH	AF
+                        	  1676: ; 		CALL	WriteChar				;ECHO CHARACTER
+                        	  1677: ; 		POP		AF
+                        	  1678: ; 		CP		ESCAPE				;IS CHARACTER AN ESCAPE?
+                        	  1679: ; 		JR		NZ,LOOP				;STAY IN LOOP IF NOT
+                        	  1680: ; 			;AN ASYNCHRONOUS EXAMPLE
+                        	  1681: ; 			; OUTPUT "A" TO CONSOLE CONTINUOUSLY BUT ALSO LOOK AT
+                        	  1682: ; 			; INPUT SIDE. READING AND ECHOING ANY INPUT CHARACTERS
+                        	  1683: ; ASYNLP:
+                        	  1684: ; 			;OUTPUT   AN "A" IF OUTPUT IS NOT BUSY
+                        	  1685: ; 		CALL	RetOutStatus				;IS OUTPUT BUSY?
+                        	  1686: ; 		JR		C,ASYNLP			;JUMP IF IT IS
+                        	  1687: ; 		LD		A,TESTCH
+                        	  1688: ; 		CALL	WriteChar				;OUTPUT CHARACTER
+                        	  1689: ; 			;CHECK INPUT PORT
+                        	  1690: ; 			;ECHO CHARACTER IF ONE IS AVAILABLE
+                        	  1691: ; 			;EXIT ON ESCAPE CHARACTER
+                        	  1692: ; 		CALL	RetInpStatus				;IS INPUT DATA AVAILABLE?
+                        	  1693: ; 		JR		NC, ASYNLP			;JUMP I F NOT (SEND ANOTHER .. A" )
+                        	  1694: ; 		CALL	ReadChar				; GET CHARACTER
+                        	  1695: ; 		CP		ESCAPE				;IS IT AN ESCAPE CHARACTER?
+                        	  1696: ; 		JR		Z,DONE				;BRANCH IF IT IS
+                        	  1697: 
+                        	  1698: 
+                        	  1699: ; 		CALL	WriteChar				;ELSE ECHO CHARACTER
+                        	  1700: ; 		JP		ASYNLP				;AND CONTINUE
+                        	  1701: ; DONE:
+                        	  1702: ; 		JP		LOOP
                         	  1703: 
                         	  1704: 
                         	  1705: 
-                        	  1706: PIO_Init:
-                        	  1707: ;----------******************* PIO PORT A
-00:0320 3ECF            	  1708: 		ld A, %11001111                 ;mode 3 in/out
-00:0322 D301            	  1709: 		out (portA_Contr), A         ; set port A as output
-00:0324 3E00            	  1710: 		ld 	A,%00000000					; msb=input lsb = output, 0-mosi, 1-clk, 2-ssel, 7-miso
-00:0326 D301            	  1711: 		out (portA_Contr), A         ; set port A as 4 input/ 4 output
-                        	  1712: 		; ld A, Interupt_vector&0xFF                   ; low byte of INT table
-                        	  1713: 		; out (portA_Contr), A         ; PIO A interrupt vector
-00:0328 3E03            	  1714: 		ld A, $03
-00:032A D301            	  1715: 		out (portA_Contr), A         ; PIO A interrupt disable
-                        	  1716: 		; ld a,Interupt_vector>>8      ; high byte of INT table
-                        	  1717: 		; ld I,A
-00:032C F3              	  1718: 		di
-                        	  1719: ;----------******************* PIO PORT B
-00:032D 3ECF            	  1720: 		ld A, %11001111                 ;mode 3 in/out
-00:032F D303            	  1721: 		out (portB_Contr), A         ; set port B as output
-00:0331 3E00            	  1722: 		ld A, $00                    ;mode 0 output 
-00:0333 D303            	  1723: 		out (portB_Contr), A         ; set port B as output
-00:0335 3E03            	  1724: 		ld A, $03
-00:0337 D303            	  1725: 		out (portB_Contr), A         ; PIO B interrupt disable
-00:0339 3E00            	  1726: 		ld a,0
-00:033B 32D0F1          	  1727: 		ld (PIO_B_value),a
-00:033E D302            	  1728: 		out (portB_Data), a
-00:0340 C9              	  1729: 	ret
-                        	  1730: 
-                        	  1731: 	if DOALIGN
-                        	  1732: 		align 4
-                        	  1733: 	endif
-                        	  1734: 
+                        	  1706: 
+                        	  1707: PIO_Init:
+                        	  1708: ;----------******************* PIO PORT A
+00:0320 3ECF            	  1709: 		ld A, %11001111                 ;mode 3 in/out
+00:0322 D301            	  1710: 		out (portA_Contr), A         ; set port A as output
+00:0324 3E00            	  1711: 		ld 	A,%00000000					; msb=input lsb = output, 0-mosi, 1-clk, 2-ssel, 7-miso
+00:0326 D301            	  1712: 		out (portA_Contr), A         ; set port A as 4 input/ 4 output
+                        	  1713: 		; ld A, Interupt_vector&0xFF                   ; low byte of INT table
+                        	  1714: 		; out (portA_Contr), A         ; PIO A interrupt vector
+00:0328 3E03            	  1715: 		ld A, $03
+00:032A D301            	  1716: 		out (portA_Contr), A         ; PIO A interrupt disable
+                        	  1717: 		; ld a,Interupt_vector>>8      ; high byte of INT table
+                        	  1718: 		; ld I,A
+00:032C F3              	  1719: 		di
+                        	  1720: ;----------******************* PIO PORT B
+00:032D 3ECF            	  1721: 		ld A, %11001111                 ;mode 3 in/out
+00:032F D303            	  1722: 		out (portB_Contr), A         ; set port B as output
+00:0331 3E00            	  1723: 		ld A, $00                    ;mode 0 output 
+00:0333 D303            	  1724: 		out (portB_Contr), A         ; set port B as output
+00:0335 3E03            	  1725: 		ld A, $03
+00:0337 D303            	  1726: 		out (portB_Contr), A         ; PIO B interrupt disable
+00:0339 3E00            	  1727: 		ld a,0
+00:033B 32D0F1          	  1728: 		ld (PIO_B_value),a
+00:033E D302            	  1729: 		out (portB_Data), a
+00:0340 C9              	  1730: 	ret
+                        	  1731: 
+                        	  1732: 	if DOALIGN
+                        	  1733: 		align 4
+                        	  1734: 	endif
                         	  1735: 
-                        	  1736: ;********************************************************************************************     
+                        	  1736: 
                         	  1737: ;********************************************************************************************     
-                        	  1738: 
-                        	  1739: 		xdef CTC_CH0_Interrupt_Handler,CTC_CH1_Interrupt_Handler,CTC_CH2_Interrupt_Handler,CTC_CH3_Interrupt_Handler
-                        	  1740: 
-                        	  1741: CTC_CH0_Interrupt_Handler:
-                        	  1742: CTC_CH1_Interrupt_Handler:
-                        	  1743: 
-                        	  1744: 		; call 	TX_NAK
-00:0341 CD6602          	  1745: 		call 	TX_C
-00:0344 3A0000          	  1746: 		ld 		A,(TempVar1)
-00:0347 3C              	  1747: 		inc 	A
-00:0348 320000          	  1748: 		ld 		(TempVar1),A
-                        	  1749: 
+                        	  1738: ;********************************************************************************************     
+                        	  1739: 
+                        	  1740: 		xdef CTC_CH0_Interrupt_Handler,CTC_CH1_Interrupt_Handler,CTC_CH2_Interrupt_Handler,CTC_CH3_Interrupt_Handler
+                        	  1741: 
+                        	  1742: CTC_CH0_Interrupt_Handler:
+                        	  1743: CTC_CH1_Interrupt_Handler:
+                        	  1744: 
+                        	  1745: 		; call 	TX_NAK
+00:0341 CD8202          	  1746: 		call 	TX_C
+00:0344 3A0000          	  1747: 		ld 		A,(TempVar1)
+00:0347 3C              	  1748: 		inc 	A
+00:0348 320000          	  1749: 		ld 		(TempVar1),A
                         	  1750: 
-00:034B FE10            	  1751: 		cp 		16							; Z is set 
-00:034D F25503          	  1752: 		jp 		P,showtimeout				; check if loop should timeout... A>16
-                        	  1753: 
-                        	  1754: 		; call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
-                        	  1755: 
-00:0350 B7              	  1756: 		or 		A							; clear carry - > wait for next.
-00:0351 1E0A            	  1757: 		ld 		E,CTCpulse					; ret from CTC = 0A
-                        	  1758: 
-00:0353 ED4D            	  1759: 		reti
-                        	  1760: 
-                        	  1761: ;------------------------------------------------------------------------------
-                        	  1762: 
+                        	  1751: 
+00:034B FE10            	  1752: 		cp 		16							; Z is set 
+00:034D F25503          	  1753: 		jp 		P,showtimeout				; check if loop should timeout... A>16
+                        	  1754: 
+                        	  1755: 		; call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
+                        	  1756: 
+00:0350 B7              	  1757: 		or 		A							; clear carry - > wait for next.
+00:0351 1E0A            	  1758: 		ld 		E,CTCpulse					; ret from CTC = 0A
+                        	  1759: 
+00:0353 ED4D            	  1760: 		reti
+                        	  1761: 
+                        	  1762: ;------------------------------------------------------------------------------
                         	  1763: 
-                        	  1764: CTC_CH2_Interrupt_Handler:
-                        	  1765: CTC_CH3_Interrupt_Handler:
-                        	  1766: 
+                        	  1764: 
+                        	  1765: CTC_CH2_Interrupt_Handler:
+                        	  1766: CTC_CH3_Interrupt_Handler:
                         	  1767: 
-                        	  1768: showtimeout:
-                        	  1769: 		; call 	writeSTRBelow_CRLF
-                        	  1770: 		; defb    "\0\r\n"
-                        	  1771: 		; defb	"A timout on XMODEM occured !",00
-00:0355 97              	  1772: 		sub  	A
-00:0356 320000          	  1773: 		ld 		(TempVar1),A
-00:0359 D302            	  1774: 		out 	(portB_Data),A
-                        	  1775: 
-00:035B 37              	  1776: 		scf								; set carry flag 
-                        	  1777: 
-00:035C FB              	  1778: 		ei
-00:035D 1E0B            	  1779: 		ld 		E,CTCtimeout					; ret from CTC = 0B (timeout)
-00:035F ED4D            	  1780: 		reti 
-                        	  1781: 
+                        	  1768: 
+                        	  1769: showtimeout:
+                        	  1770: 		; call 	writeSTRBelow_CRLF
+                        	  1771: 		; defb    "\0\r\n"
+                        	  1772: 		; defb	"A timout on XMODEM occured !",00
+00:0355 97              	  1773: 		sub  	A
+00:0356 320000          	  1774: 		ld 		(TempVar1),A
+00:0359 D302            	  1775: 		out 	(portB_Data),A
+                        	  1776: 
+00:035B 37              	  1777: 		scf								; set carry flag 
+                        	  1778: 
+00:035C FB              	  1779: 		ei
+00:035D 1E0B            	  1780: 		ld 		E,CTCtimeout					; ret from CTC = 0B (timeout)
+00:035F ED4D            	  1781: 		reti 
                         	  1782: 
                         	  1783: 
                         	  1784: 
                         	  1785: 
-                        	  1786: ;********************************************************************************************     
+                        	  1786: 
                         	  1787: ;********************************************************************************************     
-                        	  1788: 
+                        	  1788: ;********************************************************************************************     
                         	  1789: 
                         	  1790: 
-                        	  1791: CTC_Init:
-                        	  1792: 
-                        	  1793: 		; ------Reset all---------------
-00:0361 3E03            	  1794: 		ld		A,_Reset|_CW		; reset channel
-00:0363 D300            	  1795: 		out		(CH0),A
-00:0365 D301            	  1796: 		out		(CH1),A
-00:0367 D302            	  1797: 		out		(CH2),A
-00:0369 D303            	  1798: 		out		(CH3),A
-                        	  1799: 
-                        	  1800: 		; ------INIT interrupt vectors for SIO /CTC---------------
-00:036B 2110F4          	  1801: 		ld 		HL,CTC_CH0_I_Vector          (F410)
-00:036E 7D              	  1802: 		ld  	A,L					; copy low byte
-00:036F D300            	  1803: 		out 	(CH0),A
-                        	  1804: 
+                        	  1791: 
+                        	  1792: CTC_Init:
+                        	  1793: 
+                        	  1794: 		; ------Reset all---------------
+00:0361 3E03            	  1795: 		ld		A,_Reset|_CW		; reset channel
+00:0363 D300            	  1796: 		out		(CH0),A
+00:0365 D301            	  1797: 		out		(CH1),A
+00:0367 D302            	  1798: 		out		(CH2),A
+00:0369 D303            	  1799: 		out		(CH3),A
+                        	  1800: 
+                        	  1801: 		; ------INIT interrupt vectors for SIO /CTC---------------
+00:036B 2110F4          	  1802: 		ld 		HL,CTC_CH0_I_Vector          (F410)
+00:036E 7D              	  1803: 		ld  	A,L					; copy low byte
+00:036F D300            	  1804: 		out 	(CH0),A
                         	  1805: 
-00:0371 3E47            	  1806: 		ld 	 	A,_Counter|_TC_Follow|_Reset|_CW
-00:0373 D302            	  1807: 		out		(CH2),A
-00:0375 3E02            	  1808: 		ld		A,2				; time constant defined
-00:0377 D302            	  1809: 		out		(CH2),A			; and loaded into channel 2
-                        	  1810: 
+                        	  1806: 
+00:0371 3E47            	  1807: 		ld 	 	A,_Counter|_TC_Follow|_Reset|_CW
+00:0373 D302            	  1808: 		out		(CH2),A
+00:0375 3E02            	  1809: 		ld		A,2				; time constant defined
+00:0377 D302            	  1810: 		out		(CH2),A			; and loaded into channel 2
                         	  1811: 
-                        	  1812: 		;--------init CTC3 (Unused...)----------------------------------
-00:0379 3E03            	  1813: 		ld		A,00000011b		; int on, counter on, prescaler don't care, edge don't care,11000111b
-00:037B D303            	  1814: 		out		(CH3),A
-00:037D 3EAF            	  1815: 		ld		A,0AFh			; time constant AFh defined
-00:037F D303            	  1816: 		out		(CH3),A			; and loaded into channel 3
-                        	  1817: 		; ld		A,10h			; it vector defined in bit 7­3,bit 2­1 don't care, bit 0 = 0
-                        	  1818: 
-                        	  1819: 		; out		(CH0),A			; and loaded into channel 0
-00:0381 C9              	  1820: 		ret
-                        	  1821: 
-                        	  1822: 		; ------INIT CTC2 Baud frequence  for  10 MHz version SIO------- 
-                        	  1823: 		; 		Baud 		SIO_0,clockmode  CTCprescaler freq
-                        	  1824: 		;		115200		16x				2			3,684	
-                        	  1825: 		;		57600		16x				4			3,684
-                        	  1826: 		;		38400		16x				6			3,684
-                        	  1827: 		;		19200		16x				12			3,684
-                        	  1828: 		; 		9600		16x				24			3,684
-                        	  1829: 
+                        	  1812: 
+                        	  1813: 		;--------init CTC3 (Unused...)----------------------------------
+00:0379 3E03            	  1814: 		ld		A,00000011b		; int on, counter on, prescaler don't care, edge don't care,11000111b
+00:037B D303            	  1815: 		out		(CH3),A
+00:037D 3EAF            	  1816: 		ld		A,0AFh			; time constant AFh defined
+00:037F D303            	  1817: 		out		(CH3),A			; and loaded into channel 3
+                        	  1818: 		; ld		A,10h			; it vector defined in bit 7­3,bit 2­1 don't care, bit 0 = 0
+                        	  1819: 
+                        	  1820: 		; out		(CH0),A			; and loaded into channel 0
+00:0381 C9              	  1821: 		ret
+                        	  1822: 
+                        	  1823: 		; ------INIT CTC2 Baud frequence  for  10 MHz version SIO------- 
+                        	  1824: 		; 		Baud 		SIO_0,clockmode  CTCprescaler freq
+                        	  1825: 		;		115200		16x				2			3,684	
+                        	  1826: 		;		57600		16x				4			3,684
+                        	  1827: 		;		38400		16x				6			3,684
+                        	  1828: 		;		19200		16x				12			3,684
+                        	  1829: 		; 		9600		16x				24			3,684
                         	  1830: 
-                        	  1831: ;********************************************************************************************     
-                        	  1832: 
-                        	  1833: .end
-                        	  1834: 
+                        	  1831: 
+                        	  1832: ;********************************************************************************************     
+                        	  1833: 
+                        	  1834: .end
                         	  1835: 
+                        	  1836: 
 
 
 Symbols by name:
@@ -2120,9 +2121,9 @@ CH1                             external
 CH2                             external
 CH3                             external
 CRChar                           E:000D
-CRLF                            00:00A5 EXP
-CRNL                            00:00A5
-CTC1_INT_OFF                    00:0282 EXP
+CRLF                            00:00C1 EXP
+CRNL                            00:00C1
+CTC1_INT_OFF                    00:029E EXP
 CTC_CH0_I_Vector                 E:F410
 CTC_CH0_Interrupt_Handler       00:0341 EXP
 CTC_CH1_I_Vector                 E:F412
@@ -2135,16 +2136,16 @@ CTC_Init                        00:0361 EXP
 CTCdelayFlag                    external
 CTCpulse                         E:000A
 CTCtimeout                       E:000B
-CharToSIO_0                     00:029D
+CharToSIO_0                     00:02B9
 Comm_Ptr_list                   external
 DOALIGN                          E:0000
-ExternINTHandler                00:028B
-Extern_B_USB_Handler            00:01C6
+ExternINTHandler                00:02A7
+Extern_B_USB_Handler            00:01E2
 FF                               E:000C
-GetOutStatus                    00:00CE
-InitBuffers                     00:00D5 EXP
-InitInterrupt                   00:010F EXP
-InitSIO_0Ports                  00:02CF EXP
+GetOutStatus                    00:00EA
+InitBuffers                     00:00F1 EXP
+InitInterrupt                   00:012B EXP
+InitSIO_0Ports                  00:02EB EXP
 NAK                              E:0015
 OutBufCount                     external
 OutINTExpect                    external
@@ -2152,28 +2153,28 @@ PIO_B_value                      E:F1D0
 PIO_Init                        00:0320 EXP
 R_LOOP                          00:000C
 ReadChar                        00:005C EXP
-ReadINTHandler                  00:0166
+ReadINTHandler                  00:0182
 ReadLine                        00:000C EXP
-ReadUSBHandler                  00:01B8 EXP
+ReadUSBHandler                  00:01D4 EXP
 RetInpStatus                    00:0073 EXP
-SIO_0INT                        00:02E3 EXP
+SIO_0INT                        00:02FF EXP
 SIO_A_C                         external
 SIO_A_D                         external
-SIO_A_DI                        00:01D7 EXP
-SIO_A_EI                        00:01CE EXP
-SIO_A_RTS_OFF                   00:0204 EXP
-SIO_A_RTS_ON                    00:020F EXP
-SIO_A_RX_INTon                  00:01FB EXP
-SIO_A_TXRX_INToff               00:01E9 EXP
-SIO_A_TXRX_INTon                00:01E0 EXP
-SIO_A_TX_INTon                  00:01F2 EXP
+SIO_A_DI                        00:01F3 EXP
+SIO_A_EI                        00:01EA EXP
+SIO_A_RTS_OFF                   00:0220 EXP
+SIO_A_RTS_ON                    00:022B EXP
+SIO_A_RX_INTon                  00:0217 EXP
+SIO_A_TXRX_INToff               00:0205 EXP
+SIO_A_TXRX_INTon                00:01FC EXP
+SIO_A_TX_INTon                  00:020E EXP
 SIO_B_C                         external
 SIO_B_D                         external
-SIO_B_DI                        00:0233 EXP
-SIO_B_EI                        00:022A EXP
-SIO_B_RX_INTon                  00:0218 EXP
-SIO_B_TXRX_INToff               00:0221 EXP
-SIO_Init                        00:015E EXP
+SIO_B_DI                        00:024F EXP
+SIO_B_EI                        00:0246 EXP
+SIO_B_RX_INTon                  00:0234 EXP
+SIO_B_TXRX_INToff               00:023D EXP
+SIO_Init                        00:017A EXP
 SIO_Int_EXT_Vec                  E:F40A
 SIO_Int_Read_Vec                 E:F40C
 SIO_Int_Spec_Vec                 E:F40E
@@ -2184,13 +2185,13 @@ SIO_USB_Read_Vec                 E:F404
 SIO_USB_Spec_Vec                 E:F406
 SIO_USB_WR_Vec                   E:F400
 S_head_tail                     00:007A EXP
-SpecINTHandler                  00:0294
-SpecINT_B_USB_Handler           00:01CA
-TX_ACK                          00:025E EXP
-TX_C                            00:0266 EXP
-TX_EMP                          00:0276 EXP
-TX_NAK                          00:0256 EXP
-TX_X                            00:026E EXP
+SpecINTHandler                  00:02B0
+SpecINT_B_USB_Handler           00:01E6
+TX_ACK                          00:027A EXP
+TX_C                            00:0282 EXP
+TX_EMP                          00:0292 EXP
+TX_NAK                          00:0272 EXP
+TX_X                            00:028A EXP
 TempVar1                        external
 Textbuf                         external
 WR1                              E:0001
@@ -2198,12 +2199,12 @@ WR2                              E:0002
 WR3                              E:0003
 WR4                              E:0004
 WR5                              E:0005
-WaitOutBuff                     00:00AD
-WriteChar                       00:00A9 EXP
-WriteINTHandler                 00:0193
-WriteLine                       00:0091 EXP
-WriteLineCRNL                   00:00A2 EXP
-Write_USB_Handler               00:01C2
+WaitOutBuff                     00:00C9
+WriteChar                       00:00C5 EXP
+WriteINTHandler                 00:01AF
+WriteLine                       00:00AD EXP
+WriteLineCRNL                   00:00BE EXP
+Write_USB_Handler               00:01DE
 _Auto_Enable                     E:0020
 _CW                              E:0001
 _Ch_Reset                        E:0018
@@ -2229,12 +2230,12 @@ _Z80SIO_Base                    external
 bmve                            00:0080
 bufferSize                      external
 c_nextchar                      00:003F
-cleanInBuffer                   00:00E9 EXP
-cleanOutBuffer                  00:00FA EXP
+cleanInBuffer                   00:0105 EXP
+cleanOutBuffer                  00:0116 EXP
 cont1                           00:0050
 cont2                           00:0030
 endOutBuffer                    external
-exitRHandler                    00:0187
+exitRHandler                    00:01A3
 gpioB                           external
 gpio_in                         external
 gpio_out                        external
@@ -2244,12 +2245,12 @@ inBufferEnd                     external EXP
 inHeadAdr                       external
 inTailAdr                       external
 inbufferDeactivate              external
-incInPointer                    00:02B3
-incOutPointer                   00:02C1
-initSIOBInterrupt               00:02DA EXP
+incInPointer                    00:02CF
+incOutPointer                   00:02DD
+initSIOBInterrupt               00:02F6 EXP
 list_len                        external
-nodata                          00:01A2
-nxtchr                          00:0093
+nodata                          00:01BE
+nxtchr                          00:00AF
 outBuffer                       external
 outBufferSize                   external
 outHeadAdr                      external
@@ -2258,20 +2259,20 @@ portA_Contr                     external
 portA_Data                      external
 portB_Contr                     external
 portB_Data                      external
-purgeRXA                        00:023C EXP
-purgeRXB                        00:0249 EXP
-puts_crlf                       00:0318 EXP
+purgeRXA                        00:0258 EXP
+purgeRXB                        00:0265 EXP
+puts_crlf                       00:00A5 EXP
 showtimeout                     00:0355
 sio_ac                          external
 sio_ad                          external
 sio_bc                          external
 sio_bd                          external
 waitEntry                       00:001B
-waitForFinishedPrintout         00:0108 EXP
+waitForFinishedPrintout         00:0124 EXP
 waitForKey                      00:0000 EXP
-wrdone                          00:01AC
-writeSTRBelow                   00:0304 EXP
-writeSTRBelow_CRLF              00:030E EXP
+wrdone                          00:01C8
+writeSTRBelow                   00:0091 EXP
+writeSTRBelow_CRLF              00:009B EXP
 
 Symbols by value:
 0000 DOALIGN
@@ -2315,61 +2316,61 @@ Symbols by value:
 0073 RetInpStatus
 007A S_head_tail
 0080 bmve
-0091 WriteLine
-0093 nxtchr
-00A2 WriteLineCRNL
-00A5 CRLF
-00A5 CRNL
-00A9 WriteChar
-00AD WaitOutBuff
+0091 writeSTRBelow
+009B writeSTRBelow_CRLF
+00A5 puts_crlf
+00AD WriteLine
+00AF nxtchr
+00BE WriteLineCRNL
 00C0 _RX_8_bits
-00CE GetOutStatus
-00D5 InitBuffers
-00E9 cleanInBuffer
-00FA cleanOutBuffer
-0108 waitForFinishedPrintout
-010F InitInterrupt
-015E SIO_Init
-0166 ReadINTHandler
-0187 exitRHandler
-0193 WriteINTHandler
-01A2 nodata
-01AC wrdone
-01B8 ReadUSBHandler
-01C2 Write_USB_Handler
-01C6 Extern_B_USB_Handler
-01CA SpecINT_B_USB_Handler
-01CE SIO_A_EI
-01D7 SIO_A_DI
-01E0 SIO_A_TXRX_INTon
-01E9 SIO_A_TXRX_INToff
-01F2 SIO_A_TX_INTon
-01FB SIO_A_RX_INTon
-0204 SIO_A_RTS_OFF
-020F SIO_A_RTS_ON
-0218 SIO_B_RX_INTon
-0221 SIO_B_TXRX_INToff
-022A SIO_B_EI
-0233 SIO_B_DI
-023C purgeRXA
-0249 purgeRXB
-0256 TX_NAK
-025E TX_ACK
-0266 TX_C
-026E TX_X
-0276 TX_EMP
-0282 CTC1_INT_OFF
-028B ExternINTHandler
-0294 SpecINTHandler
-029D CharToSIO_0
-02B3 incInPointer
-02C1 incOutPointer
-02CF InitSIO_0Ports
-02DA initSIOBInterrupt
-02E3 SIO_0INT
-0304 writeSTRBelow
-030E writeSTRBelow_CRLF
-0318 puts_crlf
+00C1 CRLF
+00C1 CRNL
+00C5 WriteChar
+00C9 WaitOutBuff
+00EA GetOutStatus
+00F1 InitBuffers
+0105 cleanInBuffer
+0116 cleanOutBuffer
+0124 waitForFinishedPrintout
+012B InitInterrupt
+017A SIO_Init
+0182 ReadINTHandler
+01A3 exitRHandler
+01AF WriteINTHandler
+01BE nodata
+01C8 wrdone
+01D4 ReadUSBHandler
+01DE Write_USB_Handler
+01E2 Extern_B_USB_Handler
+01E6 SpecINT_B_USB_Handler
+01EA SIO_A_EI
+01F3 SIO_A_DI
+01FC SIO_A_TXRX_INTon
+0205 SIO_A_TXRX_INToff
+020E SIO_A_TX_INTon
+0217 SIO_A_RX_INTon
+0220 SIO_A_RTS_OFF
+022B SIO_A_RTS_ON
+0234 SIO_B_RX_INTon
+023D SIO_B_TXRX_INToff
+0246 SIO_B_EI
+024F SIO_B_DI
+0258 purgeRXA
+0265 purgeRXB
+0272 TX_NAK
+027A TX_ACK
+0282 TX_C
+028A TX_X
+0292 TX_EMP
+029E CTC1_INT_OFF
+02A7 ExternINTHandler
+02B0 SpecINTHandler
+02B9 CharToSIO_0
+02CF incInPointer
+02DD incOutPointer
+02EB InitSIO_0Ports
+02F6 initSIOBInterrupt
+02FF SIO_0INT
 0320 PIO_Init
 0341 CTC_CH0_Interrupt_Handler
 0341 CTC_CH1_Interrupt_Handler

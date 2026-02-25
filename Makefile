@@ -8,7 +8,7 @@ BUILD_DIR = Build
 OB_CODE = OBJS
 LIBS=
 
-DEFINES= -D NOFLASH   
+#DEFINES= -D NOFLASH   
 
 
 # normal assembly:
@@ -19,7 +19,6 @@ DEFINES= -D NOFLASH
 #-Z80-512K 
 
 MAIN=Z80_BOARD
-
 MEDIA?= $(shell ls /media/lellebj/)
 
 #****************************************************
@@ -43,6 +42,7 @@ default: $(TARGET)
 
 S_EX=.s
 OBJ_EX=o
+CODENAME = MAINBODY.$(_EXT)
 
 #	Z88DK linker and assembler
 # LDFLAGS=-mz80 -b -l -m  -split-bin
@@ -51,7 +51,7 @@ OBJ_EX=o
 # AS=z80asm
 
 #	Old VASM Z80 assembler and VLINK
-LDFLAGS=-T LD/vlink_Z80_.ld  -MZ80_.map  -b rawbin2  -o $@ -L $(SYSLIBDIR)   
+LDFLAGS=-T LD/vlink_Z80_.ld  -MZ80_.map  -multifile -q -b rawbin   -o $@ -L $(SYSLIBDIR)   
 ASFLAGS=-Fvobj -esc -z80asm -o $@ $(F_LIST) $(DEFINES)
 LD=vlink
 AS=vasmz80_oldstyle
@@ -87,6 +87,7 @@ $(OBJECTS) : $$(patsubst $(OB_CODE)/%.o, %$(S_EX),$$@)
 $(TARGET): $(OBJECTS)
 	$(LD)  $(LDFLAGS)  $^
 	chmod a-x $@
+
 ifneq ($(strip $(MEDIA)),)
 	cp  ./Build/512K_Z80.BIN  /media/lellebj/$(MEDIA)/Z80EE.BIN
 	cp  ./Build/512K_Z80.BIN.MainBody  /media/lellebj/$(MEDIA)/Z80F.BIN

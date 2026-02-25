@@ -1154,39 +1154,36 @@ dumpMemory:
 display_BC_bytes:
 		push 	bc					; save the line counter
 
-		ld 		HL,dumpText+1		; new buffer for text output
-
-
-		call	Bin2Hex16			;address in DE -> result added to (HL)-> to last 0x00. hl updatd (+4)
-		
-		ld  	A,':'
-		ld 		(HL),A  
-		inc 	HL
-		push 	DE 			; store adress of first char
-
-		xor 	A						; clear A
-		ld 		(generalFlags),A 		; indicate first round , hexvalues
-		call 	displayBytes
-		pop 	DE					; pop back address of first char.
- 
-		ld 		A,'|'
-				ld 		(HL),A  
-		inc 	HL
-
-
-		ld 		A,$0F
-		ld 		(generalFlags),A 		; indicate second round , chars
-		call 	displayBytes
+			ld 		HL,dumpText+1		; new buffer for text output
+			call	Bin2Hex16			;address in DE -> result added to (HL)-> to last 0x00. hl updatd (+4)
+			
+			ld  	A,':'
+			ld 		(HL),A  
+			inc 	HL
+			push 	DE 			; store adress of first char
+				xor 	A						; clear A
+				ld 		(generalFlags),A 		; indicate first round , hexvalues
+				call 	displayBytes		; put values in buffer pointed by HL, advance HL
+			pop 	DE					; pop back address of first char.
 	
-		ld 		A,'|'
-				ld 		(HL),A  
-		inc 	HL
+			ld 		A,'|'
+					ld 		(HL),A  
+			inc 	HL
 
-		xor 	a
-		ld 		(hl),A
 
-		ld 		iy,dumpText
-		call	WriteLineCRNL
+			ld 		A,$0F
+			ld 		(generalFlags),A 		; indicate second round , chars
+			call 	displayBytes
+		
+			ld 		A,'|'
+					ld 		(HL),A  
+			inc 	HL
+
+			xor 	a
+			ld 		(hl),A
+
+			ld 		iy,dumpText
+			call	WriteLineCRNL
 
 		pop 	bc						; pop back the line counter
 		dec 	bc 						; decrease # lines...
@@ -1215,8 +1212,7 @@ displayLoop:
 		add 	$03 	
 .noextraSpace:
 		ld 		B,A
-			; add (b) spaces to (hl), advance hl	
-		call	add_space
+		call	add_space		; add (b) spaces to (hl), advance hl	
 
 		ld  	A,(generalFlags)
 		or  	A 				; check if zero ->  first round - Hex values
@@ -1267,7 +1263,7 @@ checkZero16:
 
 
 
-dumpText: DC	$80 00
+dumpText: DC	$80 '/'
 
 
 ;***************************************************************************************************
