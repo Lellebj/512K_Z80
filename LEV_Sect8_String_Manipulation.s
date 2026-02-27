@@ -2,12 +2,8 @@
 		include "Z80_Params_.inc"
 
 	
-	ifndef ONESECTION
 		section	Strings	
 
-	else
-		section singleAssembly
-	endif
 
 
 		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size,isHex,isChar,dumpMemory
@@ -95,8 +91,8 @@ cmpLength:
 		CP		(HL)
 		RET							; return with flags set or cleared
 		; DATA
-LENS1:	DS		1					;length of string 1
-LENS2:	DS		1					;length of string 2
+; LENS1:	DS		1					;length of string 1
+; LENS2:	DS		1					;length of string 2
 
 		; 5AMPLE EXECUTION:
 
@@ -354,10 +350,10 @@ EXIT:
 		RRA
 		RET
 			;DATA
-S1ADR:    DS      2				;BASE ADDRESS OF STRING 1
-S1LEN:    DS      1				;LENGTH OF STRING 1
-S2LEN:    DS      1				;LENGTH OF STRING 2
-STRGOV:   DS      1				;STRING OVERFLOW FLAG
+; S1ADR:    DS      2				;BASE ADDRESS OF STRING 1
+; S1LEN:    DS      1				;LENGTH OF STRING 1
+; S2LEN:    DS      1				;LENGTH OF STRING 2
+; STRGOV:   DS      1				;STRING OVERFLOW FLAG
 
 
 
@@ -498,11 +494,11 @@ NOTFND:
 		SUB		A				;SUBSTRING NOT FOUND, A = 0
 		RET
 		;DATA
-STRING:		DS	2				;BASE ADDRESS OF STRING
-SUBSTG:		DS	2				;BASE ADDRESS OF SUBSTRING
-SLEN:		DS	1				;LENGTH OF STRING
-SUBLEN:		DS	1				;LENGTH OF SUBSTRING
-INDEX:		DS	1				;CURRENT INDEX INTO STRING
+; STRING:		DS	2				;BASE ADDRESS OF STRING
+; SUBSTG:		DS	2				;BASE ADDRESS OF SUBSTRING
+; SLEN:		DS	1				;LENGTH OF STRING
+; SUBLEN:		DS	1				;LENGTH OF SUBSTRING
+; INDEX:		DS	1				;CURRENT INDEX INTO STRING
 
 		; SAMPLE EXECUTION:
 ; SC8C:
@@ -669,8 +665,8 @@ EREXIT:
 		SCF						;SET    CARRY TO INDICATE AN ERROR
 		RET
 			; DATA    SECTION
-MAXLEN:	DS	1					;MAXIMUM    LENGTH OF DESTINATION STRING
-CPYERR: DS	1					;COPY    ERROR FLAG
+; MAXLEN:	DS	1					;MAXIMUM    LENGTH OF DESTINATION STRING
+; CPYERR: DS	1					;COPY    ERROR FLAG
 
 		; SAMPLE EXECUTION:
 ; SC8D:
@@ -686,13 +682,13 @@ CPYERR: DS	1					;COPY    ERROR FLAG
 ; 								;INDEX 4 FROM '12.345E+l0' GIVES '345'
 ; 		JR		SC8D            ;LOOP FOR MORE TESTING
 			; DATA    SECTION
-IDX_8D:	DB	4					;STARTING INDEX FOR COPYING
-CNT_8D:	DB	3					;NUMBER OF CHARACTERS TO COPY
-MXLEN_8D:	DB	20H					; MAXIMUM LENGTH OF DESTINATION STRING
-SSTG_8D:	DB	0AH					;LENGTH OF STRING
-		DB	"12.345E+10                     " ;32 BYTE MAX LENGTH
-DSTG_8D:	DB	0					;LENGTH OF SUBSTRING
-		DB  "                               " ; 32 BYTE MAX LENGTH
+; IDX_8D:	DB	4					;STARTING INDEX FOR COPYING
+; CNT_8D:	DB	3					;NUMBER OF CHARACTERS TO COPY
+; MXLEN_8D:	DB	20H					; MAXIMUM LENGTH OF DESTINATION STRING
+; SSTG_8D:	DB	0AH					;LENGTH OF STRING
+; 		DB	"12.345E+10                     " ;32 BYTE MAX LENGTH
+; DSTG_8D:	DB	0					;LENGTH OF SUBSTRING
+; 		DB  "                               " ; 32 BYTE MAX LENGTH
 
 
 
@@ -852,7 +848,7 @@ OKEXIT_8E:
 		OR		A					;CLEAR CARRY, NO ERRORS
 		RET
 		; DATA
-DELERR: DS	1						;DELETE ERROR FLAG
+; DELERR: DS	1						;DELETE ERROR FLAG
 
 		; SAMPLE EXECUTION:
 
@@ -867,10 +863,10 @@ DELERR: DS	1						;DELETE ERROR FLAG
 ; 									; FROM ".JOE HANDOVER" LEAVES "HANDOVER"
 ; 		JR		SC8E				;LOOP FOR ANOTHER TEST
 			; DATA SECTION
-IDX_8E:	DB      1                    ;STARTING INDEX FOR DELETION
-CNT_8E:	DB      4                    ;NUMBER OF CHARACTERS TO DELETE
-SSTG_8E:	DB      12                   ;LENGTH OF STRING
-		DB      ".JOE HANDOVER"
+; IDX_8E:	DB      1                    ;STARTING INDEX FOR DELETION
+; CNT_8E:	DB      4                    ;NUMBER OF CHARACTERS TO DELETE
+; SSTG_8E:	DB      12                   ;LENGTH OF STRING
+; 		DB      ".JOE HANDOVER"
 
 
 
@@ -1071,7 +1067,7 @@ MVESUB:
 								;TO INDICATE AN ERROR
 		RET
 			;DATA SECTION
-INSERR: DS	1					;FLAG USED TO INDICATE ERROR
+; INSERR: DS	1					;FLAG USED TO INDICATE ERROR
 
 		; SAMPLE EXECUTION:
 ; SC8F:
@@ -1086,12 +1082,12 @@ INSERR: DS	1					;FLAG USED TO INDICATE ERROR
 ; 								; INDEX 1 IS ~-123456~
 ; 		JR		SC8F			;LOOP FOR ANOTHER TEST
 			; DATA SECTION
-IDX_8F:	DB	1					;STARTING INDEX FOR I NSERTI ON
-MXLEN_8F:	DB	20H					;MAXIMUM LENGTH OF DESTINATION
-STG_8F:	DB	06H					;LENGTH OF STRING
-		DB	"123456                                 " ;32 BYTE MAX LENGTH
-SSTG_8F:	DB	1					;LENGTH OF SUBSTRING
-		DB  "-                                      " ;32 BYTE MAX LENGTH
+; IDX_8F:	DB	1					;STARTING INDEX FOR I NSERTI ON
+; MXLEN_8F:	DB	20H					;MAXIMUM LENGTH OF DESTINATION
+; STG_8F:	DB	06H					;LENGTH OF STRING
+; 		DB	"123456                                 " ;32 BYTE MAX LENGTH
+; SSTG_8F:	DB	1					;LENGTH OF SUBSTRING
+; 		DB  "-                                      " ;32 BYTE MAX LENGTH
 
 ;********************************************************************************************
 ;********************************************************************************************	
@@ -1167,7 +1163,7 @@ display_BC_bytes:
 			pop 	DE					; pop back address of first char.
 	
 			ld 		A,'|'
-					ld 		(HL),A  
+			ld 		(HL),A  
 			inc 	HL
 
 
@@ -1176,7 +1172,7 @@ display_BC_bytes:
 			call 	displayBytes
 		
 			ld 		A,'|'
-					ld 		(HL),A  
+			ld 		(HL),A  
 			inc 	HL
 
 			xor 	a
@@ -1263,7 +1259,7 @@ checkZero16:
 
 
 
-dumpText: DC	$80 '/'
+; dumpText: DC	$80 '/'
 
 
 ;***************************************************************************************************

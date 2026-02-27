@@ -51,7 +51,7 @@ CODENAME = MAINBODY.$(_EXT)
 # AS=z80asm
 
 #	Old VASM Z80 assembler and VLINK
-LDFLAGS=-T LD/vlink_Z80_.ld  -MZ80_.map  -multifile -q -b rawbin   -o $@ -L $(SYSLIBDIR)   
+LDFLAGS=-T LD/vlink_Z80_.ld  -MZ80_.map  -multifile -coalesced -b rawbin   -o $@ -L $(SYSLIBDIR)   
 ASFLAGS=-Fvobj -esc -z80asm -o $@ $(F_LIST) $(DEFINES)
 LD=vlink
 AS=vasmz80_oldstyle
@@ -90,7 +90,7 @@ $(TARGET): $(OBJECTS)
 
 ifneq ($(strip $(MEDIA)),)
 	cp  ./Build/512K_Z80.BIN  /media/lellebj/$(MEDIA)/Z80EE.BIN
-	cp  ./Build/512K_Z80.BIN.MainBody  /media/lellebj/$(MEDIA)/Z80F.BIN
+	cp  ./Build/512K_Z80.BIN.TheMonitor  /media/lellebj/$(MEDIA)/Z80F.BIN
 	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80F* )
 	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80EE* )
 endif

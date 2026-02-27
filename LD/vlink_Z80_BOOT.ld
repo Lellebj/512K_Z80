@@ -89,14 +89,31 @@
 	PROVIDE( charLen 		=	0x1BE + _String_HEAP);			/*	length of written file   2-byte */
 	PROVIDE( sdWRpointer 	=	0x1C0 + _String_HEAP);			/*	pointer to write file   2-byte */
 
+	PROVIDE( LENS1			=	0x1C2 + _String_HEAP);			/*	DS  1	length of string 1 */
+	PROVIDE( LENS2			=	0x1C3 + _String_HEAP);			/*	DS	1	length of string 2 */
+	PROVIDE( S1ADR			=	0x1C4 + _String_HEAP);			/*	DS  2	BASE ADDRESS OF STRING 1 */
+	PROVIDE( S1LEN			=	0x1C6 + _String_HEAP);			/*	DS  1	LENGTH OF STRING 1 */
+	PROVIDE( S2LEN			=	0x1C7 + _String_HEAP);			/*	DS  1	LENGTH OF STRING 2 */
+	PROVIDE( STRGOV			=	0x1C8 + _String_HEAP);			/*	DS  1	STRING OVERFLOW FLAG */
+	PROVIDE( STRING			=	0x1C9 + _String_HEAP);			/*	DS	2	BASE ADDRESS OF STRING */
+	PROVIDE( SUBSTG			=	0x1CB + _String_HEAP);			/*	DS	2	BASE ADDRESS OF SUBSTRING */
+	PROVIDE( SLEN			=	0x1CD + _String_HEAP);			/*	DS	1	LENGTH OF STRING */
+	PROVIDE( SUBLEN			=	0x1CF + _String_HEAP);			/*	DS	1	LENGTH OF SUBSTRING */
+	PROVIDE( INDEX			=	0x1D0 + _String_HEAP);			/*	DS	1	CURRENT INDEX INTO STRING */
+	PROVIDE( MAXLEN			=	0x1D1 + _String_HEAP);			/*	DS	1	MAXIMUM    LENGTH OF DESTINATION STRING */
+	PROVIDE( CPYERR			=	0x1D2 + _String_HEAP);			/*	DS	1	COPY    ERROR FLAG */
+	PROVIDE( DELERR			=	0x1D3 + _String_HEAP);			/*	DS	1	DELETE ERROR FLAG */
+	PROVIDE( INSERR			=	0x1D4 + _String_HEAP);			/*	DS	1	FLAG USED TO INDICATE ERROR */
+	PROVIDE( dumpText		=	0x1D6 + _String_HEAP);			/*	DC	$80 ''  */
+
 	PROVIDE( outBufferSize	=	0xF0	);							/*	;SIZE OF OUTPUT BUFFER */
-	PROVIDE( outBuffer		=	0x200+ _String_HEAP);	         	 	/*;OUTPUT BUFFER */
-	PROVIDE( endOutBuffer	=	0x2F0+ _String_HEAP);	/*		END OF OUTPUT BUFFER */
+	PROVIDE( outBuffer		=	0x280 + _String_HEAP);	         	 	/*;OUTPUT BUFFER */
+	PROVIDE( endOutBuffer	=	0x370 + _String_HEAP);	/*		END OF OUTPUT BUFFER */
 
 	PROVIDE( list_len		=	0x48	);				/*	 length of command pointer list */
-	PROVIDE( Comm_Ptr_list	=	0x300 + _String_HEAP); 	/*	 command pointer list */
-	PROVIDE( packetBaseAddress = 	0x400 + _String_HEAP);
-	PROVIDE( prevPacketByte01	=	0x500 + _String_HEAP);	
+	PROVIDE( Comm_Ptr_list	=	0x380 + _String_HEAP); 	/*	 command pointer list */
+	PROVIDE( packetBaseAddress = 	0x480 + _String_HEAP);
+	PROVIDE( prevPacketByte01	=	0x580 + _String_HEAP);	
 	
 	/*	; Code in $D008-D00D = $00000000 - $AAAAAAAA: copy from flash
 		; Code in $D008-D00D = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
@@ -111,9 +128,10 @@
 
 
 
+
 		FLASH_block  _FLASHSTART :
 			{
-
+			. = 0x00;
 			KEEP(*.o(FLASH_Startup))
 
 			. = _NMISTART;	
@@ -123,41 +141,42 @@
 			KEEP( *.o(INIT_BODY))
             . = ALIGN(0x20);
 
+		    KEEP(*.o(SD_USB_Start))
+			_BootSDUSB_EEprog_end = .;
+			. = ALIGN(0x20);
+	
+			KEEP(*.o (CH376S_Support))
+			_BootUSB_end = .;
+			. = ALIGN(0x20);
+
+			KEEP(*.o (Functions))
+			.= ALIGN(0x20) ;
+
+
+			KEEP(*.o (InOutInterrupt))
+			_BootIOI_end = .;
+			. = ALIGN(0x20);
+
+			KEEP(*.o (CodeConversion))
+			_BootCodeConv_end = .;
+			. = ALIGN(0x20);
+
+			KEEP(*.o (Strings))
+			_BootStrings_end = .;
+			. = ALIGN(0x20);
+
 			}  >FLASH
 
-		Mainbody  0x8000 :
+		Dummy  0xD000 :
 		{
 
 			*.o (EXCLUDE_SECTION (*.o ) Monitor  ) ;
 
-
-		     *.o(SD_USB_Start)
-			_BootSDUSB_EEprog_end = .;
-			. = ALIGN(0x20);
-
-			*.o (CH376S_Support)
-			_BootUSB_end = .;
-			. = ALIGN(0x20);
-
-			*.o (Functions) 
-			.= ALIGN(0x20) ;
 /*
 		     *.o(EEtestprog)
 			_EET_EEprog_end = .;
 			. = ALIGN(0x20);
 */
-
-			*.o (InOutInterrupt)
-			_BootIOI_end = .;
-			. = ALIGN(0x20);
-
-			*.o (CodeConversion)
-			_BootCodeConv_end = .;
-			. = ALIGN(0x20);
-
-			*.o (Strings)
-			_BootStrings_end = .;
-			. = ALIGN(0x20);
 	/*
 
 			EXCLUDE_FILE (*Z80_EEP_.o) *(EEtestprog)

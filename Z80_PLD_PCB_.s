@@ -23,7 +23,7 @@
 	;***************************************************************
 	;SAMPLE EXECUTION:
 	;***************************************************************
-GPIODEBUG EQU 1
+GPIODEBUG EQU 0
 
 DO_Debug:	equ	0		; Set to 1 to show debug printing, else 0 
 
@@ -36,38 +36,38 @@ DO_Debug:	equ	0		; Set to 1 to show debug printing, else 0
 		section SD_USB_Start
 
 
-		; jp 		MONITOR_Start0 		; jump to MONITOR_Start if hard call to $D000
+		jp 		MONITOR_Start 		; jump to MONITOR_Start if hard call to $D000
 
 SD_USB_startup:
 
-	ifdef  	GPIODEBUG
-	ld 		A,$33
-	out 	(gpio_out),A
+	if  	GPIODEBUG = 1
+		ld 		A,$33
+		out 	(gpio_out),A
 
-	; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
+		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
 
-	ld 		(SP_value),SP
+		ld 		(SP_value),SP
 
-	ld 		A,$AA
-	out 	(gpio_out),A
-	
-	CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-			; initialize buffer counters and pointers.
-	ld 		A,$BB
-	out 	(gpio_out),A
+		ld 		A,$AA
+		out 	(gpio_out),A
+		
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+				; initialize buffer counters and pointers.
+		ld 		A,$BB
+		out 	(gpio_out),A
 
-		call	PIO_Init
-	ld 		A,$CC
-	out 	(gpio_out),A
-		call 	CTC_Init
-	ld 		A,$DD
-	out 	(gpio_out),A
-		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-	ld 		A,$DF
-	out 	(gpio_out),A
-		call	S_head_tail			; save input heads and tails
-	ld 		A,$81
-	out 	(gpio_out),A
+			call	PIO_Init
+		ld 		A,$CC
+		out 	(gpio_out),A
+			call 	CTC_Init
+		ld 		A,$DD
+		out 	(gpio_out),A
+			call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+		ld 		A,$DF
+		out 	(gpio_out),A
+			call	S_head_tail			; save input heads and tails
+		ld 		A,$81
+		out 	(gpio_out),A
 	
 	else
 	
@@ -124,7 +124,7 @@ SD_USB_startup:
 		; defb	"    FLASH->SRAM 0xD000.\r\n"
 		defb	"\0"
 
-		 call 	waitForFinishedPrintout
+		call 	waitForFinishedPrintout
 
 	ifd 	GPIODEBUG
 	ld 		A,$83
@@ -173,15 +173,10 @@ SD_USB_startup:
 		defb   "\r\nUSE RAM bank #0, Copy FLASH Boot seq\r\n"
 		defb   "To RAM bank #1 ($0-$2000) \r\n"
 		defb	"Jump to MONITOR_Start! ($D000)\r\n",0,0,0
+		call 	waitForFinishedPrintout
 
 		jp 		MONITOR_Start			; monitor start $D000 MONITOR_Start:
 
-.loopINF:
-	ifd 	GPIODEBUG	
-	ld 		A,$99
-	out 	(gpio_out),A
-	endif
-		jr 		.loopINF
 rfile_name:
 	 db "BOOTFILE.TXT",0,0,0,0
 	; db "PROVIDE.txt",0,0,0,0
@@ -263,6 +258,13 @@ MONITOR_Start:
 
 		; ***	should be start address $D000
 		;jr 		.makeShadowRAM
+		call	CRLF
+		call 	writeSTRBelow
+		defb   	"\r\n"
+		defb	"Skip Shadowram \r\n\0"
+		defb 	0x00
+
+
 		jr 		.skipBlockCopy		; use Flash mem and SRAM normally
 	align 3
 		; Ref. vlink_Z80_.ld
@@ -288,37 +290,37 @@ MONITOR_Start:
 
 ;		***	 	Copy 128 blocks of 256 bytes from flash to RAM bank #0, then copy to RAM bank #1
 
-			ld  	B,128		; count 128 blocks of 256 bytes
+		ld  	B,128		; count 128 blocks of 256 bytes
 .loopBlocks:
-			push  	BC 			; save BC as block counter
-			ld     	BC,128		; byte counter
+		push  	BC 			; save BC as block counter
+		ld     	BC,128		; byte counter
 
-			ld 		HL,$7FFF		; end of flash memory area
-			ld 		DE,$CFFF		; temp storage area 0xCF00-CFFF		
-			push 	HL
-			push 	DE
-			lddr					; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0		
+		ld 		HL,$7FFF		; end of flash memory area
+		ld 		DE,$CFFF		; temp storage area 0xCF00-CFFF		
+		push 	HL
+		push 	DE
+		lddr					; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0		
 
-	; 		*** 	secondly: to Rambank #1 storage area. deselect FLASH mem
-	; 		***		Swithch to RAM bank #1
-			call  	p_FOFF_No_Print	; ***		Disable Flash memory 
-			ld 		A,1
-			call 	p_srbank0; 		***		Swithch to RAM bank #1
+; 		*** 	secondly: to Rambank #1 storage area. deselect FLASH mem
+; 		***		Swithch to RAM bank #1
+		call  	p_FOFF_No_Print	; ***		Disable Flash memory 
+		ld 		A,1
+		call 	p_srbank0; 		***		Swithch to RAM bank #1
 
-					; from old area (HL), $7FFF  to new area ram area (DE), 0x7FFF
-			pop 	HL			; HL point to temp storage area 0xCFFF (old DE value)
-			pop 	DE 			; DE point to new area in ram bank #1 0xCFFF (old HL value)
-			ld     	BC,128
-			lddr				; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0
+				; from old area (HL), $7FFF  to new area ram area (DE), 0x7FFF
+		pop 	HL			; HL point to temp storage area 0xCFFF (old DE value)
+		pop 	DE 			; DE point to new area in ram bank #1 0xCFFF (old HL value)
+		ld     	BC,128
+		lddr				; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0
 
-	;		***		Enable Flash again and set ram bank #0	
-			call  	p_FOFF_No_Print
-			ld 		A,0
-			call 	p_flbank0; 		***		Swithch to FLASH bank #0
+;		***		Enable Flash again and set ram bank #0	
+		call  	p_FOFF_No_Print
+		ld 		A,0
+		call 	p_flbank0; 		***		Swithch to FLASH bank #0
 
 
-			pop 	BC			; restore BC as block counter
-			djnz	.loopBlocks
+		pop 	BC			; restore BC as block counter
+		djnz	.loopBlocks
 			
 
 		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
@@ -326,50 +328,47 @@ MONITOR_Start:
 .skipBlockCopy:
 
 		ld 		(SP_value),SP
-	halt
 
-	ifd 	GPIODEBUG
-	ld 		A,$AA
-	out 	(gpio_out),A
-	endif
+		ifd 	GPIODEBUG
+		ld 		A,$AA
+		out 	(gpio_out),A
+		endif
 
 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-			; initialize buffer counters and pointers.
-	ifd		PIODEBUG
-	ld 		A,$BB
-	out 	(gpio_out),A
-	endif
+				; initialize buffer counters and pointers.
+		ifd		PIODEBUG
+		ld 		A,$BB
+		out 	(gpio_out),A
+		endif
 
 		call	PIO_Init
-	ifd 	GPIODEBUG
-	ld 		A,$CC
-	out 	(gpio_out),A
-	endif
+		ifd 	GPIODEBUG
+		ld 		A,$CC
+		out 	(gpio_out),A
+		endif
 
 		call 	CTC_Init
-	ifd 	GPIODEBUG
-	ld 		A,$DD
-	out 	(gpio_out),A
-	endif
+		ifd 	GPIODEBUG
+		ld 		A,$DD
+		out 	(gpio_out),A
+		endif
 
 		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-	ifd 	GPIODEBUG
-	ld 		A,$DF
-	out 	(gpio_out),A
-	endif
+		ifd 	GPIODEBUG
+		ld 		A,$DF
+		out 	(gpio_out),A
+		endif
 
 		call	S_head_tail			; save input heads and tails
-	ifd 	GPIODEBUG
-	ld 		A,$81
-	out 	(gpio_out),A
-	endif
+		ifd 	GPIODEBUG
+		ld 		A,$81
+		out 	(gpio_out),A
+		endif
 
 		; call	sh_test
 		; call 	Flash_WR_Test
 		; ld	HL,$2010
 		; call	Flash_SE_Erase
-			ld 		iy,testdumpText
-			call	WriteLineCRNL
 
 
 		call	CRLF
@@ -381,24 +380,24 @@ MONITOR_Start:
 		defb	"    build: @@DATE@@\r\n"
 		defb	"    FLASH->SRAM 0xD000.\r\n"
 		defb	"\0"
+		call 	waitForFinishedPrintout
 
 
-	ifd 	GPIODEBUG
-	ld 		A,$83
-	out 	(gpio_out),A
-	endif
+		ifd 	GPIODEBUG
+		ld 		A,$83
+		out 	(gpio_out),A
+		endif
 		call	CRLF
-	jr  next_line
+		jr  next_line
 
-testdumpText: defb		" Test Dump Test Dump ABC123\r\n",0
 
 next_line:
 
 		call 	initCommParseTable			; Put zeros.....
-	ifd 	GPIODEBUG
-	ld 		A,$85
-	out 	(gpio_out),A
-	endif
+		ifd 	GPIODEBUG
+		ld 		A,$85
+		out 	(gpio_out),A
+		endif
 
 		; ***	indicate memory banks   F[x]  Flash memory bank x
 		; ***	indicate memory banks   S[y]  SRAM memory bank y
@@ -434,10 +433,10 @@ useFlash:
 		ld  	(HL),']'
 		inc 	HL
 
-	ifd 	GPIODEBUG	
-	ld 		A,$87
-	out 	(gpio_out),A
-	endif
+		ifd 	GPIODEBUG	
+		ld 		A,$87
+		out 	(gpio_out),A
+		endif
 
 	; 	*** Print prompt text to screen, value of PC and content in memory
 		ld 		DE,(PCvalue)
