@@ -119,8 +119,8 @@
 		; Code in $D008-D00D = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
 		; Code in $D008-D00D = $33333333: code uploaded from Arduino. Do not copy from flash, 
 	*/
-	PROVIDE( BootCode		=	0x33333333);	
-/*	PROVIDE( BootCode		=	0xCCCCCCCC);		*/
+/*	PROVIDE( BootCode		=	0x33333333);	*/
+	PROVIDE( BootCode		=	0xCCCCCCCC);		
 	PROVIDE( BootCodeAdr	=	_RAMSTART+8);	
 
 	SECTIONS
