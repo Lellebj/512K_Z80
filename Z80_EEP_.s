@@ -37,6 +37,9 @@ EPS1:
 		;jp	DumpRegisters
 		jp	setBanks
 
+		align 3
+		defb	"    build: @@DATE@@\r\n"
+	
 
 ;********************************************************
 		section  INT_IM1     ;FLASH mem at 0066h

@@ -1,5 +1,5 @@
 Sections:
-00: "FLASH_Startup" (0-3B)
+00: "FLASH_Startup" (0-5D)
 01: "INT_IM1" (0-C)
 02: "INIT_BODY" (0-A8)
 
@@ -321,633 +321,639 @@ Source: "stdin"
                         	    37: 		;jp	DumpRegisters
 00:0038 C30000          	    38: 		jp	setBanks
                         	    39: 
-                        	    40: 
-                        	    41: ;********************************************************
-                        	    42: 		section  INT_IM1     ;FLASH mem at 0066h
-                        	    43: ;********************************************************
-                        	    44: 
-01:0000 0E04            	    45: 		LD C,04		; jp PIO_A_INT
-01:0002 0E04            	    46: 		LD C,04		; jp PIO_A_INT
-01:0004 0E04            	    47: 		LD C,04		; jp PIO_A_INT
-01:0006 1604            	    48: 		LD D,04		; jp PIO_A_INT
-01:0008 ED45            	    49: 		retn		; jp PIO_A_INT
-01:000A 0004            	    50: 		defw $0400          ; NMI adress table    
-                        	    51: 
-                        	    52: 
-                        	    53: 
-                        	    54: ;************************************************************************************************
-                        	    55: ;************************************************************************************************
-                        	    56: ;***		FLASH startup sequence (starts at $0080)
+                        	    40: 		align 3
+00:0040 202020206275696C	    41: 		defb	"    build: 2026-02-28_14:19\r\n"
+00:0048 643A20323032362D
+00:0050 30322D32385F3134
+00:0058 3A31390D0A
+                        	    42: 	
+                        	    43: 
+                        	    44: ;********************************************************
+                        	    45: 		section  INT_IM1     ;FLASH mem at 0066h
+                        	    46: ;********************************************************
+                        	    47: 
+01:0000 0E04            	    48: 		LD C,04		; jp PIO_A_INT
+01:0002 0E04            	    49: 		LD C,04		; jp PIO_A_INT
+01:0004 0E04            	    50: 		LD C,04		; jp PIO_A_INT
+01:0006 1604            	    51: 		LD D,04		; jp PIO_A_INT
+01:0008 ED45            	    52: 		retn		; jp PIO_A_INT
+01:000A 0004            	    53: 		defw $0400          ; NMI adress table    
+                        	    54: 
+                        	    55: 
+                        	    56: 
                         	    57: ;************************************************************************************************
                         	    58: ;************************************************************************************************
-                        	    59: ;********************************************************
-                        	    60: 		section  INIT_BODY     ;FLASH mem at 0080h
-                        	    61: ;********************************************************
-                        	    62: 
-                        	    63: 		align 4
-                        	    64: setBanks:
-                        	    65: 		; ld 		A,$80					; set bit 7 - SRAM64 set
-                        	    66: 		; ld 		(memBankID),A			; clear memory banks
-                        	    67: 		
-02:0000 CD8500          	    68: 		call 	EEPIO_Init
-                        	    69: 		
-                        	    70: 	ifd 	GPIODEBUG
-02:0003 3E55            	    71: 		ld 		A,$55
-02:0005 D302            	    72: 		out 	(gpio_out),A
-                        	    73: 	endif
-                        	    74: 
-02:0007 AF              	    75: 		xor 	A					; A=0
-02:0008 320000          	    76: 		ld 		(memBankID),A		; set memory banks #0
-                        	    77: 	ifd NOFLASH
-                        	    78: 		call 	disableFLASH		; NO FLASH 
-                        	    79: 	else	
-02:000B CD5900          	    80: 		call 	enableFLASH			; start from FLASH
-                        	    81: 	endif
-                        	    82: 
-02:000E AF              	    83: 		xor 	A
-02:000F CD3600          	    84: 		call 	setSRAMBank			; ram bank #0
+                        	    59: ;***		FLASH startup sequence (starts at $0080)
+                        	    60: ;************************************************************************************************
+                        	    61: ;************************************************************************************************
+                        	    62: ;********************************************************
+                        	    63: 		section  INIT_BODY     ;FLASH mem at 0080h
+                        	    64: ;********************************************************
+                        	    65: 
+                        	    66: 		align 4
+                        	    67: setBanks:
+                        	    68: 		; ld 		A,$80					; set bit 7 - SRAM64 set
+                        	    69: 		; ld 		(memBankID),A			; clear memory banks
+                        	    70: 		
+02:0000 CD8500          	    71: 		call 	EEPIO_Init
+                        	    72: 		
+                        	    73: 	ifd 	GPIODEBUG
+02:0003 3E55            	    74: 		ld 		A,$55
+02:0005 D302            	    75: 		out 	(gpio_out),A
+                        	    76: 	endif
+                        	    77: 
+02:0007 AF              	    78: 		xor 	A					; A=0
+02:0008 320000          	    79: 		ld 		(memBankID),A		; set memory banks #0
+                        	    80: 	ifd NOFLASH
+                        	    81: 		call 	disableFLASH		; NO FLASH 
+                        	    82: 	else	
+02:000B CD5900          	    83: 		call 	enableFLASH			; start from FLASH
+                        	    84: 	endif
                         	    85: 
-                        	    86: 	ifd 	GPIODEBUG
-02:0012 3E77            	    87: 		ld 		A,$77
-02:0014 D302            	    88: 		out 	(gpio_out),A
-                        	    89: 	endif
-                        	    90: 
-                        	    91: 
-02:0016 CD7C00          	    92: 		call 	enableIC620_OE 		; enable the outputs.
+02:000E AF              	    86: 		xor 	A
+02:000F CD3600          	    87: 		call 	setSRAMBank			; ram bank #0
+                        	    88: 
+                        	    89: 	ifd 	GPIODEBUG
+02:0012 3E77            	    90: 		ld 		A,$77
+02:0014 D302            	    91: 		out 	(gpio_out),A
+                        	    92: 	endif
                         	    93: 
-02:0019 C30000          	    94: 		jp		SD_USB_startup
-                        	    95: 	
-                        	    96: ;********************************************************************************************
-                        	    97: ;********************************************************************************************	
-                        	    98: 		; ******   Copy data from flash $400 to $2000 to SRAM $D000
-                        	    99: 		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
-                        	   100: 		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
-                        	   101: 
-02:001C 2102D0          	   102: 		ld 		HL,$D002
-02:001F 3E43            	   103: 		ld  	A,'C'
-02:0021 010400          	   104: 		ld 		BC,04
-                        	   105: 
-02:0024 EDA1            	   106: .nxt:	cpi 	
-02:0026 2003            	   107: 		jr 		NZ,doCopy
-02:0028 EA2400          	   108: 		jp 		PE,.nxt
-                        	   109: 		;JP PE means "branch if BC has not been decremented to 0."
-                        	   110: 
-                        	   111: 		; the code 'CCCC' is found in $D002-D005, do not copy from flashmem.
-                        	   112: 		; jp		MONITOR_Start
+                        	    94: 
+02:0016 CD7C00          	    95: 		call 	enableIC620_OE 		; enable the outputs.
+                        	    96: 
+02:0019 C30000          	    97: 		jp		SD_USB_startup
+                        	    98: 	
+                        	    99: ;********************************************************************************************
+                        	   100: ;********************************************************************************************	
+                        	   101: 		; ******   Copy data from flash $400 to $2000 to SRAM $D000
+                        	   102: 		; Code in $D002-D005 = '0000' - 'AAAA': copy from flash
+                        	   103: 		; Code in $D002-D005 = 'CCCC': code uploaded from xmodem/or DMA. Do not copy from flash
+                        	   104: 
+02:001C 2102D0          	   105: 		ld 		HL,$D002
+02:001F 3E43            	   106: 		ld  	A,'C'
+02:0021 010400          	   107: 		ld 		BC,04
+                        	   108: 
+02:0024 EDA1            	   109: .nxt:	cpi 	
+02:0026 2003            	   110: 		jr 		NZ,doCopy
+02:0028 EA2400          	   111: 		jp 		PE,.nxt
+                        	   112: 		;JP PE means "branch if BC has not been decremented to 0."
                         	   113: 
-                        	   114: doCopy:
-02:002B 210004          	   115: 		ld 		HL,$400				; source
-02:002E 1100D0          	   116: 		ld 		DE,$D000	 			; destination
-02:0031 01F01F          	   117: 		ld 		BC,$1FF0				; 
-                        	   118: 
-02:0034 EDB0            	   119: 		ldir
-                        	   120: 
-                        	   121: 		; jp		MONITOR_Start
-                        	   122: 
+                        	   114: 		; the code 'CCCC' is found in $D002-D005, do not copy from flashmem.
+                        	   115: 		; jp		MONITOR_Start
+                        	   116: 
+                        	   117: doCopy:
+02:002B 210004          	   118: 		ld 		HL,$400				; source
+02:002E 1100D0          	   119: 		ld 		DE,$D000	 			; destination
+02:0031 01F01F          	   120: 		ld 		BC,$1FF0				; 
+                        	   121: 
+02:0034 EDB0            	   122: 		ldir
                         	   123: 
-                        	   124: ;********************************************************************************************
-                        	   125: ;********************************************************************************************	
-                        	   126: setSRAMBank:
-                        	   127: 		; ***	set the SRAM bank ID; Bank ID in A
-                        	   128: 
-02:0036 E5              	   129: 		push 	HL
-02:0037 C5              	   130: 		push 	BC
-02:0038 210000          	   131: 		ld 		HL,memBankID
-02:003B E60F            	   132: 		and 	$0F 				; clear all bits but 0-3 in A
-                        	   133: 
-02:003D 47              	   134: 		ld 		B,A
-02:003E 7E              	   135: 		ld 		A,(HL)				; get the actl. mem Bank ID
-02:003F E6F0            	   136: 		and 	$F0  				; zero bits 0-3
-02:0041 180F            	   137: 		jr 		putBank
-                        	   138: 
-                        	   139: ;********************************************************************************************
-                        	   140: ;********************************************************************************************	
+                        	   124: 		; jp		MONITOR_Start
+                        	   125: 
+                        	   126: 
+                        	   127: ;********************************************************************************************
+                        	   128: ;********************************************************************************************	
+                        	   129: setSRAMBank:
+                        	   130: 		; ***	set the SRAM bank ID; Bank ID in A
+                        	   131: 
+02:0036 E5              	   132: 		push 	HL
+02:0037 C5              	   133: 		push 	BC
+02:0038 210000          	   134: 		ld 		HL,memBankID
+02:003B E60F            	   135: 		and 	$0F 				; clear all bits but 0-3 in A
+                        	   136: 
+02:003D 47              	   137: 		ld 		B,A
+02:003E 7E              	   138: 		ld 		A,(HL)				; get the actl. mem Bank ID
+02:003F E6F0            	   139: 		and 	$F0  				; zero bits 0-3
+02:0041 180F            	   140: 		jr 		putBank
                         	   141: 
-                        	   142: setFLASHBank:
-                        	   143: 		; ***	set the FLASH bank ID; Bank ID in A
+                        	   142: ;********************************************************************************************
+                        	   143: ;********************************************************************************************	
                         	   144: 
-02:0043 E5              	   145: 		push 	HL
-02:0044 C5              	   146: 		push 	BC
-02:0045 210000          	   147: 		ld 		HL,memBankID
-02:0048 E607            	   148: 		and 	$07 				; clear all bits but 0-2
-02:004A 07              	   149: 		rlca
-02:004B 07              	   150: 		rlca
-02:004C 07              	   151: 		rlca
-02:004D 07              	   152: 		rlca						; bank ID = bits 4-6
-                        	   153: 
-02:004E 47              	   154: 		ld 		B,A
-02:004F 7E              	   155: 		ld 		A,(HL)				; get the actl. mem Bank ID
-02:0050 E68F            	   156: 		and 	$8F  				; zero bits 4-6
-                        	   157: putBank:
-02:0052 B0              	   158: 		or 		B					; put new EEP bank ID in A...
-02:0053 77              	   159: 		ld 		(HL),A				; store new value
-02:0054 D300            	   160: 		out 	(_Z80_BankCS),A		; set bank register number 0 and 64K_SRAM=1	
-02:0056 C1              	   161: 		pop 	BC
-02:0057 E1              	   162: 		pop 	HL
-02:0058 C9              	   163: 		ret 
-                        	   164: 
-                        	   165: ;********************************************************************************************
-                        	   166: ;********************************************************************************************	
-                        	   167: enableFLASH:
-                        	   168: 		; ***	activate FLASH MEM, leave bank ID unchanged; 
-                        	   169: 				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
-                        	   170: 				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
-02:0059 E5              	   171: 		push 	HL
-02:005A C5              	   172: 		push 	BC
-02:005B 210000          	   173: 		ld 		HL,rstBankID
-02:005E CB9E            	   174: 		res 	3,(HL)				; clear bit 3 -> enable FLASH
-02:0060 CB96            	   175: 		res 	2,(HL)				; temp enable reset of IC622
-                        	   176: putBankF:
-02:0062 7E              	   177: 		ld 		A,(HL)
-02:0063 D300            	   178: 		out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
-02:0065 C1              	   179: 		pop 	BC
-02:0066 E1              	   180: 		pop 	HL
-02:0067 C9              	   181: 		ret 
-                        	   182: 		
-                        	   183: ;********************************************************************************************
-                        	   184: ;********************************************************************************************	
-                        	   185: disableFLASH:
-                        	   186: 		; ***	disconnect FLASH MEM, leave bank ID unchanged; 
-                        	   187: 				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
-                        	   188: 				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
-02:0068 E5              	   189: 		push 	HL
-02:0069 C5              	   190: 		push 	BC
-02:006A 210000          	   191: 		ld 		HL,rstBankID
-02:006D CBD6            	   192: 		set 	2,(HL) 			; temp disable reset of IC622
-02:006F CBDE            	   193: 		set 	3,(HL)			; set bit 3 -> disable FLASH
-02:0071 18EF            	   194: 		jr 		putBankF
-                        	   195: 
-                        	   196: ;********************************************************************************************
-                        	   197: ;********************************************************************************************	
+                        	   145: setFLASHBank:
+                        	   146: 		; ***	set the FLASH bank ID; Bank ID in A
+                        	   147: 
+02:0043 E5              	   148: 		push 	HL
+02:0044 C5              	   149: 		push 	BC
+02:0045 210000          	   150: 		ld 		HL,memBankID
+02:0048 E607            	   151: 		and 	$07 				; clear all bits but 0-2
+02:004A 07              	   152: 		rlca
+02:004B 07              	   153: 		rlca
+02:004C 07              	   154: 		rlca
+02:004D 07              	   155: 		rlca						; bank ID = bits 4-6
+                        	   156: 
+02:004E 47              	   157: 		ld 		B,A
+02:004F 7E              	   158: 		ld 		A,(HL)				; get the actl. mem Bank ID
+02:0050 E68F            	   159: 		and 	$8F  				; zero bits 4-6
+                        	   160: putBank:
+02:0052 B0              	   161: 		or 		B					; put new EEP bank ID in A...
+02:0053 77              	   162: 		ld 		(HL),A				; store new value
+02:0054 D300            	   163: 		out 	(_Z80_BankCS),A		; set bank register number 0 and 64K_SRAM=1	
+02:0056 C1              	   164: 		pop 	BC
+02:0057 E1              	   165: 		pop 	HL
+02:0058 C9              	   166: 		ret 
+                        	   167: 
+                        	   168: ;********************************************************************************************
+                        	   169: ;********************************************************************************************	
+                        	   170: enableFLASH:
+                        	   171: 		; ***	activate FLASH MEM, leave bank ID unchanged; 
+                        	   172: 				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
+                        	   173: 				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+02:0059 E5              	   174: 		push 	HL
+02:005A C5              	   175: 		push 	BC
+02:005B 210000          	   176: 		ld 		HL,rstBankID
+02:005E CB9E            	   177: 		res 	3,(HL)				; clear bit 3 -> enable FLASH
+02:0060 CB96            	   178: 		res 	2,(HL)				; temp enable reset of IC622
+                        	   179: putBankF:
+02:0062 7E              	   180: 		ld 		A,(HL)
+02:0063 D300            	   181: 		out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
+02:0065 C1              	   182: 		pop 	BC
+02:0066 E1              	   183: 		pop 	HL
+02:0067 C9              	   184: 		ret 
+                        	   185: 		
+                        	   186: ;********************************************************************************************
+                        	   187: ;********************************************************************************************	
+                        	   188: disableFLASH:
+                        	   189: 		; ***	disconnect FLASH MEM, leave bank ID unchanged; 
+                        	   190: 				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
+                        	   191: 				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+02:0068 E5              	   192: 		push 	HL
+02:0069 C5              	   193: 		push 	BC
+02:006A 210000          	   194: 		ld 		HL,rstBankID
+02:006D CBD6            	   195: 		set 	2,(HL) 			; temp disable reset of IC622
+02:006F CBDE            	   196: 		set 	3,(HL)			; set bit 3 -> disable FLASH
+02:0071 18EF            	   197: 		jr 		putBankF
                         	   198: 
-                        	   199: 
-                        	   200: disableIC620_OE:
-                        	   201: 		; ***	Set IC620 pin 1 high
-02:0073 E5              	   202: 		push 	HL
-02:0074 C5              	   203: 		push 	BC
-02:0075 210000          	   204: 		ld 		HL,rstBankID
-02:0078 CB86            	   205: 		res 	0,(HL)
-02:007A 18E6            	   206: 		jr 		putBankF
-                        	   207: 
-                        	   208: 
-                        	   209: ;********************************************************************************************
-                        	   210: ;********************************************************************************************	
+                        	   199: ;********************************************************************************************
+                        	   200: ;********************************************************************************************	
+                        	   201: 
+                        	   202: 
+                        	   203: disableIC620_OE:
+                        	   204: 		; ***	Set IC620 pin 1 high
+02:0073 E5              	   205: 		push 	HL
+02:0074 C5              	   206: 		push 	BC
+02:0075 210000          	   207: 		ld 		HL,rstBankID
+02:0078 CB86            	   208: 		res 	0,(HL)
+02:007A 18E6            	   209: 		jr 		putBankF
+                        	   210: 
                         	   211: 
-                        	   212: enableIC620_OE: 
-                        	   213: 		; ***	Set IC620 pin 1 low
-02:007C E5              	   214: 		push 	HL
-02:007D C5              	   215: 		push 	BC
-02:007E 210000          	   216: 		ld 		HL,rstBankID
-02:0081 CBC6            	   217: 		set 	0,(HL)
-02:0083 18DD            	   218: 		jr 		putBankF
-                        	   219: 
-                        	   220: 
-                        	   221: ;********************************************************************************************
-                        	   222: ;********************************************************************************************	
+                        	   212: ;********************************************************************************************
+                        	   213: ;********************************************************************************************	
+                        	   214: 
+                        	   215: enableIC620_OE: 
+                        	   216: 		; ***	Set IC620 pin 1 low
+02:007C E5              	   217: 		push 	HL
+02:007D C5              	   218: 		push 	BC
+02:007E 210000          	   219: 		ld 		HL,rstBankID
+02:0081 CBC6            	   220: 		set 	0,(HL)
+02:0083 18DD            	   221: 		jr 		putBankF
+                        	   222: 
                         	   223: 
-                        	   224: 		; out (_8Bitsout),A
-                        	   225: ; 
-                        	   226: EEPIO_Init:
-                        	   227: ; ;----------******************* PIO PORT A
-02:0085 3E0F            	   228: 		ld A, $0F                 ;mode 1 out
-02:0087 D301            	   229: 		out (portA_Contr), A         ; set port A as output
-                        	   230: ; 		ld A, Interupt_vector&0xFF                   ; low byte of INT table
-                        	   231: ; 		out (portA_Contr), A         ; PIO A interrupt vector
-02:0089 3E03            	   232: 		ld A, $03
-02:008B D301            	   233: 		out (portA_Contr), A         ; PIO A interrupt disable
-                        	   234: ; 		ld a,Interupt_vector>>8                   ; high byte of INT table
-                        	   235: ; 		ld I,A
-                        	   236: ; 		ei
-                        	   237: ; ;----------******************* PIO PORT B
-02:008D 3E0F            	   238:  		ld A, $0F                    ;mode 0 output 
-02:008F D303            	   239:  		out (portB_Contr), A         ; set port B as output
-02:0091 3E03            	   240:  		ld A, $03
-02:0093 D303            	   241:  		out (portB_Contr), A         ; PIO B interrupt disable
-02:0095 3E00            	   242:  		ld a,0
-02:0097 32D0F1          	   243:  		ld (PIO_B_value),a
-02:009A D302            	   244:  		out (portB_Data), a
-02:009C C9              	   245: 	ret
-                        	   246:  
-                        	   247: 
-                        	   248: 
-                        	   249: 		
-                        	   250: ; ;********************************************************		
-                        	   251: ; 		section EEtestprog			; main program in sram
-                        	   252: ; ;********************************************************	
-                        	   253: 
-                        	   254: ; 		; xdef	RDATA_END,RDATA,TB_length
-                        	   255: ; hit:
+                        	   224: ;********************************************************************************************
+                        	   225: ;********************************************************************************************	
+                        	   226: 
+                        	   227: 		; out (_8Bitsout),A
+                        	   228: ; 
+                        	   229: EEPIO_Init:
+                        	   230: ; ;----------******************* PIO PORT A
+02:0085 3E0F            	   231: 		ld A, $0F                 ;mode 1 out
+02:0087 D301            	   232: 		out (portA_Contr), A         ; set port A as output
+                        	   233: ; 		ld A, Interupt_vector&0xFF                   ; low byte of INT table
+                        	   234: ; 		out (portA_Contr), A         ; PIO A interrupt vector
+02:0089 3E03            	   235: 		ld A, $03
+02:008B D301            	   236: 		out (portA_Contr), A         ; PIO A interrupt disable
+                        	   237: ; 		ld a,Interupt_vector>>8                   ; high byte of INT table
+                        	   238: ; 		ld I,A
+                        	   239: ; 		ei
+                        	   240: ; ;----------******************* PIO PORT B
+02:008D 3E0F            	   241:  		ld A, $0F                    ;mode 0 output 
+02:008F D303            	   242:  		out (portB_Contr), A         ; set port B as output
+02:0091 3E03            	   243:  		ld A, $03
+02:0093 D303            	   244:  		out (portB_Contr), A         ; PIO B interrupt disable
+02:0095 3E00            	   245:  		ld a,0
+02:0097 32D0F1          	   246:  		ld (PIO_B_value),a
+02:009A D302            	   247:  		out (portB_Data), a
+02:009C C9              	   248: 	ret
+                        	   249:  
+                        	   250: 
+                        	   251: 
+                        	   252: 		
+                        	   253: ; ;********************************************************		
+                        	   254: ; 		section EEtestprog			; main program in sram
+                        	   255: ; ;********************************************************	
                         	   256: 
-                        	   257: ; 		call	EEPIO_Init
-                        	   258: ; 		di
-                        	   259: ; hit3:
-                        	   260: ; 		LD 		A,$81
-                        	   261: ; 		; out 	(_CE_RST_BANK),A
-                        	   262: ; 		out 	(gpio_out),A
-                        	   263: 
-                        	   264: 
-                        	   265: ; 		LD 		A,$7E
-                        	   266: ; 		; out 	(_Z80_BankCS),A
-                        	   267: ; 		out 	(gpio_out),A
-                        	   268: 
-                        	   269: ; 		ld 		ix,$8000
-                        	   270: 
-                        	   271: ; 		ld 		bc,$0F00
-                        	   272: ; 		ld 		A,$3F
-                        	   273: ; 		ld 		(IX+0),A
-                        	   274: ; 		inc 	IX
-                        	   275: ; .nxt1:
+                        	   257: ; 		; xdef	RDATA_END,RDATA,TB_length
+                        	   258: ; hit:
+                        	   259: 
+                        	   260: ; 		call	EEPIO_Init
+                        	   261: ; 		di
+                        	   262: ; hit3:
+                        	   263: ; 		LD 		A,$81
+                        	   264: ; 		; out 	(_CE_RST_BANK),A
+                        	   265: ; 		out 	(gpio_out),A
+                        	   266: 
+                        	   267: 
+                        	   268: ; 		LD 		A,$7E
+                        	   269: ; 		; out 	(_Z80_BankCS),A
+                        	   270: ; 		out 	(gpio_out),A
+                        	   271: 
+                        	   272: ; 		ld 		ix,$8000
+                        	   273: 
+                        	   274: ; 		ld 		bc,$0F00
+                        	   275: ; 		ld 		A,$3F
                         	   276: ; 		ld 		(IX+0),A
-                        	   277: ; 		out 	(gpio_out),A
-                        	   278: ; 		inc 	IX
-                        	   279: ; 		inc 	A
-                        	   280: ; 		djnz 	.nxt1			
-                        	   281: 
-                        	   282: ; ;***********************************
-                        	   283: ; 	 	ld 		A,$1B
-                        	   284: ; 		out 	(gpio_out),A
-                        	   285: ; 		out 	(gpio_out),A
-                        	   286: ; 	 	ld 		A,$E3
+                        	   277: ; 		inc 	IX
+                        	   278: ; .nxt1:
+                        	   279: ; 		ld 		(IX+0),A
+                        	   280: ; 		out 	(gpio_out),A
+                        	   281: ; 		inc 	IX
+                        	   282: ; 		inc 	A
+                        	   283: ; 		djnz 	.nxt1			
+                        	   284: 
+                        	   285: ; ;***********************************
+                        	   286: ; 	 	ld 		A,$1B
                         	   287: ; 		out 	(gpio_out),A
-                        	   288: ; 		ld 		A,$0C
-                        	   289: ; 		out 	(gpio_out),A
-                        	   290: 		
-                        	   291: ; 		ld 		A,$0F
+                        	   288: ; 		out 	(gpio_out),A
+                        	   289: ; 	 	ld 		A,$E3
+                        	   290: ; 		out 	(gpio_out),A
+                        	   291: ; 		ld 		A,$0C
                         	   292: ; 		out 	(gpio_out),A
-                        	   293: 
-                        	   294: ; 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-                        	   295: ; 			; initialize buffer counters and pointers.
+                        	   293: 		
+                        	   294: ; 		ld 		A,$0F
+                        	   295: ; 		out 	(gpio_out),A
                         	   296: 
-                        	   297: 
-                        	   298: ; 		call 	CTC_Init
+                        	   297: ; 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+                        	   298: ; 			; initialize buffer counters and pointers.
                         	   299: 
                         	   300: 
-                        	   301: ; 		ld 		A,$1D
-                        	   302: ; 		out 	(gpio_out),A
-                        	   303: ; 		ld 		A,$00
-                        	   304: ; 		out 	(gpio_out),A
-                        	   305: 
-                        	   306: ; 		call 	SIO_Init
-                        	   307: ; 		; ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
-                        	   308: ; 		; call    InitSIO_0Ports			; INITIALIZE SIO_0
-                        	   309: 
-                        	   310: 
-                        	   311: ; 		ld 		A,$1E
-                        	   312: ; 		out 	(gpio_out),A
+                        	   301: ; 		call 	CTC_Init
+                        	   302: 
+                        	   303: 
+                        	   304: ; 		ld 		A,$1D
+                        	   305: ; 		out 	(gpio_out),A
+                        	   306: ; 		ld 		A,$00
+                        	   307: ; 		out 	(gpio_out),A
+                        	   308: 
+                        	   309: ; 		call 	SIO_Init
+                        	   310: ; 		; ld      HL,SIO_0INT		;BASE ADDRESS OF INITIALIZATION ARRAY
+                        	   311: ; 		; call    InitSIO_0Ports			; INITIALIZE SIO_0
+                        	   312: 
                         	   313: 
-                        	   314: ; 		; ld 		A,'#'
-                        	   315: ; 		; out		(SIO_A_D),A			;output data
-                        	   316: ; 		; call 	TX_EMP
-                        	   317: 
-                        	   318: ; 		; ld 		A,$18
-                        	   319: ; 		; out 	(gpio_out),A
+                        	   314: ; 		ld 		A,$1E
+                        	   315: ; 		out 	(gpio_out),A
+                        	   316: 
+                        	   317: ; 		; ld 		A,'#'
+                        	   318: ; 		; out		(SIO_A_D),A			;output data
+                        	   319: ; 		; call 	TX_EMP
                         	   320: 
-                        	   321: ; 		; ld 		A,'A'
-                        	   322: ; 		; call  	WriteChar
+                        	   321: ; 		; ld 		A,$18
+                        	   322: ; 		; out 	(gpio_out),A
                         	   323: 
-                        	   324: ; 		; ld 		A,'B'
+                        	   324: ; 		; ld 		A,'A'
                         	   325: ; 		; call  	WriteChar
                         	   326: 
-                        	   327: ; 		; ld 		A,'C'
+                        	   327: ; 		; ld 		A,'B'
                         	   328: ; 		; call  	WriteChar
-                        	   329: ; 		; call 	CRLF
-                        	   330: 
-                        	   331: ; 		call 	writeSTRBelow
-                        	   332: ; 		defb   	"\0\r\n"
-                        	   333: ; 		defb	"##########################################################\r\n"
-                        	   334: ; 		defb	"-*-*/-*/-*/-*/-*//-*/-*/-*/-*/-*/-*/**-/-*/-*/-*/-*/-*/-*/\r\n"
-                        	   335: ; 		defb	"-+-+-+-+-+-+-+---++--++--++--++--++--+++-+-+-+-+-+-+-+-+-+\r\n"
-                        	   336: ; 		defb	"The Z80 Board Awakened 2025\r\n"
-                        	   337: ; 		defb	"    FLASH->SRAM 0xD000.\r\n"
-                        	   338: ; 		defb	"    2026-02-07 .\r\n"
-                        	   339: ; 		defb	"\0\0"
-                        	   340: 
-                        	   341: ; 		halt
-                        	   342: 
+                        	   329: 
+                        	   330: ; 		; ld 		A,'C'
+                        	   331: ; 		; call  	WriteChar
+                        	   332: ; 		; call 	CRLF
+                        	   333: 
+                        	   334: ; 		call 	writeSTRBelow
+                        	   335: ; 		defb   	"\0\r\n"
+                        	   336: ; 		defb	"##########################################################\r\n"
+                        	   337: ; 		defb	"-*-*/-*/-*/-*/-*//-*/-*/-*/-*/-*/-*/**-/-*/-*/-*/-*/-*/-*/\r\n"
+                        	   338: ; 		defb	"-+-+-+-+-+-+-+---++--++--++--++--++--+++-+-+-+-+-+-+-+-+-+\r\n"
+                        	   339: ; 		defb	"The Z80 Board Awakened 2025\r\n"
+                        	   340: ; 		defb	"    FLASH->SRAM 0xD000.\r\n"
+                        	   341: ; 		defb	"    2026-02-07 .\r\n"
+                        	   342: ; 		defb	"\0\0"
                         	   343: 
-                        	   344: ; ;***************************
-                        	   345: ; 		halt
-                        	   346: ; ;**************************
-                        	   347: ; 		ld  	HL,$0402
-                        	   348: 
-                        	   349: ; 		call 	EEPIO_Init
-                        	   350: ; 		LD 		A,$30
+                        	   344: ; 		halt
+                        	   345: 
+                        	   346: 
+                        	   347: ; ;***************************
+                        	   348: ; 		halt
+                        	   349: ; ;**************************
+                        	   350: ; 		ld  	HL,$0402
                         	   351: 
-                        	   352: ; 		ld 		B,$40
-                        	   353: ; hit2:		
-                        	   354: ; 		ld 		(HL),a
-                        	   355: ; 		inc 	a
-                        	   356: ; 		INC 	HL
-                        	   357: ; 		out 	(gpio_in),A
-                        	   358: 
-                        	   359: 	
-                        	   360: ; 		djnz 	hit2
-                        	   361: 	
-                        	   362: ; 		LD 		(hl),a
-                        	   363: ; 		inc 	a
-                        	   364: ; 		INC 	HL
-                        	   365: ; 		out 	(gpio_in),A
-                        	   366: ; 		LD 		(hl),a
-                        	   367: ; 		inc 	a
-                        	   368: ; 		INC 	HL
-                        	   369: ; 		out 	(gpio_in),A
-                        	   370: ; 		LD 		(hl),a
-                        	   371: ; 		inc 	a
-                        	   372: ; 		INC 	HL
-                        	   373: ; 		out 	(gpio_in),A
-                        	   374: ; 		LD 		(hl),a
-                        	   375: 
-                        	   376: ; 		LD 		A,$0C
-                        	   377: ; 		out 	(_CE_RST_BANK),A
+                        	   352: ; 		call 	EEPIO_Init
+                        	   353: ; 		LD 		A,$30
+                        	   354: 
+                        	   355: ; 		ld 		B,$40
+                        	   356: ; hit2:		
+                        	   357: ; 		ld 		(HL),a
+                        	   358: ; 		inc 	a
+                        	   359: ; 		INC 	HL
+                        	   360: ; 		out 	(gpio_in),A
+                        	   361: 
+                        	   362: 	
+                        	   363: ; 		djnz 	hit2
+                        	   364: 	
+                        	   365: ; 		LD 		(hl),a
+                        	   366: ; 		inc 	a
+                        	   367: ; 		INC 	HL
+                        	   368: ; 		out 	(gpio_in),A
+                        	   369: ; 		LD 		(hl),a
+                        	   370: ; 		inc 	a
+                        	   371: ; 		INC 	HL
+                        	   372: ; 		out 	(gpio_in),A
+                        	   373: ; 		LD 		(hl),a
+                        	   374: ; 		inc 	a
+                        	   375: ; 		INC 	HL
+                        	   376: ; 		out 	(gpio_in),A
+                        	   377: ; 		LD 		(hl),a
                         	   378: 
-                        	   379: 		
-                        	   380: 
-02:009D 97              	   381: TX_EMP:	sub a
-02:009E 3C              	   382: 		inc a
-02:009F D302            	   383: 		out (SIO_A_C),A
-02:00A1 DB02            	   384: 		in 	a,(SIO_A_C)
-02:00A3 CB47            	   385: 		bit 0,A
-02:00A5 28F6            	   386: 		jr  z,TX_EMP
-02:00A7 C9              	   387: 		ret
-                        	   388: 
-                        	   389: 
-                        	   390: 
+                        	   379: ; 		LD 		A,$0C
+                        	   380: ; 		out 	(_CE_RST_BANK),A
+                        	   381: 
+                        	   382: 		
+                        	   383: 
+02:009D 97              	   384: TX_EMP:	sub a
+02:009E 3C              	   385: 		inc a
+02:009F D302            	   386: 		out (SIO_A_C),A
+02:00A1 DB02            	   387: 		in 	a,(SIO_A_C)
+02:00A3 CB47            	   388: 		bit 0,A
+02:00A5 28F6            	   389: 		jr  z,TX_EMP
+02:00A7 C9              	   390: 		ret
                         	   391: 
-                        	   392: .end
+                        	   392: 
                         	   393: 
                         	   394: 
-                        	   395: ;************************************************************************
-                        	   396: ; ShowPC_HALT:
-                        	   397: ; Dump prog counter prior to HALT instr. value present in stack (pointed by SP).
-                        	   398: ; uses  IX (pointer to HEX chars)
-                        	   399: ;       IY (pointer at stack)
-                        	   400: ;       BC ( count)
-                        	   401: ; ;       HL (value for conversion to HEX)
-                        	   402: ; ;       DE (positon of display 2004A)
-                        	   403: 	if DOALIGN
-                        	   404: 		align 8
-                        	   405: 	endif
-                        	   406:             
-                        	   407: ; ShowPC_HALT:
-                        	   408: ; 		ld (SP_value), SP	; save contents of SP
-                        	   409: ; 		push AF
-                        	   410: ; 		push BC
-                        	   411: ; 		push DE
-                        	   412: ; 		push HL
-                        	   413: ; 		ld HL,(SP_value)
-                        	   414: ; 		push HL				; push the SP value on the stack...
-                        	   415: ; 		push IX
-                        	   416: ; 		Push IY
-                        	   417: 
-                        	   418: 		
-                        	   419: ; 		; first print the labels: adr: t_str4 - 7
-                        	   420: ; 		;*****************************************
-                        	   421: ; 		ld de, $0000		; row 0, col 1
-                        	   422: ; 		ld IX, t_str4
-                        	   423: ; nxt2:
-                        	   424: ; 		call setcursor		; set cur
-                        	   425: ; 		ld B, t_str5-t_str4	; all 4 rows has the same length
-                        	   426: ; nxt3:
-                        	   427: ; 		ld a, (ix+0)
-                        	   428: ; 		inc ix
-                        	   429: ; 		call writedata
-                        	   430: ; 		djnz nxt3
-                        	   431: 
-                        	   432: ; 		inc D				;Next row
-                        	   433: ; 		ld A,D
-                        	   434: ; 		cp $04				; all rows printed ?
-                        	   435: ; 		jr NZ, nxt2
-                        	   436: 
-                        	   437: 
-                        	   438: ; 		; set all values, first value (SP)
-                        	   439: ; 		;***************************************
-                        	   440: ; 		ld iy,(SP_value)		; top of stored stack
-                        	   441: ; 		ld IX,cur_pos			; table of cursor positions
-                        	   442: 		
-                        	   443: 		
-                        	   444: ; nxt4:	ld L,(iy+0)
-                        	   445: ; 		ld H,(iy+1)
-                        	   446: ; 		dec IY
-                        	   447: ; 		dec IY					; next value in stack
-                        	   448: 
-                        	   449: ; 		call Num4Hex			; convert value in HL
-                        	   450: ; 		;
-                        	   451: ; 		ld E,(IX+0)
-                        	   452: ; 		ld D,(IX+1)			; DE - cursor pos d-row e-col
-                        	   453: ; 		inc IX
-                        	   454: ; 		inc IX				; IX - next cursor position adr.
-                        	   455: ; 		call setcursor		; runs also 'command'
-                        	   456: ; 	;
-                        	   457: ; 		ld b, $04
-                        	   458: ; 		push IX
-                        	   459: ; 		ld IX, Result_NumToHex	; pointer to hex characters
-                        	   460: ; nxt5:
-                        	   461: ; 		ld a, (IX+0)
-                        	   462: ; 		inc IX
-                        	   463: ; 		call writedata
-                        	   464: ; 		djnz nxt5
-                        	   465: ; 		pop IX
-                        	   466: ; 		ld a,(IX+0)				
-                        	   467: ; 		cp $FF					; check if end of cursor positions
-                        	   468: ; 		jr NZ, nxt4
-                        	   469: 
-                        	   470: ; 		; print flags Z/NZ, C/NC, PO/PE, P/M
-                        	   471: ; 		;***************************************
-                        	   472: ; 		ld DE, $0011
-                        	   473: ; 		call setcursor
-                        	   474: ; 		ld IY,(SP_value)		; IY - top of stack
-                        	   475: ; 		ld A, (IY-2)
-                        	   476: ; 		ld (AF_value), A
-                        	   477: ; 		bit 6, (IY-2)					; test for Z flag
-                        	   478: ; 		jr NZ, nx_noNZ			
-                        	   479: ; 		ld A,'N'
-                        	   480: ; 		call writedata
-                        	   481: ; nx_noNZ:
-                        	   482: ; 		ld A,'Z'
+                        	   395: .end
+                        	   396: 
+                        	   397: 
+                        	   398: ;************************************************************************
+                        	   399: ; ShowPC_HALT:
+                        	   400: ; Dump prog counter prior to HALT instr. value present in stack (pointed by SP).
+                        	   401: ; uses  IX (pointer to HEX chars)
+                        	   402: ;       IY (pointer at stack)
+                        	   403: ;       BC ( count)
+                        	   404: ; ;       HL (value for conversion to HEX)
+                        	   405: ; ;       DE (positon of display 2004A)
+                        	   406: 	if DOALIGN
+                        	   407: 		align 8
+                        	   408: 	endif
+                        	   409:             
+                        	   410: ; ShowPC_HALT:
+                        	   411: ; 		ld (SP_value), SP	; save contents of SP
+                        	   412: ; 		push AF
+                        	   413: ; 		push BC
+                        	   414: ; 		push DE
+                        	   415: ; 		push HL
+                        	   416: ; 		ld HL,(SP_value)
+                        	   417: ; 		push HL				; push the SP value on the stack...
+                        	   418: ; 		push IX
+                        	   419: ; 		Push IY
+                        	   420: 
+                        	   421: 		
+                        	   422: ; 		; first print the labels: adr: t_str4 - 7
+                        	   423: ; 		;*****************************************
+                        	   424: ; 		ld de, $0000		; row 0, col 1
+                        	   425: ; 		ld IX, t_str4
+                        	   426: ; nxt2:
+                        	   427: ; 		call setcursor		; set cur
+                        	   428: ; 		ld B, t_str5-t_str4	; all 4 rows has the same length
+                        	   429: ; nxt3:
+                        	   430: ; 		ld a, (ix+0)
+                        	   431: ; 		inc ix
+                        	   432: ; 		call writedata
+                        	   433: ; 		djnz nxt3
+                        	   434: 
+                        	   435: ; 		inc D				;Next row
+                        	   436: ; 		ld A,D
+                        	   437: ; 		cp $04				; all rows printed ?
+                        	   438: ; 		jr NZ, nxt2
+                        	   439: 
+                        	   440: 
+                        	   441: ; 		; set all values, first value (SP)
+                        	   442: ; 		;***************************************
+                        	   443: ; 		ld iy,(SP_value)		; top of stored stack
+                        	   444: ; 		ld IX,cur_pos			; table of cursor positions
+                        	   445: 		
+                        	   446: 		
+                        	   447: ; nxt4:	ld L,(iy+0)
+                        	   448: ; 		ld H,(iy+1)
+                        	   449: ; 		dec IY
+                        	   450: ; 		dec IY					; next value in stack
+                        	   451: 
+                        	   452: ; 		call Num4Hex			; convert value in HL
+                        	   453: ; 		;
+                        	   454: ; 		ld E,(IX+0)
+                        	   455: ; 		ld D,(IX+1)			; DE - cursor pos d-row e-col
+                        	   456: ; 		inc IX
+                        	   457: ; 		inc IX				; IX - next cursor position adr.
+                        	   458: ; 		call setcursor		; runs also 'command'
+                        	   459: ; 	;
+                        	   460: ; 		ld b, $04
+                        	   461: ; 		push IX
+                        	   462: ; 		ld IX, Result_NumToHex	; pointer to hex characters
+                        	   463: ; nxt5:
+                        	   464: ; 		ld a, (IX+0)
+                        	   465: ; 		inc IX
+                        	   466: ; 		call writedata
+                        	   467: ; 		djnz nxt5
+                        	   468: ; 		pop IX
+                        	   469: ; 		ld a,(IX+0)				
+                        	   470: ; 		cp $FF					; check if end of cursor positions
+                        	   471: ; 		jr NZ, nxt4
+                        	   472: 
+                        	   473: ; 		; print flags Z/NZ, C/NC, PO/PE, P/M
+                        	   474: ; 		;***************************************
+                        	   475: ; 		ld DE, $0011
+                        	   476: ; 		call setcursor
+                        	   477: ; 		ld IY,(SP_value)		; IY - top of stack
+                        	   478: ; 		ld A, (IY-2)
+                        	   479: ; 		ld (AF_value), A
+                        	   480: ; 		bit 6, (IY-2)					; test for Z flag
+                        	   481: ; 		jr NZ, nx_noNZ			
+                        	   482: ; 		ld A,'N'
                         	   483: ; 		call writedata
-                        	   484: ; 		inc D					; next row (E=$11), next flag (C)
-                        	   485: ; 		call setcursor
-                        	   486: ; 		;-----------------------------
-                        	   487: 		
-                        	   488: ; 		bit 0, (IY-2)					; test for C flag
-                        	   489: ; 		jr NZ, nx_noNC			
-                        	   490: ; 		ld A,'N'
-                        	   491: ; 		call writedata
-                        	   492: ; nx_noNC:
-                        	   493: ; 		ld A,'C'
+                        	   484: ; nx_noNZ:
+                        	   485: ; 		ld A,'Z'
+                        	   486: ; 		call writedata
+                        	   487: ; 		inc D					; next row (E=$11), next flag (C)
+                        	   488: ; 		call setcursor
+                        	   489: ; 		;-----------------------------
+                        	   490: 		
+                        	   491: ; 		bit 0, (IY-2)					; test for C flag
+                        	   492: ; 		jr NZ, nx_noNC			
+                        	   493: ; 		ld A,'N'
                         	   494: ; 		call writedata
-                        	   495: ; 		inc D					; next row (E=$11), next flag (PE/PO)
-                        	   496: ; 		call setcursor
-                        	   497: ; 		;-----------------------------
-                        	   498: ; 		ld A,'P'
-                        	   499: ; 		call writedata
-                        	   500: ; 		bit 2,(IY-2)					; test for P/V flag
-                        	   501: ; 		jr Z, nx_PO			
-                        	   502: ; 		ld A,'E'				;parity even (PE)
-                        	   503: ; 		call writedata
-                        	   504: ; 		jr nx_sign
-                        	   505: ; nx_PO:
-                        	   506: ; 		ld A,'O'					;parity even (PE)
-                        	   507: ; 		call writedata
-                        	   508: ; nx_sign:		
-                        	   509: ; 		inc D					; next row (E=$11), next flag (sign)
-                        	   510: ; 		call setcursor
-                        	   511: ; 		;-----------------------------
-                        	   512: ; 		bit 7,(IY-2)					; test for S flag S=0 positive
-                        	   513: ; 		jr Z, nx_S			
-                        	   514: ; 		ld A,'M'				;sign negative (Minus)
-                        	   515: ; 		call writedata
-                        	   516: ; 		jr nx_hlt
-                        	   517: ; nx_S:
-                        	   518: ; 		ld A,'P'					;sign positive (P)
-                        	   519: ; 		call writedata
-                        	   520: ; nx_hlt:		
-                        	   521: ; 		;-----------------------------
-                        	   522: 
-                        	   523: ; 		halt
-                        	   524: 
-                        	   525: ; 		pop IY
-                        	   526: ; 		pop IX
-                        	   527: ; 		pop HL
-                        	   528: ; 		pop HL
-                        	   529: ; 		pop DE
-                        	   530: ; 		pop BC
-                        	   531: ; 		pop AF
-                        	   532: 
-                        	   533: ; 		ret
-                        	   534: 
-                        	   535: ; 	align 8        
-                        	   536: ; */
+                        	   495: ; nx_noNC:
+                        	   496: ; 		ld A,'C'
+                        	   497: ; 		call writedata
+                        	   498: ; 		inc D					; next row (E=$11), next flag (PE/PO)
+                        	   499: ; 		call setcursor
+                        	   500: ; 		;-----------------------------
+                        	   501: ; 		ld A,'P'
+                        	   502: ; 		call writedata
+                        	   503: ; 		bit 2,(IY-2)					; test for P/V flag
+                        	   504: ; 		jr Z, nx_PO			
+                        	   505: ; 		ld A,'E'				;parity even (PE)
+                        	   506: ; 		call writedata
+                        	   507: ; 		jr nx_sign
+                        	   508: ; nx_PO:
+                        	   509: ; 		ld A,'O'					;parity even (PE)
+                        	   510: ; 		call writedata
+                        	   511: ; nx_sign:		
+                        	   512: ; 		inc D					; next row (E=$11), next flag (sign)
+                        	   513: ; 		call setcursor
+                        	   514: ; 		;-----------------------------
+                        	   515: ; 		bit 7,(IY-2)					; test for S flag S=0 positive
+                        	   516: ; 		jr Z, nx_S			
+                        	   517: ; 		ld A,'M'				;sign negative (Minus)
+                        	   518: ; 		call writedata
+                        	   519: ; 		jr nx_hlt
+                        	   520: ; nx_S:
+                        	   521: ; 		ld A,'P'					;sign positive (P)
+                        	   522: ; 		call writedata
+                        	   523: ; nx_hlt:		
+                        	   524: ; 		;-----------------------------
+                        	   525: 
+                        	   526: ; 		halt
+                        	   527: 
+                        	   528: ; 		pop IY
+                        	   529: ; 		pop IX
+                        	   530: ; 		pop HL
+                        	   531: ; 		pop HL
+                        	   532: ; 		pop DE
+                        	   533: ; 		pop BC
+                        	   534: ; 		pop AF
+                        	   535: 
+                        	   536: ; 		ret
                         	   537: 
-                        	   538: ;
-                        	   539: ;t_intAstr:   .ascii "PIO A INT"
-                        	   540: ;************************************************************************
-                        	   541: ; Hexadecimal conversion operates directly on nibbles and takes advantage of nifty DAA trick.
-                        	   542: ;Input: HL = number to convert, IX = location of ASCII string
-                        	   543: ;Output: ASCII string at (IX) 
-                        	   544: ; Num4Hex:  	; convert 2 bytes in HL
-                        	   545: ; 	push IX
-                        	   546: ; 	ld ix, Result_NumToHex
-                        	   547: ; 	ld	a,h
-                        	   548: ; 	call	Num1
-                        	   549: ; 	ld	a,h
-                        	   550: ; 	call	Num2
-                        	   551: ; Num2Hex:	; converts 1 byte in L
-                        	   552: ; 	ld	a,l
-                        	   553: ; 	call	Num1
-                        	   554: ; 	ld	a,l
-                        	   555: ; 	call	Num2
-                        	   556: ; 	pop IX
-                        	   557: ; 	ret
-                        	   558: 
-                        	   559: ; Num1:
-                        	   560: ; 	rra
-                        	   561: ; 	rra
-                        	   562: ; 	rra
+                        	   538: ; 	align 8        
+                        	   539: ; */
+                        	   540: 
+                        	   541: ;
+                        	   542: ;t_intAstr:   .ascii "PIO A INT"
+                        	   543: ;************************************************************************
+                        	   544: ; Hexadecimal conversion operates directly on nibbles and takes advantage of nifty DAA trick.
+                        	   545: ;Input: HL = number to convert, IX = location of ASCII string
+                        	   546: ;Output: ASCII string at (IX) 
+                        	   547: ; Num4Hex:  	; convert 2 bytes in HL
+                        	   548: ; 	push IX
+                        	   549: ; 	ld ix, Result_NumToHex
+                        	   550: ; 	ld	a,h
+                        	   551: ; 	call	Num1
+                        	   552: ; 	ld	a,h
+                        	   553: ; 	call	Num2
+                        	   554: ; Num2Hex:	; converts 1 byte in L
+                        	   555: ; 	ld	a,l
+                        	   556: ; 	call	Num1
+                        	   557: ; 	ld	a,l
+                        	   558: ; 	call	Num2
+                        	   559: ; 	pop IX
+                        	   560: ; 	ret
+                        	   561: 
+                        	   562: ; Num1:
                         	   563: ; 	rra
-                        	   564: ; Num2:
-                        	   565: ; 	or	$F0
-                        	   566: ; 	daa
-                        	   567: ; 	add	a,$A0
-                        	   568: ; 	adc	a,$40
-                        	   569: 
-                        	   570: ; 	ld	(ix+0),a
-                        	   571: ; 	inc	ix
-                        	   572: ; 	ret
-                        	   573: 
-                        	   574: ; inc_portB_value:
-                        	   575: ; 		ld a, (PIO_B_value)
-                        	   576: ; 		inc a
-                        	   577: ; 		ld (PIO_B_value), a
-                        	   578: ; 		out (portB_Data), a
-                        	   579: ; 		ret
-                        	   580: 
-                        	   581: 
-                        	   582: ; #code DAT_TABLE, DataTables,  $200
+                        	   564: ; 	rra
+                        	   565: ; 	rra
+                        	   566: ; 	rra
+                        	   567: ; Num2:
+                        	   568: ; 	or	$F0
+                        	   569: ; 	daa
+                        	   570: ; 	add	a,$A0
+                        	   571: ; 	adc	a,$40
+                        	   572: 
+                        	   573: ; 	ld	(ix+0),a
+                        	   574: ; 	inc	ix
+                        	   575: ; 	ret
+                        	   576: 
+                        	   577: ; inc_portB_value:
+                        	   578: ; 		ld a, (PIO_B_value)
+                        	   579: ; 		inc a
+                        	   580: ; 		ld (PIO_B_value), a
+                        	   581: ; 		out (portB_Data), a
+                        	   582: ; 		ret
                         	   583: 
                         	   584: 
-                        	   585: 	if DOALIGN
-                        	   586: 		align 8
-                        	   587: 	endif
-                        	   588:             
-                        	   589: ; initbytes:   .byte $01, $38, $0E, $06, $B0
-                        	   590: ; t_str1:		.ascii "Z80 micro and"
-                        	   591: ; t_str2:		.ascii "HD44780 display"
-                        	   592: ; t_str3:		.ascii "Z8536 assist->"
-                        	   593: ; t_str4:		.ascii " PC:____ AF:____    "
-                        	   594: ; t_str5:		.ascii " BC:____ DE:____    "
-                        	   595: ; t_str6:		.ascii " HL:____ SP:____    "
-                        	   596: ; t_str7:		.ascii " IX:____ IY:____    "
-                        	   597: ; t_str8:		.ascii " "
-                        	   598: ; t_str9:		.ascii " "
-                        	   599: ; t_string_E: equ $
-                        	   600: 	if DOALIGN
-                        	   601: 		align 4
-                        	   602: 	endif
-                        	   603: 
-                        	   604: ; cur_pos: equ $
-                        	   605: ; 		defw	$0004, $000C, $0104, $010C,$0204, $020C,$0304, $030C, $FFFF
-                        	   606: 	if DOALIGN
-                        	   607: 		align 4
-                        	   608: 	endif
-                        	   609: 
-                        	   610: ; t_str_table: equ $
-                        	   611: ; 		defw	t_str1, t_str2, t_str3, t_str4, t_str5, t_str6, t_str7, t_str8
+                        	   585: ; #code DAT_TABLE, DataTables,  $200
+                        	   586: 
+                        	   587: 
+                        	   588: 	if DOALIGN
+                        	   589: 		align 8
+                        	   590: 	endif
+                        	   591:             
+                        	   592: ; initbytes:   .byte $01, $38, $0E, $06, $B0
+                        	   593: ; t_str1:		.ascii "Z80 micro and"
+                        	   594: ; t_str2:		.ascii "HD44780 display"
+                        	   595: ; t_str3:		.ascii "Z8536 assist->"
+                        	   596: ; t_str4:		.ascii " PC:____ AF:____    "
+                        	   597: ; t_str5:		.ascii " BC:____ DE:____    "
+                        	   598: ; t_str6:		.ascii " HL:____ SP:____    "
+                        	   599: ; t_str7:		.ascii " IX:____ IY:____    "
+                        	   600: ; t_str8:		.ascii " "
+                        	   601: ; t_str9:		.ascii " "
+                        	   602: ; t_string_E: equ $
+                        	   603: 	if DOALIGN
+                        	   604: 		align 4
+                        	   605: 	endif
+                        	   606: 
+                        	   607: ; cur_pos: equ $
+                        	   608: ; 		defw	$0004, $000C, $0104, $010C,$0204, $020C,$0304, $030C, $FFFF
+                        	   609: 	if DOALIGN
+                        	   610: 		align 4
+                        	   611: 	endif
                         	   612: 
-                        	   613: 
-                        	   614: ; #code INT_TABLE, Interupt_vector, $10
-                        	   615: ; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
-                        	   616: ; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
-                        	   617: ; 		.word PIO_A_INT,PIO_A_INT,PIO_A_INT,PIO_A_INT
-                        	   618: 		
-                        	   619: ; 		;defw $0400          ; NMI adress table    
-                        	   620: 
-                        	   621: 
-                        	   622: ; RTestprog:
-                        	   623: ; 		;--------------------------------------------------
-                        	   624: ; 		; ld A,5
-                        	   625: ; 		; out (_CE_RST_BANK),A
-                        	   626: ; 		; ld 	A,$00	
-                        	   627: ; 		; out (_Z80_BankCS),A		// set bank register number 	
-                        	   628: ; 		; ld 	A,$01
-                        	   629: ; 		; out (_CE_RST_BANK),A 		// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
-                        	   630: 
-                        	   631: ; 		out (_8Bitsout),A
-                        	   632: 
-                        	   633: ; 		ld A, $0F                 ;mode 1 out
-                        	   634: ; 		out (portA_Contr), A         ; set port A as output
-                        	   635: ; 		ld A,$81
-                        	   636: 
-                        	   637: ; tll:	
-                        	   638: ; 		ld (40000),A
-                        	   639: ; 		ld A,0
-                        	   640: ; 		ld A,(40000)
-                        	   641: 
-                        	   642: ; 		out (portA_Data),A		; Data to PIO port A
-                        	   643: ; 		out (_8Bitsout),A
-                        	   644: ; 		;--------------------------------------------------
-                        	   645: ; 		ld	DE,$8100
-                        	   646: ; 		ld	HL,RDATA
-                        	   647: ; 		ld 	BC,RDATA_END-RDATA
-                        	   648: ; 		ldir
-                        	   649: ; 	if DOALIGN
-                        	   650: ; 		align 4
-                        	   651: ; 	endif
-                        	   652: 
-                        	   653: ; RDATA:
-                        	   654: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-                        	   655: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-                        	   656: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   613: ; t_str_table: equ $
+                        	   614: ; 		defw	t_str1, t_str2, t_str3, t_str4, t_str5, t_str6, t_str7, t_str8
+                        	   615: 
+                        	   616: 
+                        	   617: ; #code INT_TABLE, Interupt_vector, $10
+                        	   618: ; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
+                        	   619: ; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
+                        	   620: ; 		.word PIO_A_INT,PIO_A_INT,PIO_A_INT,PIO_A_INT
+                        	   621: 		
+                        	   622: ; 		;defw $0400          ; NMI adress table    
+                        	   623: 
+                        	   624: 
+                        	   625: ; RTestprog:
+                        	   626: ; 		;--------------------------------------------------
+                        	   627: ; 		; ld A,5
+                        	   628: ; 		; out (_CE_RST_BANK),A
+                        	   629: ; 		; ld 	A,$00	
+                        	   630: ; 		; out (_Z80_BankCS),A		// set bank register number 	
+                        	   631: ; 		; ld 	A,$01
+                        	   632: ; 		; out (_CE_RST_BANK),A 		// set bank register (HC374) #0 | Bit 7 set 0 -> 32kSRAM/32kFLASH
+                        	   633: 
+                        	   634: ; 		out (_8Bitsout),A
+                        	   635: 
+                        	   636: ; 		ld A, $0F                 ;mode 1 out
+                        	   637: ; 		out (portA_Contr), A         ; set port A as output
+                        	   638: ; 		ld A,$81
+                        	   639: 
+                        	   640: ; tll:	
+                        	   641: ; 		ld (40000),A
+                        	   642: ; 		ld A,0
+                        	   643: ; 		ld A,(40000)
+                        	   644: 
+                        	   645: ; 		out (portA_Data),A		; Data to PIO port A
+                        	   646: ; 		out (_8Bitsout),A
+                        	   647: ; 		;--------------------------------------------------
+                        	   648: ; 		ld	DE,$8100
+                        	   649: ; 		ld	HL,RDATA
+                        	   650: ; 		ld 	BC,RDATA_END-RDATA
+                        	   651: ; 		ldir
+                        	   652: ; 	if DOALIGN
+                        	   653: ; 		align 4
+                        	   654: ; 	endif
+                        	   655: 
+                        	   656: ; RDATA:
                         	   657: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
                         	   658: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
                         	   659: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
                         	   660: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
                         	   661: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
-                        	   662: ; RDATA_END:
-                        	   663: ; TB_length	equ 	RDATA_END-RDATA
-                        	   664: 
-                        	   665: 
-                        	   666: 
+                        	   662: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   663: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   664: ; 		defw	$1122, $2233, $3344, $5566, $ABCD, $FEDC, $DCBA, $AEAE
+                        	   665: ; RDATA_END:
+                        	   666: ; TB_length	equ 	RDATA_END-RDATA
+                        	   667: 
+                        	   668: 
+                        	   669: 
 
 
 Symbols by name:

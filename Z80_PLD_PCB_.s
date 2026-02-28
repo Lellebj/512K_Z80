@@ -102,10 +102,9 @@ SD_USB_startup:
 		call 	writeSTRBelow
 		defb   	"\r\n"
 		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-\r\n"
-		defb	"Start from Arduino preloaded monitor\r\n"
-		defb	"    git: @@GIT_VERSION@@\r\n"
-		defb	"    build: @@DATE@@\r\n"
-		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	" Start Monitor from Arduino preloaded monitor\r\n"
+		defb	" FLASH Boot version git: @@GIT_VERSION@@: @@DATE@@\r\n"
+		defb	" Monitor res in SRAM 0xD000.\r\n"
 		defb	"\0"
 
 		call 	waitForFinishedPrintout
@@ -183,7 +182,6 @@ rfile_name:
 
 	
 ;************************************************************************************************
-;************************************************************************************************
 p_C_Read_SD:
 
 		;call 	checkArgsTAL				; check necessary args
@@ -244,14 +242,14 @@ SDabort:
 		ret
 
 
-;***********************************************************************
-;***********************************************************************
+;*****************************************************************************************************
+;*****************************************************************************************************
 
 		section	Monitor			; enter point for monitor
 
-;***********************************************************************
 ;***	MONITOR_Start:  entry point for monitor, should be at $D000.
-;***********************************************************************
+;*****************************************************************************************************
+;*****************************************************************************************************
 
 MONITOR_Start:		
 
@@ -367,11 +365,8 @@ MONITOR_Start:
 		call	CRLF
 		call 	writeSTRBelow
 		defb   	"\r\n"
-		defb	"##########################################################\r\n"
-		defb	"The Z80 Board Awakened 2026\r\n"
-		defb	"    git: @@GIT_VERSION@@\r\n"
-		defb	"    build: @@DATE@@\r\n"
-		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	" Z84C0020/Z84C4010/Z84C3010/512K SRAM/256K FLASH Board\r\n"
+		defb	" Monitor: git @@GIT_VERSION@@: @@DATE@@\r\n"
 		defb	"\0"
 		call 	waitForFinishedPrintout
 
@@ -461,7 +456,7 @@ useFlash:
 		call	WriteLine
 
 		ld 		hl,Textbuf
-		call 	ReadLine
+		call 	ReadLine				; Läs in kommandorad !
 
 		ld 		iy,Textbuf
 		call	WriteLineCRNL
@@ -478,29 +473,29 @@ useFlash:
 	;***************************************************************
 
 		ld 		HL,Textbuf
-		call 	skipPriorDelimit			; set (HL) first char
+		call 	skipPriorDelimit			; hoppa (HL) till första giltiga bokstav i kommandot, eller till nollbyte (tom rad)
 
-		jp 		C,temp_finish 				; end encountered; no command (empty line)	
+		jp 		C,temp_finish 				; inga mer kommandon
 
 		push 	HL
-		pop  	DE							; typed command start in DE
+		pop  	DE							;  DE pekar på första char i det inmatade kommandot (Textbuf) som ska jämföras med kommandolistan 	
 
-		; ***	Search command in 'command_list:'
-		;  		DE = typed command first char in DE (Textbuf)
-		ld 		HL,command_list+1			; first char in first command in the list
+		; ***	sök kommando i  'command_list:'
+		;  		DE = DE pekar på första char i det inmatade kommandot (Textbuf) 
+		ld 		HL,command_list+1			; HL pekar på första byte i command_list (löpnummer)
 		
-scanCommandList:
-		ld 		C,(HL)						; command # in C
-		inc 	HL 							; (HL)=first char
-		ld 		B,(HL)						; # chars in command in list
-		inc 	HL 							; (HL)=first char
-		push 	DE 							; save start of typed string (DE) for later
+scanCommandList:							;ITEM,1,4,"load",STEND,%100010,0,CDEL
+		ld 		C,(HL)						; löpnummer i reg C
+		inc 	HL 							; 
+		ld 		B,(HL)						; antal tecken i aktuell kommando i listan
+		inc 	HL 							; HL-> första bokstav i aktuell kommando i listan
+		push 	DE 							; spara inmatat kommnde (DE)(Textbuf)  
 
 findCommandInList:
-		ld 		a,(DE)						; next typed char
+		ld 		a,(DE)						; reg A = tecken i inmatat kommando
 		; or 		$20							; make typed char lower case
-		cp		(HL)
-		jr 		nz,findNextITEM				; different chars-> test next item in list
+		cp		(HL)				; jämför tecken i inmatat kommando (DE) med tecken i aktuellt kommando i listan (HL)
+		jr 		nz,findNextITEM		; om inte, hoppa till findNextITEM
 		inc 	DE
 		inc 	HL  
 		djnz 	findCommandInList
@@ -520,42 +515,44 @@ findCommandInList:
 
 		; ***	Found a matching command, All char do match...
 		; 		(HL) points to first after command
-		jp 		matchInList
+		;----------------------------------------------------------------------------
+		jp 		matchInList		; ***	Hittat kommande i listan, HL pekar p (STEND)...
+		;----------------------------------------------------------------------------
 zero_byte:	db  0
 
 findNextITEM:
-		; ***	find next ITEM or LISTEND
+		; ***	Fortsätt leta i nästa kommando i listan ITEM or LISTEND
 		ld 		a,(HL)
-		cp		CDEL					; command adress delimiter
+		cp		CDEL					; hitta CDEL och hopp till skipPastCommAdr
 		jr 		z,.skipPastCommAdr
 	
-		cp		ITEM					; command adress delimiter
+		cp		ITEM					; avgränsare ? -> nextInList
 		jr 		z,nextInList
 	
 		cp 		LISTEND
-		jr 		NZ,.cont
+		jr 		NZ,.cont				; fortsätter listan ? -> .cont
 
-		; ***	Command list did not match; check if direct address '$' or byte input
+		; ***	Inget kommando hittat i listan; kolla om man angett adress '$' eller direkt byte input
 		ld 		A,$FF
-		ld 		(PCinpFlag),A			; indicate ev. typed ($)address to change PCV or input bytes ...
-		pop 	HL						; HL start of typed string (again)
+		ld 		(PCinpFlag),A			; reg A=FF : kod för angiven adress eller värde
+		pop 	HL						; återställ HL pekar på adress eller värde
 		ld 		A,(HL)
-		jp 		checkaddress			; No more commands to check, check if address entered , '$'
-										; or relative adress '@'
-										; or direct input of bytes.....
+		jp 		checkaddress			; om reg A =  $, angivet värde är adress
+										; eller relative adress '@'
+										; eller direkt input av bytes.....
 .skipPastCommAdr:
-		inc  	HL		;hig adr.
-		inc  	HL		; low adr.
+		inc  	HL		;hög adr.
+		inc  	HL		; låg adr.
 		inc  	HL		;  '0'
-		inc  	HL		;  next row
+		inc  	HL		;  nästa rad i kommando listan
 		jr 		findNextITEM
 
-.cont:	inc 	HL
+.cont:	inc 	HL				; HL pekar på första char i nästa textsträng i listan	
 		jr 		findNextITEM
 
 nextInList:
-		inc 	HL						; points to item #
-		pop 	DE 						; DE start of typed string (again)
+		inc 	HL						; HL = löpnummer på nästa kommando i listan
+		pop 	DE 						; återställ DE till start av inmatad kommando
 		jr 		scanCommandList
 
 
@@ -602,7 +599,7 @@ inputerror:
 ; 		defw	p_srbank		;26. Set sram bank #
 
 command_list:
-;		*** command textstring1/2 	address1/2	 lvalue1/2
+;		*** command <STEND> textstring1/2 	address1/2	 lvalue1/2
 
 		db		ITEM,1,4,"load",STEND,%100010,0,CDEL
 		dw 		p_load,0
@@ -622,13 +619,13 @@ command_list:
 		dw 		p_incDecPC,0
 		db		ITEM,9,2,"--",	STEND,%000000,0,CDEL
 		dw 		p_incDecPC,0
-		db		ITEM,10,3,"fl1",		STEND,%000000,0,CDEL
+		db		ITEM,10,3,"fl1",		STEND,%000000,0,CDEL; flash on, bank 1
 		dw		p_FON,0
-		db		ITEM,10,8,"flash-on",	STEND,%000000,0,CDEL
+		db		ITEM,10,8,"flash-on",	STEND,%000000,0,CDEL; flash on, bank 1
 		dw 		p_FON,0
-		db		ITEM,11,3,"fl0",		STEND,%000000,0,CDEL
+		db		ITEM,11,3,"fl0",		STEND,%000000,0,CDEL; flash off
 		dw 		p_FOFF,0
-		db		ITEM,11,9,"flash-off",	STEND,%000000,0,CDEL
+		db		ITEM,11,9,"flash-off",	STEND,%000000,0,CDEL; flash off
 		dw 		p_FOFF,0
 		db		ITEM,12,4,"flwr",	STEND,%001110,0,CDEL
 		dw 		p_flwr,0									; write to flash: flwr  <$Addr.mem> <$Addr.flash>  <Num> (0E)
@@ -733,195 +730,199 @@ initCommParseTable:
 	;***************************************************************
 
 matchInList:
-		; ***	Command found. Then, check for string input "<string>"
-		; ***	DE points to first delimiter after command 
-						;delimiters found ? =>Z, else ~Z
-						;char in (HL) is '0' ->  set C, else NC
+		; ***	Kommandeo hittat i listan. Kolla sedan om inmatad sträng finns "<string>"
+		; ***	DE pekar på första avgränsare efter kommandot i listan 
+						;Hittade avgränsare ? =>Z, annars ~Z
+						;tecken i (HL) är '0' ->  sätt C, annars NC
+						;command <STEND> textstring1/2 	address1/2	 lvalue1/2
 
 		inc 	sp
-		inc 	sp						; restore PC from PUSH in <scanCommandList>
-		inc 	HL 						; HL point to first after <STEND>  ->req arguments  (STEND,%100010,0,CDEL,p_load,0)
-		ld 		A,(HL) 					; A= required arguments from table
-		ld 		IY,commParseTable		; IY =commParseTable =	0x80 + _String_HEAP
+		inc 	sp						; flytta SP en adress upp i stacken <scanCommandList>
+		inc 	HL 						; HL pekar på första efter <STEND>  ->spec vilka argument som krävs (STEND,%100010,0,CDEL(EE),p_load,0)
+										; command <STEND> textstring1/2 	address1/2	 lvalue1/2
+
+		ld 		A,(HL) 					; reg A= specifikation av vilka argument som krävs i kommandot (STEND,%100010,0,CDEL(EE),p_load,0)
+		ld 		IY,commParseTable		; IY = commParseTable =	0x80 + _String_HEAP
 		ld   	(IY+2),L 
-		ld   	(IY+3),H				; save the command adress.
+		ld   	(IY+3),H				; spara (IY,2,3) som är  kommando adress.
 		
-		ld 		(IY),C 					; store the command number in (commParseTable, 0x80)
-		ld 		(IY+1),A				; store required arguments  in (commParseTable+1, 0x81)
+		ld 		(IY),C 					; spara kommando löpnummer i (commParseTable, 0x80)
+		ld 		(IY+1),A				; spara  pecifikation av vilka argument som krävs i (commParseTable+1, 0x81)
 		; call 	writeSTRBelow_CRLF
 		; DB 		0,"Found a valid command  see (C).. !",CR,LF,00
 		push 	DE
-		pop 	HL						; HL=DE = first delimiter after command
-		dec 	HL							; DE -> HL -> last char before delimiter
+		pop 	HL						; HL=DE = första avgränsare efter angiven kommndotext
+		dec 	HL							; DE -> HL -> sista tecken innan avgränsare
 paramLoopEntry:	
 
-		call 	skipPriorDelimit 			; look for next char (  '"' ?)
-		jp 		C,executeCommand			; C set from 'skipPriorDelimit', no command parameters
+		call 	skipPriorDelimit 			; hitta nästa avgränsare (  '"' ?)  		db   ' _&/#,=',CR,0,0	
+		jp 		C,executeCommand			; C flagga från 'skipPriorDelimit', inga kommando argument kvar, hoppa till executeCommand
 
 		ld 		A,(HL)
 
-		cp 		'"'							; beginning of string ?̣
-		jr 		NZ,checkaddress				;  NZ -> (HL) points to non delimiter
+		cp 		'"'							; början på sträng ?̣
+		jr 		NZ,checkaddress				;  NZ -> (HL) pekar på något annat än '"', kolla om det är adress eller lvalue input
+										;  Z -> (HL) pekar på '"', fortsätt att extrahera sträng
 
-		; ***	extract string 
-		inc 	HL 							; skip '"' (HL)-> first char
+		; ***	hämta sträng i inmatning, som är avgränsad av två '"' tecken, och spara i commParseTable
+		inc 	HL 							; skip '"' (HL)-> första bokstav i sträng
 
 		push  	HL
-		pop  	DE							; DE -> first char after '"' <source>
-		call 	skipCharsUntilDelim			; find second '"'
-		dec 	HL 							; skip first delimiter (ev. CR)
+		pop  	DE							; DE -> första bokstav i sträng
+		call 	skipCharsUntilDelim			; hitta sista avgränsare (  '"' ?)
+		dec 	HL 							; hoppa förbi första '"' (ev. CR)
 		ld 		A,(HL)
-		cp 		'"' 						; found second '"' ??
+		cp 		'"' 						; hittade andra (=Z) '"' ??
 		jp 		NZ,inputerror
-		dec 	HL 							; skip second '"'
+		dec 	HL 							; hoppa föri andra '"'
 	;***************************************************************
-	;	copy string to  'commParseTable'
+	;	kopiera sträng till  'commParseTable'
 	;***************************************************************
 
 		and 	A
-		sbc 	HL,DE 						; amount of chars...
+		sbc 	HL,DE 						; beräkna antalet tecken...
 		ld 		B,H							; amount of chars...
-		ld 		C,L							; amount of chars...
+		ld 		C,L							; beräkna antalet tecken -> BC
 		inc 	BC
 
-		ld 		HL,commStr1				; address for first string
+		ld 		HL,commStr1				;  HL = address för första strängen i commParseTable
 		ld 		A,(HL)
-		or 		A 						; =0?
+		or 		A 						; = värde i commStr1 = reg A = 0? isåfall, .strone
 		jr 		Z, .strone
-		ld 		HL,commStr2				; address for second string
+		ld 		HL,commStr2				; address för andra stängen
 		ld 		A,(HL)
-		or  	A						; =0 ?
-		jp 		NZ,inputerror			; too many strings
+		or  	A						; = värde i commStr2 = reg A = 0? ominte isåfall, visa input error (för många strängar)
+		jp 		NZ,inputerror	
 .strone:
-		ex 		DE,HL 					; HL = <source>, DE = <dest>, size = BC
-		ldir 							; make the copy
+		ex 		DE,HL 					;kopiera (HL) till (DE) (BC st. HL = <source>, DE = <dest>, size = BC
+		ldir 							; kopiera värdet av strängen till commParseTable
 		; ex		DE,HL
-		inc 	HL 						; (HL) past the second '"'
+		inc 	HL 						; (HL) förbi den andra '"'
 
 		jr 		paramLoopEntry
 
 
 	;***************************************************************
-	;	Check if address is specified in input 
+	;	Kontrollera om en adress är angiven, 
 	;***************************************************************
 
 
 checkaddress:
-		; ***	A = (HL), first char after delimiter
+		; ***	A = (HL), första tecken efter avgränsare
 
-		ld 		(PCinpFlag+1),A			; if value '(PCinpFlag+1)' == '$' -> address input
-										; if value '(PCinpFlag+1)' == '@' -> relative (PCval) address input
-		cp 		'$'						; identified address id
+		ld 		(PCinpFlag+1),A			; if tecken är $ '(PCinpFlag+1)' == '$' -> angive n address
+										; if tecken är '(PCinpFlag+1)' == '@' -> relativ adress till (PCval) angiven
+		cp 		'$'						; jämför address id $
 		ld 		A,0
-		jr 		Z,chkADR			; first value of A (PCinpFlag+1) is '$' ??
-		; cp 		'@'						; identified address id
-		; jr 		Z,chkADR			; first value of A (PCinpFlag+1) is '$' ??
+		jr 		Z,chkADR				; Tecknet är $ (adress) (PCinpFlag+1) is '$' ??
+		; cp 		'@'						; jämför address id @
+		; jr 		Z,chkADR			; Tecknet är $ (relativ adress PCval)  (PCinpFlag+1) is '@' ??
 
-		jr 		getLvalue				
+		jr 		getLvalue				; kontrollera om bytes är angivna,
 
-chkADR:		inc 	HL 						; skip past '$' or '@'
+chkADR:	inc 	HL 						; HL: hoppa förbi '$' eller '@'
 
 chkADR1:
-	; ***		Check where to store address...
+	; ***		Var ska adress lagras ...
 
-		ld 		IX,commAdr1
+		ld 		IX,commAdr1		; IX = address för första address i commParseTable
 		; ld 		A,0
-		cp 		(IX)			; check if zero ? (ascii value already stored)
+		cp 		(IX)			; kontrollera msb inte 0 ? (ascii värde redan lagrat) -> kolla adress 2
 		jr 		NZ,chkADR2
-		cp 		(IX+1)			; check if zero (byte 2)? (ascii value already stored)
+		cp 		(IX+1)			; ckontrollera adress lsb  inte 0 ? (ascii värde redan lagrat)-> kolla adress 2
 		jr 		NZ,chkADR2
-		jr 		makeASCIItoHEX
+		jr 		makeASCIItoHEX	; konvertera (HL)till hex. (IX)	ska få adressen i hex 
 chkADR2:
 
 		ld 		IX,commAdr2
 		; ld 		A,0
-		cp 		(IX)			; check if zero ? (already stored)
+		cp 		(IX)			; kontrollera msb inte 0 ? (ascii värde redan lagrat) -> visa error (för många adresser)
+		jp 		NZ,inputerror	; error : för många adresser angivna
+		cp 		(IX+1)			; kontrollera msb inte 0 ? (ascii värde redan lagrat) -> visa error (för många adresser)
 		jp 		NZ,inputerror	; error : No more addresses to store
-		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
-		jp 		NZ,inputerror	; error : No more addresses to store
-		jr 		makeASCIItoHEX
+		jr 		makeASCIItoHEX	; konvertera till hex. (IX)	ska få adressen i hex
 
 getLvalue:
 		ld 		IX,commLvl1
-		cp 		(IX)			; check if zero ? (ascii value already stored)
+		cp 		(IX)			; kontrollera msb inte 0 ? (ascii värde redan lagrat) -> kolla bytevärde 2
 		jr 		NZ,chkLVL2
-		cp 		(IX+1)			; check if zero (byte 2)? (ascii value already stored)
+		cp 		(IX+1)			; kontrollera msb inte 0 ? (ascii värde redan lagrat) -> kolla bytevärde 2
 		jr 		NZ,chkLVL2
-		jr 		makeASCIItoHEX
+		jr 		makeASCIItoHEX	 konvertera till hex. (IX)	ska få adressen i hex
 
 chkLVL2:
 		ld 		IX,commLvl2
-		cp 		(IX)			; check if zero ? (ascii value already stored)
-		jp 		NZ,inputerror	; error : No more addresses to store
-		cp 		(IX+1)			; check if zero (byte 2) ? (ascii value already stored)
-		jp 		NZ,inputerror	; error : No more addresses to store
+		cp 		(IX)			; kontrollera msb inte 0 ? (ascii värde redan lagrat) -> visa error (för många värden)
+		jp 		NZ,inputerror	; error : för många värden angivna
+		cp 		(IX+1)			; kontrollera msb inte 0 ? (ascii värde redan lagrat) -> visa error (för många värden)
+		jp 		NZ,inputerror	; error : inga mer värden att lagra
 
 
 makeASCIItoHEX:
-		; ***	copy from command line to adr or lvalue in table
-		; ***	only two bytes (four chars)....
-		; 		IX point to destination...
+		; ***	kopiera från angivet kommando till adress eller värde i tabell
+		; ***	två bytes (four chars)....
+		; 		IX pekar på destination...
 		ld 		D,H
-		ld		E,L						; DE -> first char after '$' | '@' <source>
-		call 	skipCharsUntilDelim		; find next delimiter or CR ; adr in HL
+		ld		E,L						; DE -> första tecken efter '$' | '@' 
+		call 	skipCharsUntilDelim		; Hitta nästa avgränsare eller CR ; adress i HL
 		ld 		A,(HL)
 
-	;***************************************************************
-	;	copy string to  'commParseTable', IX points to dest address.
-	;***************************************************************
+	;************************************************************************
+	;	kopiera sträng till  'commParseTable', IX pekar på destination adress
+	;************************************************************************
 
-		and 	A						; clear Carry
-		sbc 	HL,DE 					; amount of chars...->HL ( H=0); DE -> first char after '$' <source>
+		and 	A						; nollställ Carry
+		sbc 	HL,DE 					; antal tecken i...->HL ( H=0); DE -> första tecken efter '$' <source>
 
-		; ***	Do not check even or odd...
+		; ***	kolla inte jämn /udda...
 		; bit 	0,L 					; even or odd (=1)?
 		; jp 		NZ,inputerror
 
-		ld 		B,L 					; char counter
+		ld 		B,L 					; tecken räknare i B
 		ld 		HL,00					;  
 
-		ex 		DE,HL					; HL -> first char after '$' <ascii source>	
+		ex 		DE,HL					; HL,DE byter plats. HL -> första tecken efter '$' <ascii source>	
 
 nextHalfByte:
 
-		call 	isHex					; check char in (HL) return with Carry, value in A is NOT HEX
-		jp 		C,inputerror			; return with Carry, value in A is NOT HEX
+		call 	isHex					; kolla tecken i (HL) retur med Carry satt, värde i regA inte HEX-värde
+		jp 		C,inputerror			; retur med Carry satt, värde i regA är inte HEX-värde
 
-		sla 	E						; shift left E-> Carry
-		rl 		D 						; Carry -> rotate left D
-		sla 	E						; shift left E-> Carry
-		rl 		D 						; Carry -> rotate left D
-		sla 	E						; shift left E-> Carry
-		rl 		D 						; Carry -> rotate left D
-		sla 	E						; shift left E-> Carry
-		rl 		D 						; Carry -> rotate left D
-		or      E  						; A OR E(0..3) are zero
+		sla 	E						; skift vänster E-> Carry
+		rl 		D 						; Carry -> rotera vänster D
+		sla 	E						; skift vänster E-> Carry
+		rl 		D 						; Carry -> rotera vänster D
+		sla 	E						; skift vänster E-> Carry
+		rl 		D 						; Carry -> rotera vänster D
+		sla 	E						; skift vänster E-> Carry
+		rl 		D 						; Carry -> rotera vänster D
+		or      E  						; regA eller regE(bit 0..3) är 0
 		ld 		E,A
 
-		ld 		(IX),E					; store E value [big endian]
-		ld 		(IX+1),D				; store D value [big endian]
+		ld 		(IX),E					; lagra E värde [big endian]
+		ld 		(IX+1),D				; lagra D värde [big endian]
 
 		inc 	HL
 
 		djnz 	nextHalfByte
-		;***	HL should point to first delimiter...
+		;***	HL spekar på första avgränsare...
 
 byteEnd:
 
 		ld  	A,(PCinpFlag)
-		or  	A 						; check Z; =0 -> normal parameter save
+		or  	A 						; om flagga Z; =0 -> spara parameter normalt
 		jp 	   	Z,paramLoopEntry
 
-		ld  	A,(PCinpFlag+1) 		; address input for PCValue ?
-		cp 		'$' 					; adress flag ?
-		; jr 		Z,changePCVal
-		; cp 		'@' 					; relative adress flag ?
-		jr 		Z,changePCVal
+		ld  	A,(PCinpFlag+1) 		; är angiven parameter address för PCValue ?
+		cp 		'$' 					; kolla för adress flag ?
+		; jr 		Z,changePCVal		; hoppa till ändring av PCvalue
+		; cp 		'@' 					; @ = relativ adress flagga ?
+		jr 		Z,changePCVal			; hoppa till ändring av PCvalue
 
-		; ***	Store  bytes from LVL1 to (PCval)
+		; ***	lagra bytes värden från LVL1 till (PCval)
 		push 	HL
-		ld 		DE,(PCvalue)	
-		ld 		HL,commLvl1
+		ld 		DE,(PCvalue)			; DE = (PCvalue), destination för bytevärden
+		ld 		HL,commLvl1				; HL pekar på första bytevärde i commParseTable
 		; ld 		A,(DE)
 		; ld 		(HL),A
 		; inc 	HL
@@ -941,23 +942,23 @@ noHighNib:
 
 		
 changePCVal:
-		; ***	Change relative PCvalue from 'commAdr1' or
-		; ***	change PCvalue from 'commAdr1'
-		; ***	A contains '$' or '@'
+		; ***	Ändra relativa värdet på PCval från 'commAdr1' eller
+		; ***	ändra PCvalue från 'commAdr1'
+		; ***	regA är '$' or '@'
 		push 	HL
 		push  	DE
-		cp   	'@' 					; relative adress ?
-		jr 		Z,.reladr
+		cp   	'@' 					; relativ adress ?
+		jr 		Z,.reladr				; flagga Z = '@'  -> relativ adress, annars absolut adress
 ; 		***		absolute adr !		
 		ld 		HL,00
-		ld 		(PCvalue),HL				; clear and then add value from commAdr1
+		ld 		(PCvalue),HL			; nollställ PCvalue och addera från commAdr1
 
 .reladr:		
-		ld 		HL,(commAdr1)
-		ld  	DE,(PCvalue)
+		ld 		HL,(commAdr1)			; HL pekar på commAdr1, som är första adressen i commParseTable
+		ld  	DE,(PCvalue)			; DE = (PCvalue), destination för bytevärden	
 		add 	HL,DE
-		ld 		(PCvalue),HL
-		pop 	DE
+		ld 		(PCvalue),HL			; resulterande värde för PCvalue
+		pop 	DE						; återställ DE
 		pop 	HL 						; restore value of first delimiter
 		jp 		paramLoopEntry 				; loop and check for more parameters
 
@@ -1136,18 +1137,17 @@ p_xmod:
 		; ***	Check commParseTable+1 if required parameters
 
 		ld 		A,(commParseTable+1)
-		bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
+		call    DumpRegisters
+		bit 	0,A 			; should be a 	1-address
 		jr 		Z,.nxta
 		; ***	check the commLvl1 if zero
 		ld 		DE,(commLvl1)
 .nxta:		
 
-		ifndef 	BOOTLOAD				; don not use during BOOT
 		call 	doImportXMODEM
 
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
-		endif	
 		ret
 
 p_C_Read:
