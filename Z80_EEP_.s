@@ -1,6 +1,6 @@
 ;Z80_PLD_PCB_.asm
 
-GPIODEBUG EQU 1
+GPIODEBUG EQU 0
 
 		section  FLASH_Startup   	 ;FLASH mem at 0000h
 EPS1:
@@ -49,6 +49,10 @@ EPS1:
 		retn		; jp PIO_A_INT
 		defw $0400          ; NMI adress table    
 
+		align 3
+		defb	"    git: @@GIT_VERSION@@\r\n"
+		defb	"    build: @@DATE@@\r\n"
+
 
 
 ;************************************************************************************************
@@ -84,7 +88,7 @@ setBanks:
 		call 	setSRAMBank			; ram bank #0
 
 	ifd 	GPIODEBUG
-		ld 		A,$77
+		ld 		A,$57
 		out 	(gpio_out),A
 	endif
 

@@ -25,7 +25,7 @@
 	;***************************************************************
 GPIODEBUG EQU 0
 
-DO_Debug:	equ	0		; Set to 1 to show debug printing, else 0 
+
 
 	GLOBAL  MONITOR_Start, SD_USB_startup
 ;************************************************************************************************
@@ -35,38 +35,37 @@ DO_Debug:	equ	0		; Set to 1 to show debug printing, else 0
 ;************************************************************************************************
 		section SD_USB_Start
 
-
 		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
 
 SD_USB_startup:
 
-	if  	GPIODEBUG = 1
-		ld 		A,$33
+	if  	GPIODEBUG = 0
+		ld 		A,$39
 		out 	(gpio_out),A
 
 		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
 
 		ld 		(SP_value),SP
 
-		ld 		A,$AA
+		ld 		A,$3A
 		out 	(gpio_out),A
 		
 		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
 				; initialize buffer counters and pointers.
-		ld 		A,$BB
+		ld 		A,$3B
 		out 	(gpio_out),A
 
 			call	PIO_Init
-		ld 		A,$CC
+		ld 		A,$3C
 		out 	(gpio_out),A
 			call 	CTC_Init
-		ld 		A,$DD
+		ld 		A,$3D
 		out 	(gpio_out),A
 			call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-		ld 		A,$DF
+		ld 		A,$3E
 		out 	(gpio_out),A
 			call	S_head_tail			; save input heads and tails
-		ld 		A,$81
+		ld 		A,$3F
 		out 	(gpio_out),A
 	
 	else
@@ -78,8 +77,6 @@ SD_USB_startup:
 		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
 		call	S_head_tail			; save input heads and tails
 	endif
-
-
 		; call	sh_test
 		; call 	Flash_WR_Test
 		; ld	HL,$2010
@@ -91,7 +88,7 @@ SD_USB_startup:
 		ld 		HL,BootCodeAdr
 		ld 		B,04
 		ld 		A,'3'
-.checkBootCode:
+.checkBootCode:	
 		cp 		(HL)	
 		inc 	HL
 		jp 		NZ,.SDstart
@@ -102,12 +99,13 @@ SD_USB_startup:
 		call 	writeSTRBelow
 		defb   	"\r\n"
 		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-\r\n"
-		defb	"Start from Arduino preloaded monitor\r\n"
-		defb	"    git: @@GIT_VERSION@@\r\n"
-		defb	"    build: @@DATE@@\r\n"
-		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"Start from Arduino preloaded monitor preload to 0xD000\r\n"
+		defb	"    Bootloader git: @@GIT_VERSION@@\r\n"
+		defb	"    Bootloader build: @@DATE@@\r\n"
 		defb	"\0"
 
+		ld 		A,$4C
+		out 	(gpio_out),A
 		call 	waitForFinishedPrintout
 		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
 		
@@ -118,10 +116,9 @@ SD_USB_startup:
 		call 	writeSTRBelow
 		defb   	"\r\n"
 		defb	"=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\r\n"
-		defb	"Start from SD/USB\r\n"
-		; defb	"    git: @@GIT_VERSION@@\r\n"
-		; defb	"    build: @@DATE@@\r\n"
-		; defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"    Bootloader git: @@GIT_VERSION@@\r\n"
+		defb	"    Bootloader build: @@DATE@@\r\n\r\n"
+		defb	"Load <BOOTFILE.TXT> from SD/USB to 0xD000\r\n"
 		defb	"\0"
 
 		call 	waitForFinishedPrintout
@@ -169,13 +166,14 @@ SD_USB_startup:
 		call 	p_C_Read_SD		; read and place boot file.
 
 
-		call 	writeSTRBelow
-		defb   "\r\nUSE RAM bank #0, Copy FLASH Boot seq\r\n"
-		defb   "To RAM bank #1 ($0-$2000) \r\n"
-		defb	"Jump to MONITOR_Start! ($D000)\r\n",0,0,0
-		call 	waitForFinishedPrintout
+		; call 	writeSTRBelow
+		; defb   "\r\nUSE RAM bank #0, Copy FLASH Boot seq\r\n"
+		; defb   "To RAM bank #1 ($0-$2000) \r\n"
+		; defb	"Jump to MONITOR_Start! ($D000)\r\n",0,0,0
+		; call 	waitForFinishedPrintout
 
 		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
+		; jp 		MONITOR_Start			; monitor start $D000 MONITOR_Start:
 
 rfile_name:
 	 db "BOOTFILE.TXT",0,0,0,0
@@ -257,7 +255,9 @@ MONITOR_Start:
 
 		; ***	should be start address $D000
 		;jr 		.makeShadowRAM
-
+		nop
+		nop
+		nop
 
 		jr 		.skipBlockCopy		; use Flash mem and SRAM normally
 	align 3

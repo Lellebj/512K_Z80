@@ -19,7 +19,8 @@ TEMPS/Makefile.OLD
 TEMPS/XXMakefile_OLDSTYLE
 TEMPS/Z80_PLD_PCB_copy.asm
 TEMPS/Z80_PLD_PCB_MAIN_INIT.asm
-OBJS/*.*
+OBJS/*
 2063-Z80-cpm-main/.gitignore
 Z80_BOOT.map
 OBJS/Z80_USB_TXRX.o.lst
+OBJS/Z80_PLD_PCB_.o.lst

@@ -149,12 +149,12 @@
 			_MonEnd = .;
 			. = ALIGN(0x20);
 
-			KEEP( *.o(INIT_BODY))
-            . = ALIGN(0x20);
-
 		    KEEP( *.o(SD_USB_Start))
 			_USB_EEprog_end = .;
 			. = ALIGN(0x20);
+
+			KEEP( *.o(INIT_BODY))
+            . = ALIGN(0x20);
 
 			KEEP(*.o (Functions))
 			_Funk_end = .;

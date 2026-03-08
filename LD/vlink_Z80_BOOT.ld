@@ -144,7 +144,7 @@
 		    KEEP(*.o(SD_USB_Start))
 			_BootSDUSB_EEprog_end = .;
 			. = ALIGN(0x20);
-	
+
 			KEEP(*.o (CH376S_Support))
 			_BootUSB_end = .;
 			. = ALIGN(0x20);
@@ -169,7 +169,7 @@
 
 		Dummy  0xD000 :
 		{
-
+	
 			*.o (EXCLUDE_SECTION (*.o ) Monitor  ) ;
 
 /*
