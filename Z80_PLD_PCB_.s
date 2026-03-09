@@ -82,8 +82,8 @@ SD_USB_startup:
 		; ld	HL,$2010
 		; call	Flash_SE_Erase
 
-		; check  $D008-$D00B for $33333333 -> Startup code is preloaded from Arduino 
-		; check  $D008-$D00B for $CCCCCCCC -> start from Flash 
+		; check  $D008-$D00B for $33333333 -> starta monitor direkt (laddad från Arduino/ Linux-arduino-serial-master_68K_V3)
+		; check  $D008-$D00B for $CCCCCCCC -> starta normalt (SD/USB boot) utan att kopiera från flash
 
 		ld 		HL,BootCodeAdr
 		ld 		B,04
@@ -94,7 +94,8 @@ SD_USB_startup:
 		jp 		NZ,.SDstart
 		djnz 	.checkBootCode
 
-
+;		*****************************************************************************************
+; 		*** Om RAM minnet $D008- $D00B är $3333, starta monitor direkt utan att kopiera från flash
 		call	CRLF
 		call 	writeSTRBelow
 		defb   	"\r\n"
@@ -142,7 +143,7 @@ SD_USB_startup:
 		ld 		HL,S1x						; result in S1x
 		ld 		(commAdr1),HL
 
-		call 	p_C_Read_SD
+		call 	p_C_Read_SD				; försök läsa in filnamnet för Monitor från SD-kortet <BOOTFILE.TXT>	 
 
 
 ;***	correct $0A to $00 $00 in S1x (check for ascii lower than $20)
@@ -158,12 +159,12 @@ SD_USB_startup:
 		ld 		A,00
 		ld 		(de),A
 		inc 	de
-		ld 		(de),A			; strip eventually $0A, $0D, ...
+		ld 		(de),A			; ta bort $0A, $0D, ...
 		inc 	de
-		ld 		(de),A			; Boot file name present in commStr1
+		ld 		(de),A			; Filnamnet för Monitor ska finnas i commStr1
 		ld 		HL,_RAMSTART
-		ld 		(commAdr1),HL 	; place adress for boot file...
-		call 	p_C_Read_SD		; read and place boot file.
+		ld 		(commAdr1),HL 	; lagra adress för Monitor i commAdr1
+		call 	p_C_Read_SD		; försök läsa in Monitor från SD-kortet	
 
 
 		; call 	writeSTRBelow
@@ -206,7 +207,8 @@ p_C_Read_SD:
 		call 	purgeRXB					; XMODEM_CRC_SUB.s
 		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
 		call 	HC376S_ResetAll
-		call 	HC376S_CheckConnection
+		call 	HC376S_CheckConnection		; ret with NZ  on failure -> abort
+		jr 		NZ,SDabort
 		; ld 		A,(commParseTable)
 		; cp 		15							; 15 read SD; 17-read USB
 		; jr 		Z,.doSD
@@ -219,26 +221,35 @@ p_C_Read_SD:
 		call 	HC376S_setSDMode
 		
 .cont:
-		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+		call 	HC376S_USBdiskMount			; ret with NZ  on failure -> abort
 		jr 		NZ,SDabort
 
 
 		call 	HC376S_setFileName
-		call 	HC376S_fileOpen
+		call 	HC376S_fileOpen				; ret with NZ  on failure -> abort
 		jr 		NZ,SDabort
 		call 	waitForFinishedPrintout
 
 		call 	HC376S_getFileSize
 		call 	HC376S_fileRead
 		call 	HC376S_fileClose
-SDabort:
 
-		; ***	reset the interrupt handler for CTC
+		call 	cl_p_C_read				; återställ normala CTC och SIO interrupt handterare
+		ret							; retur success	 (Z)
+
+SDabort:
+		call 	cl_p_C_read				; återställ normala CTC och SIO interrupt handterare
+		inc 	A 					; retur felkod (NZ)
+		ret							; retur felkod (NZ)
+
+cl_p_C_read:
+		; ***	återställ avbrottshanterare och vektorer till normalt avbrottshanterare för CTC och SIO 
 		; call 	SIO_A_EI					; enable text output
 		call 	HC376S_ResetAll
 		call 	CTC1_INT_OFF
 		ld		HL,CTC_CH1_Interrupt_Handler
 		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+		xor 	A
 		ret
 
 
@@ -255,9 +266,6 @@ MONITOR_Start:
 
 		; ***	should be start address $D000
 		;jr 		.makeShadowRAM
-		nop
-		nop
-		nop
 
 		jr 		.skipBlockCopy		; use Flash mem and SRAM normally
 	align 3
@@ -368,10 +376,8 @@ MONITOR_Start:
 		call 	writeSTRBelow
 		defb   	"\r\n"
 		defb	"##########################################################\r\n"
-		defb	"The Z80 Board Awakened 2026\r\n"
-		defb	"    git: @@GIT_VERSION@@\r\n"
-		defb	"    build: @@DATE@@\r\n"
-		defb	"    FLASH->SRAM 0xD000.\r\n"
+		defb	"    TheMonitor git: @@GIT_VERSION@@\r\n"
+		defb	"    TheMonitor build: @@DATE@@\r\n"
 		defb	"\0"
 		call 	waitForFinishedPrintout
 
@@ -1163,7 +1169,7 @@ p_C_Read:
 		out (gpio_out),A
 	endif
 
-		call  	SIO_A_DI					; disable text output
+		; call  	SIO_A_DI					; disable text output
 	if 	GPIODEBUG=1
 		ld a,4
 		out (gpio_out),A
@@ -1173,22 +1179,44 @@ p_C_Read:
 	
 		ld a,e
 		call 	purgeRXB					; XMODEM_CRC_SUB.s
-		call 	initSIOBInterrupt			; turn on interrupt on SIO B (CH376S) LEV_Sect11_IO_Interrupts.s
+		call 	initSIOBInterrupt			; ställ in interrupt på SIO B (CH376S) [LEV_Sect11_IO_Interrupts.s]
 		call 	HC376S_ResetAll
 		call 	HC376S_CheckConnection
-		ld 		A,(commParseTable)
-		cp 		15							; 15 read SD; 17-read USB
-		jr 		Z,.doSD
-		cp 		21							; 21 read SD enumerate, 22 read USB enumerate
-		jr 		Z,.doSD
-		call 	HC376S_setUSBMode
-		call 	HC376S_diskConnectionStatus		; dont use with SD card
-		jr 		.cont
-.doSD:
+		jr 		Z,nextcheck					; om kontakt med CH376S, -> Z och fortsätt, annars -> NZ och avbryt
+
+		call 	writeSTRBelow
+		DB 		0,"CH376S not connected !",CR,LF,00
+		jr 		abort
+nextcheck:
+		ld 		A,(commParseTable)			; A= kommandonummer
+
+		; cp 		16							; 16 read SD; 18-read USB
+		; jr 		Z,.doSD
+		; cp 		21							; 21 read SD enumerate, 22 read USB enumerate
+		; jr 		Z,.doSD
+
 		call 	HC376S_setSDMode
-		
-.cont:
+		call 	HC376S_USBdiskMount				; svarar med NZ  om fel
+		jr 		Z,.cont					; om SD kort finns, -> Z och fortsätt, annars kolla USB	
+		 								; om SD kort saknas är A = 0x82
+		call 	writeSTRBelow
+		DB 		0,"Inget SD kort isatt !",CR,LF,00
+
+		;***		Kolla istället om USB finns
+
+		call 	HC376S_CheckConnection
+		call 	HC376S_setUSBMode
+		jr 		Z,.doUSB				; om USB finns, -> Z och fortsätt, annars avbryt	
+		call 	writeSTRBelow
+		DB 		0,"Ingen USB isatt !",CR,LF,00
+		jr 		abort
+
+.doUSB:
+		call 	HC376S_diskConnectionStatus		; dont use with SD card
 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+
+
+.cont:
 		jr 		NZ,abort
 
 		call 	HC376S_setFileName
@@ -1198,15 +1226,25 @@ p_C_Read:
 		call 	HC376S_getFileSize
 		call 	HC376S_fileRead
 		call 	HC376S_fileClose
-abort:
 
-		; ***	reset the interrupt handler for CTC
-		call 	SIO_A_EI					; enable text output
+		call 	clear_p_C_read		; återställ normala CTC och SIO interrupt handterare
+		ret							; retur success	 (Z)
+
+abort:
+		call 	clear_p_C_read		; återställ normala CTC och SIO interrupt handterare
+		inc 	A 					; retur felkod (NZ)
+		ret							; retur felkod (NZ)
+
+clear_p_C_read:
+		; ***	återställ avbrottshanterare och vektorer till normalt avbrottshanterare för CTC och SIO 
+		; call 	SIO_A_EI					; enable text output
 		call 	HC376S_ResetAll
 		call 	CTC1_INT_OFF
 		ld		HL,CTC_CH1_Interrupt_Handler
 		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+		xor 	A
 		ret
+
 
 		
 p_C_Write:

@@ -785,7 +785,7 @@
 
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
 		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey,RetInpStatus
-		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterrupt,CTC1_INT_OFF,initSIOBInterrupt
+		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterruptVectors,CTC1_INT_OFF,initSIOBInterrupt
 		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeRXB,TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
 		GLOBAL 	SIO_B_EI,SIO_B_RX_INTon,SIO_B_TXRX_INToff,SIO_B_EI,SIO_B_DI
 		GLOBAL 	SIO_A_EI,SIO_A_TXRX_INTon,SIO_A_TXRX_INToff,SIO_A_TX_INTon,SIO_A_RX_INTon,SIO_A_RTS_OFF,SIO_A_RTS_ON,SIO_A_DI
@@ -1009,7 +1009,7 @@ InitBuffers:
 		ld		(OutBufCount),A
 		call	cleanInBuffer
 		call	cleanOutBuffer
-		call 	InitInterrupt		; init interrupt vectors
+		call 	InitInterruptVectors		; init interrupt vectors
 		ret
 
 cleanInBuffer:
@@ -1037,7 +1037,7 @@ waitForFinishedPrintout:
 		ret
 
 ;******************************************************************************
-InitInterrupt:
+InitInterruptVectors:
 			;INITIALIZE INTERRUPT VECTORS (SIO_0)
 			; initialize . interrupt flag
 		ld		A,SIO_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE   (F400 >> 8 = F4)
@@ -1155,15 +1155,15 @@ wrdone:
 ReadUSBHandler:
 		in  	A,(sio_bd)		  		;read char from SIO B
 		ld 		E,A
-	ifd 	GPIODEBUG	
+	; ifd 	GPIODEBUG	
 		ld a,1
 		out (gpio_out),A
 		ld a,0
 		out (gpio_out),A
-	endif
+	; endif
 	
 		ld a,e
-		call 	purgeRXB
+		; call 	purgeRXB
 
 		; in  	A,(CH1)
 		; ld 		(TempVar8),A
@@ -1213,12 +1213,12 @@ Extern_B_USB_Handler:
 									; service here if necessary
 			;special receive error interrupt
 SpecINT_B_USB_Handler:
-	ifd 	GPIODEBUG
-		ld a,22
+	; ifd 	GPIODEBUG
+		ld a,30
 		out (gpio_out),A
 		ld a,0
 		out (gpio_out),A
-	endif
+	; endif
 	
 		ld a,e
 		ei							;framing error or overrun error occurred

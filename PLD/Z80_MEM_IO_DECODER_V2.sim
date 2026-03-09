@@ -1,0 +1,88 @@
+%SIGNAL
+PIN  14 =  64K_SRAM 
+PIN   7 =  A4 
+PIN   8 =  A5 
+PIN   9 =  A6 
+PIN  10 =  A7 
+PIN  11 =  A14 
+PIN  13 =  A15 
+PIN   1 =  Bus_EN 
+PIN  19 =  CE_8Bitout 
+PIN  20 =  CE_BankCS 
+PIN  22 =  CE_CTC 
+PIN  16 =  CE_FLASH 
+PIN  23 =  CE_PIO 
+PIN  18 =  CE_RSTBANK 
+PIN  21 =  CE_SIO_0 
+PIN  15 =  CE_SRAM 
+PIN  17 =  PIO_M1 
+PIN   5 =  Z80_IOREQ 
+PIN   3 =  Z80_M1 
+PIN   4 =  Z80_MREQ 
+PIN   6 =  Z80_RESET 
+PIN   2 =  Z80_WR 
+%END
+
+%FIELD
+%END
+
+%EQUATION
+CE_8Bitout =>
+    !A4 & !A5 & A6 & !A7 & !Z80_IOREQ & Z80_M1
+
+CE_8Bitout.oe  =>
+    Bus_EN
+
+CE_BankCS =>
+    A4 & A5 & !A6 & !A7 & !Z80_IOREQ & Z80_M1
+
+CE_BankCS.oe  =>
+    Bus_EN
+
+!CE_CTC =>
+    A4 & !A5 & !A6 & !A7 & !Z80_IOREQ & Z80_M1
+
+!CE_FLASH =>
+    !64K_SRAM & !A15 & !Z80_MREQ
+
+CE_FLASH.oe  =>
+    Bus_EN
+
+!CE_PIO =>
+    !A4 & !A5 & !A6 & !A7 & !Z80_IOREQ & Z80_M1
+
+CE_RSTBANK =>
+    !A4 & !A5 & !A6 & A7 & !Z80_IOREQ & Z80_M1
+
+CE_RSTBANK.oe  =>
+    Bus_EN
+
+!CE_SIO_0 =>
+    !A4 & A5 & !A6 & !A7 & !Z80_IOREQ & Z80_M1
+
+!CE_SRAM =>
+    !64K_SRAM & A15 & !Z80_MREQ
+  # 64K_SRAM & !Z80_MREQ
+
+CE_SRAM.oe  =>
+    Bus_EN
+
+PIO_M1 =>
+    Z80_M1 & Z80_RESET
+
+64K_SRAM.oe  =>
+    0 
+
+CE_CTC.oe  =>
+    1 
+
+CE_PIO.oe  =>
+    1 
+
+CE_SIO_0.oe  =>
+    1 
+
+PIO_M1.oe  =>
+    1 
+
+%END

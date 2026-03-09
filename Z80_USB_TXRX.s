@@ -33,7 +33,7 @@
 ;CTC_delay_INT_handler
 
 
-USB_TEXT_LABLES		equ 1		; No additional text when using USB.
+USB_TEXT_LABLES		equ 0		; No additional text when using USB.
 								; 1-low level of info; 15-high level of info
 
 USB_INT_SUCCESS		equ $14
@@ -151,24 +151,26 @@ HC376S_setUSBMode::
 		
 		call 	delay20ms			;delay 20 ms
 
-		call	waitForResponse	 	;test rxrdy-B
+		call	waitForResponse	 	;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
+
 	
-	ifd 	GPIODEBUG
-	ld a,2
-	out (gpio_out),A
-	ld a,0
-	out (gpio_out),A
-	endif
+	; ifd 	GPIODEBUG
+	; ld a,2
+	; out (gpio_out),A
+	; ld a,0
+	; out (gpio_out),A
+	; endif
 	
 		ld 		a,e
-		jr 		Z,NoUSBpres			; no response from 'waitForResponse'
+
+		jr 		Z,NoUSBpres			; Z:-> ingen respons från 'waitForResponse'
 		
 
 		cp	 	CMD_RET_SUCCESS		; 51?
 		jp 		NZ,someUSBerror
 
 		call 	delay10ms
-		call 	waitForResponse				; read data in inport -> A&E
+		call 	waitForResponse			;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
 
 	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow_CRLF
@@ -227,14 +229,14 @@ HC376S_setSDMode::
 		
 		call 	delay100ms			;delay 20 ms
 
-		call	waitForResponse	 		;test rxrdy-B
-		jr 		Z,norespSD			; no response from 'waitForResponse'
+		call 	waitForResponse			;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
+		jr 		Z,norespSD			; ingen respons från 'waitForResponse'
 
 		cp	 	CMD_RET_SUCCESS  ; $51?
 		jr 		NZ,someUSBerror
 
-		; call 	delay100ms
-		; call 	waitForResponse				; read data in inport -> A&E
+		call 	delay100ms
+		call 	waitForResponse			;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
 	
 	; if (USB_TEXT_LABLES>4)
 	; 	call 	writeSTRBelow_CRLF
@@ -253,12 +255,14 @@ HC376S_setSDMode::
 		call	CRLF
 	endif
 		xor 	A
-		ret									; return with Z
+		ret									; svara med Z
 
 norespSD:
 		call 	writeSTRBelow_CRLF
 		db		" SD card no response",0,0
 		call 	waitForFinishedPrintout
+		xor 	A	
+		inc  	A						; ingen Z flagga (NZ)
 		ret
 
 
@@ -278,7 +282,7 @@ HC376S_diskConnectionStatus::
 		call 	outByte367S
 
 		call 	delay100ms
-		call 	waitForResponse 			; Z is set if no response from 376S 
+		call 	waitForResponse			;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
 		jp 		Z,endtest					; branch on timeout
 											; if not : get the actual data, in A&E
 		cp 		A,USB_INT_SUCCESS
@@ -316,8 +320,8 @@ HC376S_USBdiskMount::
 		ld 		E,$31
 		call 	outByte367S
 		
-		call 	delay1s				; 250 msec
-		call 	waitForResponse 		; Z is set if no response from 376S 
+		call 	delay1s				; 1000 msec
+		call 	waitForResponse			;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
 		jp 		Z,endtest				; branch on timeout
 										; get the actual data, in A&E
 		ld 		(TempVar5),A
@@ -339,10 +343,10 @@ HC376S_USBdiskMount::
 		call 	putDEtoScreen
 		call	CRLF
 		call 	waitForFinishedPrintout
-		ld 		A,$54					; indicate mount failure A-non zero
+		ld 		A,E					; indicate mount failure A-non zero
 		inc 	A
-		ret
-
+		dec  	A				; om A=$82 ->NZ
+		ret				; retur med NZ
 ;************************************************************************
 ;************************************************************************
 
@@ -427,7 +431,7 @@ nxtFileOpen:
 		call 	waitForFinishedPrintout
 		ld 		A,$65					; indicate mount failure A-non zero
 		inc 	A
-		ret
+		ret				; openfile fail: ret with NZ
 
 	
 .openOK:
@@ -688,7 +692,8 @@ HC376S_getFileSize::
 endtest:
 		call 	writeSTRBelow_CRLF
 		DB 		0,">Connection to CH376S - TIMEOUT.", 00
-
+		xor     A   ; A=0, Z set
+		inc     A   ; A=1, Z cleared  (NZ)
 		ret
 
 ;**######################################################################
@@ -1056,8 +1061,8 @@ delay_D0_ms:
 
 ; 		rts
 
-   		;wait for a response from the CH376S. If CH376S responds, it will be true. If it times out, it will be false. 
-		;Response in A&E, use CTC timeout, Z -> no response, NZ -> 376S has responded
+   		;wVänta på respons från CH376S. If CH376S svarar, om svar:-> True. om inte svar (time out), svar:-> false. 
+		;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
 waitForResponse:  
 
 		ei
@@ -1198,12 +1203,12 @@ CTC_delay_INT_handler:
 		ld		A,CTC_TIMEOUT 			; set timeout flag
 		ld 		(CTCdelayFlag),A 		; reset timeout flag
 
-	ifd 	GPIODEBUG
+	; ifd 	GPIODEBUG
 	ld a,8
 	out (gpio_out),A
 	ld a,0
 	out (gpio_out),A
-	endif
+	; endif
 		
 		ld 	a,e
 		ei

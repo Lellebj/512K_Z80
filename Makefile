@@ -68,7 +68,7 @@ RM=rm -f
 $(info 	MEDIA is $(MEDIA))
 
 DATE := $(shell date +"%Y-%m-%d_%H:%M")
-GIT_VERSION := $(shell git describe --long --dirty)
+GIT_VERSION := $(shell git describe --long )
 $(info    GIT is $(GIT_VERSION))
 # GIT_VERSION := $(shell git describe --long --dirty; git show -s --format='%ci')
 # cat $< | sed -e "s/@@DATE@@/$(DATE)/g" -e "s/@@GIT_VERSION@@/$(GIT_VERSION)/g" | z80asm - -o $@ --list=$(basename $@).lst --label=$(basename $@).sym $(ASM_FLAGS)
