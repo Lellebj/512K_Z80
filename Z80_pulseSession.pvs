@@ -1,6 +1,6 @@
 [General]
 decode_signals=1
-meta_objs=1
+meta_ObjectCode=1
 views=1
 
 [D0]

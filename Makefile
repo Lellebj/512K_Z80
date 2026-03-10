@@ -5,7 +5,7 @@ SYSINCDIR?=include
 SYSLIBDIR?=libs/Build/lib
 BUILDLIBDIR?=Build
 BUILD_DIR = Build
-OB_CODE = OBJS
+OB_CODE = ObjectCode
 LIBS=
 
 #DEFINES= -D NOFLASH   
