@@ -137,6 +137,11 @@ CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector
 CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
 CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
 
+
+; SD_USB parameters
+SD_EXIST 	EQU  0x01
+USB_EXIST 	EQU  0x02
+
 ; Data tables  (upper EPROM/FLASH)
 ; stack  				= $FF00
 Heap				= $F000				; space for variable storage

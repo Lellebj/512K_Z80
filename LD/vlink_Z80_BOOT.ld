@@ -74,6 +74,8 @@
 														; ff = interrupt expected)*/
 	PROVIDE( XBAddr			=	0x1A8 + _String_HEAP);			/*	XMODEM block start address  2byte	*/
 	PROVIDE( XMChkSum		=	0x1AA + _String_HEAP);			/*	XMODEM block checksum  2byte	*/
+	PROVIDE( SDUSB_Helper	=	0x1AC + _String_HEAP);			/*	SD och USB hjälpvariabel  2byte	*/
+	
 
 	PROVIDE( TempVar1		=	0x1B1 + _String_HEAP);			/*	Temp1	DS	1	*/
 	PROVIDE( TempVar2		=	0x1B2 + _String_HEAP);			/*	Temp2	DS	1	*/

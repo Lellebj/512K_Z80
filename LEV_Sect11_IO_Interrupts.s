@@ -786,7 +786,7 @@
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
 		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey,RetInpStatus
 		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterruptVectors,CTC1_INT_OFF,initSIOBInterrupt
-		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeRXB,TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
+		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeTXA, TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
 		GLOBAL 	SIO_B_EI,SIO_B_RX_INTon,SIO_B_TXRX_INToff,SIO_B_EI,SIO_B_DI
 		GLOBAL 	SIO_A_EI,SIO_A_TXRX_INTon,SIO_A_TXRX_INToff,SIO_A_TX_INTon,SIO_A_RX_INTon,SIO_A_RTS_OFF,SIO_A_RTS_ON,SIO_A_DI
 
@@ -1368,6 +1368,20 @@ purgeRXA:
 
 		in		A,(SIO_A_D)		;read that char
 		jp		purgeRXA		
+
+
+purgeTXA:
+		; flushing the transmit buffer
+		;check for TX buffer empty
+		;modifies A
+		sub		a				;clear a, write into WR0: select RR0
+		out		(SIO_A_C),A
+		in		A,(SIO_A_C)		;read RRx
+		bit		2,A
+		ret		z				;if any tx char left in tx buffer
+
+		in		A,(SIO_A_D)		;read that char
+		jp		purgeTXA		
 
 
 purgeRXB:

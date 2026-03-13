@@ -63,6 +63,7 @@ ERR_FILE_CLOSE		equ $B4
 		GLOBAL 	HC376S_USBdiskMount,HC376S_setFileName,HC376S_fileOpen,HC376S_fileClose,HC376S_fileCreate
 		GLOBAL 	HC376S_getFileSize,HC376S_fileRead,HC376S_fileDelete,HC376S_fileWrite,HC376S_setSDMode
 		GLOBAL  delay100ms, delay20ms, delay10ms, delay5ms, delay1ms, delay100us, CTC_delay_INT_handler
+		GLOBAL  delay500ms, waitForResponse, waitForCTCResponse
 
 HC376S_CheckConnection::
 
@@ -105,7 +106,6 @@ connection_pass:
 		call 	writeSTRBelow_CRLF
 		DB 		0,">Connection to CH376S was successful.", 00
 		call 	waitForFinishedPrintout
-
 	endif
 		xor 	A
 		ret		; Z 
@@ -155,10 +155,10 @@ HC376S_setUSBMode::
 
 	
 	; ifd 	GPIODEBUG
-	; ld a,2
-	; out (gpio_out),A
-	; ld a,0
-	; out (gpio_out),A
+	ld a,2
+	out (gpio_out),A
+	ld a,0
+	out (gpio_out),A
 	; endif
 	
 		ld 		a,e
@@ -191,19 +191,25 @@ HC376S_setUSBMode::
 
 
 NoUSBpres:
+	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow_CRLF
 		db	0,">No USB is present.",0,0
 		call 	waitForFinishedPrintout
+	endif
 		jr 		retNZ
 NoSDpres:
+	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow_CRLF
 		db	0,">No SD card is present.",0,0
 		call 	waitForFinishedPrintout
+	endif
 		jr 		retNZ
 		
 someUSBerror:		
+	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow_CRLF
 		db		0,">CH376S error! .",0,0
+	endif
 retNZ:
 		xor 	A
 		inc 	A
@@ -235,19 +241,19 @@ HC376S_setSDMode::
 		cp	 	CMD_RET_SUCCESS  ; $51?
 		jr 		NZ,someUSBerror
 
-		call 	delay100ms
-		call 	waitForResponse			;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
+		; call 	delay100ms
+		; call 	waitForResponse			;Svarvärde i A&E, CTC timeout, Z -> ingen respons, NZ -> 376S svarar !
 	
-	; if (USB_TEXT_LABLES>4)
-	; 	call 	writeSTRBelow_CRLF
-	; 	db		0,"SD Mode command acknowledged !",0,0
-	; endif
+	if (USB_TEXT_LABLES>8)
+		call 	writeSTRBelow_CRLF
+		db		0,"SD Mode command acknowledged !",0,0
+	endif
 		ld 		A,E	
 		ld 		D,00
 		; cp	 	USB_INT_CONNECT				; compare A & USB_INT_CONNECT
 		; jp		NZ,NoSDpres
 
-	if (USB_TEXT_LABLES>5)
+	if (USB_TEXT_LABLES>8)
 		call 	writeSTRBelow
 		db		0,"SD card response OK.  Code:",0,0
 		call 	putDEtoScreen
@@ -258,9 +264,11 @@ HC376S_setSDMode::
 		ret									; svara med Z
 
 norespSD:
+	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow_CRLF
 		db		" SD card no response",0,0
 		call 	waitForFinishedPrintout
+	endif
 		xor 	A	
 		inc  	A						; ingen Z flagga (NZ)
 		ret
@@ -297,9 +305,11 @@ HC376S_diskConnectionStatus::
 		ret
 	
 .connFailed:
+	if (USB_TEXT_LABLES>1)
 		call 	writeSTRBelow_CRLF
 		db		0,">Connection to USB - FAILED.",0,0
 		call 	waitForFinishedPrintout
+	endif
 		ret
 
 ;************************************************************************
@@ -338,11 +348,13 @@ HC376S_USBdiskMount::
 .connFailed:
 		ld 		E,A
 		ld 		D,00
+	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow
 		db		0,">Failed to Mount disk.  Code:",0,0
 		call 	putDEtoScreen
 		call	CRLF
 		call 	waitForFinishedPrintout
+	endif
 		ld 		A,E					; indicate mount failure A-non zero
 		inc 	A
 		dec  	A				; om A=$82 ->NZ
@@ -398,10 +410,10 @@ HC376S_setFileName::
 
 HC376S_fileOpen::
 
-	
+	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow
 		db		">File open : ",0,0
-
+	endif
 		ld 		IY,commStr1				;move.l 	USB_filename_ptr,A0 
 		dec 	IY
 		call 	WriteLineCRNL
@@ -427,7 +439,7 @@ nxtFileOpen:
 		jr 		Z,openNoFileName
 
 		call 	writeSTRBelow_CRLF
-		db		0,">Failed to open file.",0,0
+		db		0,">Öppna fil misslyckades.",0,0
 		call 	waitForFinishedPrintout
 		ld 		A,$65					; indicate mount failure A-non zero
 		inc 	A
@@ -435,15 +447,17 @@ nxtFileOpen:
 
 	
 .openOK:
+	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow
 		db		0," opened successfully, ",0,0
 		call 	waitForFinishedPrintout
+	endif
 		xor 	A						; A= 0 , Z set
 		ret
 
 openNoFileName:
 		call 	writeSTRBelow_CRLF
-		db		0,">File not found.!",0,0
+		db		0,">Filen hittades inte.!",0,0
 		call 	waitForFinishedPrintout
 		ld 		A,$76					; indicate mount failure A-non zero 
 		inc 	A						; ret with NZ
@@ -577,10 +591,12 @@ HC376S_fileClose::
 	
 .closeFailed:
 
+	if (USB_TEXT_LABLES>6)
 		; call 	PrintD0ToScreenHEX
 		call 	writeSTRBelow_CRLF
 		db		" failed to close file.",0,0
 		call 	waitForFinishedPrintout
+	endif	
 		ret
 
 ;************************************************************************
@@ -597,8 +613,10 @@ HC376S_fileClose::
 		; ***	Create file; return Z if true.
 HC376S_fileCreate::
 
+	if (USB_TEXT_LABLES>10)
 		call 	writeSTRBelow
 		db		" >Create File : ",0,0
+	endif
 		ld 		IY,commStr1
 		dec 	IY
 		call 	WriteLineCRNL
@@ -629,7 +647,7 @@ HC376S_fileCreate::
 		ld 		E,A
 		ld 		D,00
 		call 	writeSTRBelow
-		db		" >Failed to create file..  Code:",0,0
+		db		" >Skapa fil misslyckades..  Code:",0,0
 		call 	putDEtoScreen
 		call	CRLF
 		ld 		A,$87					; indicate mount failure A-non zero
@@ -678,7 +696,7 @@ HC376S_getFileSize::
 
 .finalsize:
 		call 	writeSTRBelow
-		db		" file size : ",0,0
+		db		" Filstorlek : ",0,0
 		ld 		DE,(T_BUFFER)			; filesize restrict to max 65535 bytes; only two least bytes
 		call 	putDEtoScreen
 		call	CRLF
@@ -690,8 +708,10 @@ HC376S_getFileSize::
 ;************************************************************************
 
 endtest:
+	if (USB_TEXT_LABLES>2)
 		call 	writeSTRBelow_CRLF
 		DB 		0,">Connection to CH376S - TIMEOUT.", 00
+	endif
 		xor     A   ; A=0, Z set
 		inc     A   ; A=1, Z cleared  (NZ)
 		ret
@@ -759,10 +779,11 @@ HC376S_fileRead::
 
 		push  	HL
 		ld 		HL,(commAdr1)			; set the target address
-		
+	if (USB_TEXT_LABLES>2)		
 		call 	writeSTRBelow_CRLF
 		db		" Reading File !. ",0,0
 		call 	waitForFinishedPrintout
+	endif
 
 .nextblock:		
 		ld 		D,$80 	 		; The maximum value is 0x80  =  128 bytes
@@ -864,7 +885,7 @@ HC376S_fileWrite::
 		ex 		DE,HL					; set the target start address in HL
 
 		call 	writeSTRBelow_CRLF
-		db		" Writing to File !. ",0,0
+		db		" Skriver till fil !. ",0,0
 		ld 		DE,$0080
 		ld 		(packLen),DE
 		push 	DE
@@ -1080,6 +1101,22 @@ waitForResponse:
 		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
 		inc 	A						; => NZ
 		ld 		A,E						; no flags set.
+		ret								; NZ set, 376S has responded
+
+waitForCTCResponse:  
+
+		ei
+		halt    
+
+		ld 		A,(CTCdelayFlag)
+		cp 		CTC_TIMEOUT 						; if A=EE, Z flaggad, timeout är satt från CTC interrupt
+		jr 		Z,finishCTCwait						; om Z avsluta waitForCTCResponse med Z.
+
+		jr  	waitForCTCResponse					; fortsätt vänta på CTC timeout
+
+finishCTCwait:
+		call	CTC1_INT_OFF			; stop CTC sending timeout's  (A=0) ;LEV_Sect11_IO_Interrupts.s
+		inc 	A						; => NZ
 		ret								; NZ set, 376S has responded
 
 

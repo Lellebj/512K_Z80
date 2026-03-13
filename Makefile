@@ -20,7 +20,7 @@ LIBS=
 
 MAIN=Z80_BOARD
 MEDIA?= $(shell ls /media/lellebj/)
-
+TM_File =Z80F
 #****************************************************
 SOURCES    := $(wildcard *.s)
 OBJECTS = $(SOURCES:%$(S_EX)=$(OB_CODE)/%.o)
@@ -90,7 +90,7 @@ $(TARGET): $(OBJECTS)
 
 ifneq ($(strip $(MEDIA)),)
 	cp  ./Build/512K_Z80.BIN  /media/lellebj/$(MEDIA)/Z80EE.BIN
-	cp  ./Build/512K_Z80.BIN.TheMonitor  /media/lellebj/$(MEDIA)/Z80F.BIN
+	cp  ./Build/512K_Z80.BIN.TheMonitor  /media/lellebj/$(MEDIA)/$(TM_File).BIN
 	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80F* )
 	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80EE* )
 endif
