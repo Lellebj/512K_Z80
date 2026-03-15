@@ -394,52 +394,53 @@ MONITOR_Start:
 	
 .makeShadowRAM:
 
-	if 	GPIODEBUG =1
-	ld 		A,$33
-	out 	(gpio_out),A
-	endif
-;		***  	NOFLASH - Don not use the FLASH mem -> 64kRAM
-; 		*** 	Copy Flash boot sequence to RAM bank #1
-; 		*** 	first to temp storage area.
+; 	if 	GPIODEBUG =1
+; 	ld 		A,$33
+; 	out 	(gpio_out),A
+; 	endif
+; ;		***  	NOFLASH - Don not use the FLASH mem -> 64kRAM
+; ; 		*** 	Copy Flash boot sequence to RAM bank #1
+; ; 		*** 	first to temp storage area.
 
-;		***	 	Copy 128 blocks of 256 bytes from flash to RAM bank #0, then copy to RAM bank #1
+; ;		***	 	Copy 128 blocks of 256 bytes from flash to RAM bank #0, then copy to RAM bank #1
 
-		ld  	B,128		; count 128 blocks of 256 bytes
-.loopBlocks:
-		push  	BC 			; save BC as block counter
-		ld     	BC,128		; byte counter
+; 		ld  	B,128		; count 128 blocks of 256 bytes
+; .loopBlocks:
+; 		push  	BC 			; save BC as block counter
+; 		ld     	BC,128		; byte counter
 
-		ld 		HL,$7FFF		; end of flash memory area
-		ld 		DE,$CFFF		; temp storage area 0xCF00-CFFF		
-		push 	HL
-		push 	DE
-		lddr					; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0		
+; 		ld 		HL,$7FFF		; end of flash memory area
+; 		ld 		DE,$CFFF		; temp storage area 0xCF00-CFFF		
+; 		push 	HL
+; 		push 	DE
+; 		lddr					; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0		
 
-; 		*** 	secondly: to Rambank #1 storage area. deselect FLASH mem
-; 		***		Swithch to RAM bank #1
-		call  	p_FOFF_No_Print	; ***		Disable Flash memory 
-		ld 		A,1
-		call 	p_srbank0; 		***		Swithch to RAM bank #1
+; ; 		*** 	secondly: to Rambank #1 storage area. deselect FLASH mem
+; ; 		***		Swithch to RAM bank #1
+; 		call  	p_FOFF_No_Print	; ***		Disable Flash memory 
+; 		ld 		A,1
+; 		call 	p_srbank0; 		***		Swithch to RAM bank #1
 
-				; from old area (HL), $7FFF  to new area ram area (DE), 0x7FFF
-		pop 	HL			; HL point to temp storage area 0xCFFF (old DE value)
-		pop 	DE 			; DE point to new area in ram bank #1 0xCFFF (old HL value)
-		ld     	BC,128
-		lddr				; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0
+; 				; from old area (HL), $7FFF  to new area ram area (DE), 0x7FFF
+; 		pop 	HL			; HL point to temp storage area 0xCFFF (old DE value)
+; 		pop 	DE 			; DE point to new area in ram bank #1 0xCFFF (old HL value)
+; 		ld     	BC,128
+; 		lddr				; (DE)<-(HL) and DE,HL auto decrement, BC auto decrement, repeat until BC=0
 
-;		***		Enable Flash again and set ram bank #0	
-		call  	p_FOFF_No_Print
-		ld 		A,0
-		call 	p_flbank0; 		***		Swithch to FLASH bank #0
+; ;		***		Enable Flash again and set ram bank #0	
+; 		call  	p_FOFF_No_Print
+; 		ld 		A,0
+; 		call 	p_flbank0; 		***		Swithch to FLASH bank #0
 
 
-		pop 	BC			; restore BC as block counter
-		djnz	.loopBlocks
+; 		pop 	BC			; restore BC as block counter
+; 		djnz	.loopBlocks
 			
 
-		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
+; 		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
 
 .skipBlockCopy:
+ 		call  	p_FOFF_No_Print	; ***		Använd inte FLASH minne. 64K SRAM
 
 		ld 		(SP_value),SP
 
@@ -488,8 +489,10 @@ MONITOR_Start:
 		call 	writeSTRBelow
 		defb   	"\r\n"
 		defb	"-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
+		defb 	"TheMonitor laddad till $D000\r\n"
 		defb	"TheMonitor git: @@GIT_VERSION@@\r\n"
 		defb	"TheMonitor build: @@DATE@@\r\n"
+		defb 	"Flash minne ej aktivt, 64K SRAM används :-)\r\n" 
 		defb	"\0"
 		call 	waitForFinishedPrintout
 
@@ -510,11 +513,11 @@ next_line:
 		out 	(gpio_out),A
 	endif
 
-		; ***	indicate memory banks   F[x]  Flash memory bank x
-		; ***	indicate memory banks   S[y]  SRAM memory bank y
-				; if bit 3 (rstBankID) = 1  no FLASH memory is selected
-				; if bit 3 (rstBankID) = 0 FLASH memory is lower 32k and SRAM upper 32k
-		ld 		HL,T_BUFFER+1 			; prepare output buffer		
+		; ***	visa minnesbanker FLASH  F[x]  Flash minnesbank x
+		; ***	visa minnesbanker SRAM   S[y]  SRAM minnesbank y
+				; if bit 3 (rstBankID) = 1  FLASH minne är inte vald
+				; if bit 3 (rstBankID) = 0 FLASH minne är < 32 k och SRAM övre 32k
+		ld 		HL,T_BUFFER+1 			; ange output burre T_BUFFER+1	
 		ld 		(HL),'F'	
 		ld 		A,(rstBankID)
 		bit 	3,A					; bit 3 set -> 64kSRAM
@@ -753,7 +756,7 @@ command_list:
 		db		ITEM,13,4,"flse",	STEND,%000000,0,CDEL
 		dw 		p_flse,0
 		db		ITEM,14,4,"xmod",	STEND,%001000,0,CDEL
-		dw 		p_xmod,0									; xmodem from PC   xmod <address>
+		dw 		p_xmod,0									; xmodem via PC   xmod <address>  ; ange adress $xyzw
 		db		ITEM,15,3,"rst",	STEND,%000000,0,CDEL
 		dw 		p_reset,0
 		db		ITEM,16,4,"sdrd",	STEND,%101000,0,CDEL
@@ -1252,6 +1255,8 @@ p_flse:
 p_xmod:
 		; ***	Transfer files via x-modem
 		; ***	Check commParseTable+1 if required parameters
+		call 	checkArgsTAL				; check necessary args
+		jp		NZ,argumentsError			; show argument error and return
 
 		ld 		A,(commParseTable+1)
 		bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
@@ -1260,12 +1265,10 @@ p_xmod:
 		ld 		DE,(commLvl1)
 .nxta:		
 
-		ifndef 	BOOTLOAD				; don not use during BOOT
 		call 	doImportXMODEM
 
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
-		endif	
 		ret
 
 p_C_Read:

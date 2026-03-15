@@ -72,7 +72,7 @@ doImportXMODEM:
 
 		call  	purgeRXA
 
-		ld 		HL,$B010
+		ld 		HL,(commAdr1)
 		ld 		C,1					; block number
 
 
@@ -107,7 +107,7 @@ nextBlock:
 		;check return code of block reception (e holds return code)
 		ld 		A,E
 		out 	(portB_Data),A
-		ld 		($B000),A
+		; ld 		($B000),A
 		cp		CTCtimeout					; timeout error ; no file transfer started
 		jp		Z,timeOutErr		
 
@@ -164,7 +164,7 @@ receiveBlockIn:
 		ld 		(XBAddr),HL						; save actual block start address 
 
 		in		A,(SIO_A_D)			;read RX byte into A
-		ld 		($B008),A
+		; ld 		($B008),A
 checkByte01:
 		cp		SOH					;check for SOH
 		jp		z,checkBlockNum
@@ -198,7 +198,7 @@ Er04_:
 		;check block number
 checkBlockNum:
 		in		A,(SIO_A_D)		;read RX byte into A	
-		ld 		($B009),A
+		; ld 		($B009),A
 		cp		C					;check for match of block nr
 		jp		nz,Er02_			; wrong block number (09)
 
@@ -209,7 +209,7 @@ checkBlockNum:
 
 checkComplBlockNum:
 		in		A,(SIO_A_D)		;read RX byte into A
-		ld 		($B00A),A
+		; ld 		($B00A),A
 		cp		E					;check for cpl of block nr
 		jp		nz,Er03_			; wrong complement block number
 
@@ -224,7 +224,7 @@ getBlockData:
 		ld		D,A					;checksum in D
 		inc		HL					;dest address +1
 		ld 		A,B
-		ld 		($B002),A
+		; ld 		($B002),A
 		djnz	getBlockData		;loop until block finished
 
 
