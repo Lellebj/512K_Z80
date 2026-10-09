@@ -11,6 +11,7 @@
 			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
 			xref	Textbuf, inBufferEnd,inBuffer,cleanInBuffer,cleanOutBuffer,InitInterrupt
 			xref	dumpMemory
+			xref 	doImportXMODEM
 
 			xref	st2g1,st1g2,steq,subst
 			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
@@ -1265,7 +1266,9 @@ p_xmod:
 		ld 		DE,(commLvl1)
 .nxta:		
 
+	ifndef BOOTLOAD				; används ej vid FLASH startsekvenser
 		call 	doImportXMODEM
+	endif
 
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF

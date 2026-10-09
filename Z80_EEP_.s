@@ -133,11 +133,11 @@ setSRAMBank:
 		push 	HL
 		push 	BC
 		ld 		HL,memBankID
-		and 	$0F 				; clear all bits but 0-3 in A
+		and 	$0F 				; radera men behåll bit 0-3 i A
 
 		ld 		B,A
-		ld 		A,(HL)				; get the actl. mem Bank ID
-		and 	$F0  				; zero bits 0-3
+		ld 		A,(HL)				; hämta sparad membank 'memBankID' till A  
+		and 	$F0  				; radera bitarna 0-3
 		jr 		putBank
 
 ;********************************************************************************************
@@ -149,10 +149,10 @@ setFLASHBank:
 		push 	HL
 		push 	BC
 		ld 		HL,memBankID
-		and 	$07 				; clear all bits but 0-2
-		rlca
-		rlca
-		rlca
+		and 	$07 				; radera men behåll bit 0-2
+		rlca						; shifta -> MSB
+		rlca						; shifta -> MSB
+		rlca						; shifta -> MSB
 		rlca						; bank ID = bits 4-6
 
 		ld 		B,A
