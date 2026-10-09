@@ -15,8 +15,9 @@
 	FLASH  : org = flash,  l = 0x8000     /* program can use all RAM > 4K */
 	}
 
-	
-	PROVIDE(_String_HEAP	= 0xF000);
+	stacktop =	0xFFFE	;
+
+	PROVIDE(_String_HEAP	= 0xF800);
 	
 	PROVIDE(_RAMSTART		= 0xD000);	
 	PROVIDE(_EETESTPROG		= 0x100);	
@@ -115,15 +116,18 @@
 
 	PROVIDE( list_len		=	0x48	);				/*	 length of command pointer list */
 	PROVIDE( Comm_Ptr_list	=	0x380 + _String_HEAP); 	/*	 command pointer list */
-	PROVIDE( packetBaseAddress = 	0x480 + _String_HEAP);
-	PROVIDE( prevPacketByte01	=	0x580 + _String_HEAP);	
+
+	SIO_PIO_CTC_stack		=	0x400 + _String_HEAP ;    	  	/* Interrupt vektorer för IO-kretsarna  (FC00)*/
+
+/*	PROVIDE( packetBaseAddress = 	0x480 + _String_HEAP);  Används ej  */
+/*	PROVIDE( prevPacketByte01	=	0x580 + _String_HEAP);  Används ej 	*/
 
 	/*	; Code in $D008-D00D = $00000000 - $AAAAAAAA: copy from flash
 		; Code in $D008-D00D = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
 		; Code in $D008-D00D = $33333333: code uploaded from Arduino. Do not copy from flash, 
 	*/
-/*	PROVIDE( BootCode		=	0x33333333);	*/
-	PROVIDE( BootCode		=	0xCCCCCCCC);		
+	PROVIDE( BootCode		=	0x33333333);	
+/*	PROVIDE( BootCode		=	0xCCCCCCCC);	*/	
 	PROVIDE( BootCodeAdr	=	_RAMSTART+8);	
 
 	SECTIONS

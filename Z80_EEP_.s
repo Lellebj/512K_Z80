@@ -231,11 +231,11 @@ EEPIO_Init:
 ; ;----------******************* PIO PORT A
 		ld A, $0F                 ;mode 1 out
 		out (portA_Contr), A         ; set port A as output
-; 		ld A, Interupt_vector&0xFF                   ; low byte of INT table
+; 		ld A, SIO_PIO_CTC_stack&0xFF                   ; low byte of INT table
 ; 		out (portA_Contr), A         ; PIO A interrupt vector
 		ld A, $03
 		out (portA_Contr), A         ; PIO A interrupt disable
-; 		ld a,Interupt_vector>>8                   ; high byte of INT table
+; 		ld a,SIO_PIO_CTC_stack>>8                   ; high byte of INT table
 ; 		ld I,A
 ; 		ei
 ; ;----------******************* PIO PORT B
@@ -615,7 +615,7 @@ TX_EMP:	sub a
 ; 		defw	t_str1, t_str2, t_str3, t_str4, t_str5, t_str6, t_str7, t_str8
 
 
-; #code INT_TABLE, Interupt_vector, $10
+; #code INT_TABLE, SIO_PIO_CTC_stack, $10
 ; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
 ; 		;.byte $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04, $00, $04
 ; 		.word PIO_A_INT,PIO_A_INT,PIO_A_INT,PIO_A_INT

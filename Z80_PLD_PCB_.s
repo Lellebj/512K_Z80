@@ -101,13 +101,13 @@ SD_USB_startup:
 		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
 		defb	"Starta direkt med förladdad Monitor i $D000 via Arduino\r\n"
 		defb	"Bootloader git: @@GIT_VERSION@@\r\n"
-		defb	"Bootloader build: @@DATE@@\r\n"
+		defb	"Bootloader skapad: @@DATE@@\r\n"
 		defb	"\0"
 
 		ld 		A,$4C
 		out 	(gpio_out),A
 		call 	waitForFinishedPrintout
-		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
+		jp 		MONITOR_Start			; monitor start $D000 MONITOR_Start:
 		
 
 .SDstart:
@@ -440,6 +440,8 @@ MONITOR_Start:
 ; 		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
 
 .skipBlockCopy:
+
+
  		call  	p_FOFF_No_Print	; ***		Använd inte FLASH minne. 64K SRAM
 
 		ld 		(SP_value),SP
@@ -447,10 +449,10 @@ MONITOR_Start:
 		if 	GPIODEBUG =1
 			ld 		A,$AA
 			out 	(gpio_out),A
-			
-
 			CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
 					; initialize buffer counters and pointers.
+
+
 			ld 		A,$BB
 			out 	(gpio_out),A
 
@@ -781,10 +783,12 @@ command_list:
 		dw 		p_flbank,0									; set flash bank #	
 		db 		ITEM,26,2,"sb",		STEND,%000010,0,CDEL
 		dw		p_srbank,0									; set sram bank #	
-		db		ITEM,27,3,"nop",	STEND,%000000,0,CDEL
+		db		ITEM,27,4,"kerm",	STEND,%001000,0,CDEL
+		dw 		p_kerm,0									; kermit via PC   xmod <address>  ; ange adress $xyzw
+		db		ITEM,28,3,"nop",	STEND,%000000,0,CDEL
 		dw 		0,0
 		db		LISTEND
-commListLen  equ   27
+commListLen  equ   28
 
 		; ld		HL,$6000
 		; ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
@@ -1264,8 +1268,29 @@ p_xmod:
 		; ***	check the commLvl1 if zero
 		ld 		DE,(commLvl1)
 .nxta:		
-
+	ifndef BOOTLOAD				; används ej vid FLASH startsekvenser
 		call 	doImportXMODEM
+	endif
+		call 	SIO_A_TXRX_INTon
+		call 	CTC1_INT_OFF
+		ret
+
+p_kerm:			;***  	Filöverföring från PC via kermit
+		; call 	checkArgsTAL				; check necessary args
+		; jp		NZ,argumentsError			; show argument error and return
+
+		; ld 		A,(commParseTable+1)
+		; bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
+		; jr 		Z,.nxta
+		; ***	check the commLvl1 if zero
+		ld 		DE,(commLvl1)
+.nxta:		
+
+	ifndef BOOTLOAD			; används ej vid FLASH startsekvenser
+		xor  	A
+		ld  	($A004),A    ; val för stat av lagring av paket
+		call 	doImportKERMIT
+	endif
 
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
