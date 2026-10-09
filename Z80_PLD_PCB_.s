@@ -1270,8 +1270,30 @@ p_xmod:
 		ld 		DE,(commLvl1)
 .nxta:		
 
+	ifndef BOOTLOAD				; används ej vid FLASH startsekvenser
 		call 	doImportXMODEM
+	endif
 
+		call 	SIO_A_TXRX_INTon
+		call 	CTC1_INT_OFF
+		ret
+
+p_kerm:			;***  	Filöverföring från PC via kermit
+		; call 	checkArgsTAL				; check necessary args
+		; jp		NZ,argumentsError			; show argument error and return
+
+		; ld 		A,(commParseTable+1)
+		; bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
+		; jr 		Z,.nxta
+		; ***	check the commLvl1 if zero
+		ld 		DE,(commLvl1)
+.nxta:		
+
+	ifndef BOOTLOAD			; används ej vid FLASH startsekvenser
+		xor  	A
+		ld  	($A004),A    ; val för stat av lagring av paket
+		call 	doImportKERMIT
+	endif
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
 		ret

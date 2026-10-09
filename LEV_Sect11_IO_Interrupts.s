@@ -1072,8 +1072,8 @@ InitInterruptVectors:
 		ld		(CTC_CH2_I_Vector),HL		;STORE CTC channel 2 VECTOR
 		ld		HL,CTC_CH3_Interrupt_Handler
 		ld		(CTC_CH3_I_Vector),HL		;STORE CTC channel 3 VECTOR
-			ld 		A,$7F
-			out 	(gpio_out),A
+		ld 		A,$7F
+		out 	(gpio_out),A
 
 		ret
 SIO_Init:		
