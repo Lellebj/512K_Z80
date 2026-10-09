@@ -4,7 +4,7 @@
  
 		xdef 	RAM_Start,SetupXMODEM_TXandRX,purgeRXA,purgeRXB,TX_EMP,TX_NAK,TX_ACK,SIO_A_DI,SIO_A_EI,SIO_A_RESET
 		xdef 	SIO_A_RTS_OFF,SIO_A_RTS_ON,SIO_A_TXRX_INToff,SIO_A_TXon,SIO_A_RXon,SIO_A_TXRX_INTon,TX_C,TX_X
-		xdef 	doImportXMODEM,CRC16
+		xdef 	doImportXMODEM, doImportKERMIT, CRC16
 ;********************************************************		
 ;		Routines in order to read data via XMODEM on SIO_0 chA
 ;********************************************************		
@@ -39,6 +39,163 @@ SPEC_RX_CONDITON:
 ;**				SetupXMODEM_TX and RX:									**
 ;**************************************************************************
 
+doImportKERMIT:
+
+		call 	writeSTRBelow
+		DB 		0,"Väntar på S paket från minicom... ",CR,LF,00
+		xor 	A
+		;		*** 	läs in tecken till dess ^A [01] hittas.
+
+
+		;------------INIT SIO för KERMIT----------------------------------------
+
+		; ld 		HL,(commAdr1)
+
+		ld		HL,recMinicomTecken      	; Avbrott för SIO A, när tecken kommer från minicom
+		ld		(SIO_Int_Read_Vec),HL		; spara avbrottsvektor (recMinicomTecken) i SIO_Int_Read_Vec
+		ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
+		ld		A,_EN_INT_Nxt_Rx_Char|WR1			;skrivreg 0 ange WR1 ( sätt igång  INT när nästa tecken finns)
+		out		(SIO_A_C),A
+		ld		A,_Rx_INT_First_Char		;'wait' aktiverat , interrupt vid nästa RX tecken 
+		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		out		(SIO_A_C),A		;buffer overrun is a spec RX condition
+
+		call  	purgeRXA
+
+		; ld 		HL,(commAdr1)
+		ld 		HL,$A810
+		ld 		C,1					; block number
+		xor  	A
+		ld  	($A804),A
+nextC:		
+		ei
+
+nextBlock:
+		ld		A,_EN_INT_Nxt_Rx_Char|WR1				;skrivreg 0 ange WR1 ( sätt igång  INT när nästa tecken finns)
+		out		(SIO_A_C),A
+		ld		A,_Rx_INT_First_Char			;'wait' aktiverat , interrupt vid nästa RX tecken 
+		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char			;'wait' aktiverat , interrupt vid nästa RX tecken 
+		out		(SIO_A_C),A		;buffer overrun is a spec RX condition
+		ei
+
+
+		call 	SIO_A_RTS_ON			; 8 bitars teckenlängd (6&5), break (4), TX enable, RTS enable
+
+		halt						;vänta på första tecken SIO A
+
+		call 	SIO_A_RTS_OFF			; 8 bitars teckenlängd (6&5), ingen break (4), TX enable
+
+		; ***	stäng av wait funktion
+		ld		A,WR1			;Skriv SIO skrivreg  WR0: ange skrivregister 1 WR1
+		out		(SIO_A_C),A
+		ld		A,_WAIT_READY_R_T|_Rx_INT_First_Char		;stäng av wait funktion från nu
+		out		(SIO_A_C),A
+
+		; ***	kolla om (  ) har ställt till 1 -> lagra värde i E, flagga i A.
+
+		ld  	A,E
+
+		cp		SOH					;check for SOH  [01]
+		jp		Z,startcap
+		cp		CR					;check for ^M  [0D]
+		jp		z,endcap
+
+		ld 		A,($A804)
+		cp 		1
+		jr   	NZ,nextC
+sparaC:
+		ld  	A,E
+		ld   	(HL),A
+		inc  	HL
+		jr  	nextC
+
+		; ld		E,EOT_FOUND			;eot found (end of transmission)
+startcap:
+		;***	starta lagring av paket
+		ld 		A,($A804)
+		inc   	A  			; flagga Z ej aktiv (NZ)
+		ld  	($A804),A
+		jr 		sparaC
+
+endcap:	
+		;***	stoppa lagring av paket
+		ld 		A,($A804)
+		cp  	1
+		jr  	z,endcap2
+		jr 	 	nextC
+
+endcap2:		
+		inc   	A  			; flagga Z ej aktiv (NZ)
+		ld  	($A804),A
+
+		CALL 	InitBuffers			;Nollställ in/ut buffers, SIO A. INTERRUPT SYSTEM
+		call 	SIO_A_TXRX_INTon
+		call 	SIO_A_RTS_ON
+
+		ld  	IY,ACKstring
+		call 	WriteLine
+
+.n_tecken:
+; 		inc  	IY
+; 		ld  	A,(IY)
+; 		out		(SIO_A_D),A			; skicka tecken till SIO A (utan avbrott)
+; 		call	TX_EMP
+
+; 		ld  	A,(IY)
+; 		cp 		CR					; vagnretur 0Dh ?
+		; jr 	    NZ,.n_tecken
+		jr 	    .n_tecken
+
+
+		halt 
+		halt 
+		halt 
+
+ACKstring:
+		defb 	 0x00, 0x01, ',', ' ', 'Y', '~', '*', ' ', '@', '-', '#', 'N', '1', '~', 0x0D, 0x00, 0x00
+
+
+		out 	(portB_Data),A
+
+		jr 		nextC 					; one more 'C' -> goto .nextC
+
+		
+
+blockFinished:
+		call	TX_ACK					;when no error
+		inc		C						;prepare next block to receive
+		sub		A
+		ld		(TempVar2),A			;clear bad block counter
+		jp 		nextC
+
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+
+recMinicomTecken:
+				;***	läs tecken från minicom till dess [01] ^A
+		ld		A,WR1								;skriv i SIO WR0 cmd4 och välj WR1 
+		out		(SIO_A_C),A
+		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T	;aktivera WAIT
+		out		(SIO_A_C),A						;'buffer overrun' blir special RX condition
+		; ld		A,_EN_INT_Nxt_Rx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		; out		(SIO_A_C),A
+		; ; ld		A,_Rx_INT_First_Char			;wait active, interrupt on first RX character
+		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		; out		(SIO_A_C),A					;buffer overrun is a spec RX condition
+
+		ld 		(XBAddr),HL						; spara aktuell block adress värde HL i XBAddr
+
+		in		A,(SIO_A_D)			;läs in aktuell byte till A
+		ld 		($A808),A
+		ld    	E,A
+
+		reti
+
+
+
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+
 
 
 doImportXMODEM: 
@@ -60,11 +217,14 @@ doImportXMODEM:
 
 		;------------INIT SIO----------------------------------------
 
-		ld		HL,receiveBlockIn       	; ON INTERRUPT SIO_0 channel A
+		ld		HL,receiveBlockIn       	; Avbrottsrutin för SIO A
+
+doKERMITentry:		; ***  Kermit initiering hoppar hit
+
 		ld		(SIO_Int_Read_Vec),HL		;STORE READ VECTOR
 
 		ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
-		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		ld		A,_EN_INT_Nxt_Rx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
 		out		(SIO_A_C),A
 		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
@@ -72,7 +232,8 @@ doImportXMODEM:
 
 		call  	purgeRXA
 
-		ld 		HL,(commAdr1)
+		; ld 		HL,(commAdr1)
+		ld 		HL,$A010
 		ld 		C,1					; block number
 
 
@@ -80,11 +241,11 @@ doImportXMODEM:
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 
-nextC:		
+XnextC:		
 		ei
 
-nextBlock:
-		ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+XnextBlock:
+		ld		A,_EN_INT_Nxt_Rx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
 		out		(SIO_A_C),A
 		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
@@ -92,30 +253,30 @@ nextBlock:
 		ei
 
 
-		call 	SIO_A_RTS_ON
+		call 	SIO_A_RTS_ON			; 8 bitars teckenlängd (6&5), break (4), TX enable, RTS enable
 
-		halt						;await first rx char
+		halt						;vänta på första tecken SIO A
 
-		call 	SIO_A_RTS_OFF
+		call 	SIO_A_RTS_OFF			; 8 bitars teckenlängd (6&5), ingen break (4), TX enable
 
-		; ***	wait function inactive
-		ld		a,WR1			;write into WR0: select WR1
+		; ***	stäng av wait funktion
+		ld		A,WR1			;Skriv SIO skrivreg  WR0: ange skrivregister 1 WR1
 		out		(SIO_A_C),A
-		ld		a,_WAIT_READY_R_T|_Rx_INT_First_Char		;wait function inactive
+		ld		A,_WAIT_READY_R_T|_Rx_INT_First_Char		;stäng av wait funktion från nu
 		out		(SIO_A_C),A
 
-		;check return code of block reception (e holds return code)
 		ld 		A,E
 		out 	(portB_Data),A
-		; ld 		($B000),A
+
+		ld 		($B000),A
 		cp		CTCtimeout					; timeout error ; no file transfer started
 		jp		Z,timeOutErr		
 
 		cp 		CTCpulse 					; ret from CTC
-		jr 		Z,nextC 					; one more 'C' -> goto .nextC
+		jp 		Z,XnextC 					; one more 'C' -> goto .nextC
 
 		cp		NUL							;block finished, no error
-		jp		Z,blockFinished
+		jp		Z,XblockFinished
 
 		cp		EOT_FOUND					;eot found (end of transmission)
 		jp		Z,exitRecBlock
@@ -135,17 +296,17 @@ nextBlock:
 		jp		blockErrors1_3
 		
 
-blockFinished:
+XblockFinished:
 		call	TX_ACK					;when no error
 		inc		C						;prepare next block to receive
 		sub		A
 		ld		(TempVar2),A			;clear bad block counter
-		jr 		nextC
+		jr 		XnextC
 
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-
-
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 receiveBlockIn:
 
 		; CH1 counter not send any interrupts
@@ -155,7 +316,7 @@ receiveBlockIn:
 		out		(SIO_A_C),A
 		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T	;wait active, 
 		out		(SIO_A_C),A						;buffer overrun is a spec RX condition
-		; ld		A,_EN_INT_Nx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		; ld		A,_EN_INT_Nxt_Rx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
 		; out		(SIO_A_C),A
 		; ; ld		A,_Rx_INT_First_Char			;wait active, interrupt on first RX character
 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
@@ -164,7 +325,7 @@ receiveBlockIn:
 		ld 		(XBAddr),HL						; save actual block start address 
 
 		in		A,(SIO_A_D)			;read RX byte into A
-		; ld 		($B008),A
+		ld 		($B008),A
 checkByte01:
 		cp		SOH					;check for SOH
 		jp		z,checkBlockNum
@@ -198,7 +359,7 @@ Er04_:
 		;check block number
 checkBlockNum:
 		in		A,(SIO_A_D)		;read RX byte into A	
-		; ld 		($B009),A
+		ld 		($B009),A
 		cp		C					;check for match of block nr
 		jp		nz,Er02_			; wrong block number (09)
 
@@ -209,7 +370,7 @@ checkBlockNum:
 
 checkComplBlockNum:
 		in		A,(SIO_A_D)		;read RX byte into A
-		; ld 		($B00A),A
+		ld 		($B00A),A
 		cp		E					;check for cpl of block nr
 		jp		nz,Er03_			; wrong complement block number
 
@@ -224,7 +385,7 @@ getBlockData:
 		ld		D,A					;checksum in D
 		inc		HL					;dest address +1
 		ld 		A,B
-		; ld 		($B002),A
+		ld 		($B002),A
 		djnz	getBlockData		;loop until block finished
 
 
@@ -264,7 +425,7 @@ restoreSIO_0IO:
 		ld		A,_Counter|_Rising|_Reset|_CW	
 		out		(CH1),A				; CH1 counter - disable interrupt
 
-		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+		CALL 	InitBuffers			;Nollställ in/ut buffers, SIO A. INTERRUPT SYSTEM
 
 		call 	SIO_A_TXRX_INTon
 		call 	SIO_A_RTS_ON

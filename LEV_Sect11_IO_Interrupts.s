@@ -1040,7 +1040,9 @@ waitForFinishedPrintout:
 InitInterruptVectors:
 			;INITIALIZE INTERRUPT VECTORS (SIO_0)
 			; initialize . interrupt flag
-		ld		A,SIO_Int_Vec>>8		;GET HIGH BYTE OF INTERRUPT PAGE   (F400 >> 8 = F4)
+		di
+		ld 		HL,SIO_PIO_CTC_stack
+		ld		A,H       		;mest sig byte i adress för avbrottsvektorer   (F800 >> 8 = F8)
 		ld		I,A             ;SET INTERRUPT VECTOR IN zao
 		im		2               ; INTERRUPT MODE 2 - VECTORS IN TABLE
 		ld		HL,ReadINTHandler      	 ; ON INTERRUPT PAGE
@@ -1053,7 +1055,7 @@ InitInterruptVectors:
 		ld		(SIO_Int_Spec_Vec),HL		;STORE SPECIAL RECEIVE VECTOR
 		ld		HL,ReadUSBHandler      	 ; ON INTERRUPT PAGE
 		ld		(SIO_USB_Read_Vec),HL		;STORE READ VECTOR
-		
+
 		ld 		HL,Write_USB_Handler
 		ld		(SIO_USB_WR_Vec),HL		;STORE READ VECTOR
 		ld 		HL,Extern_B_USB_Handler
@@ -1070,6 +1072,8 @@ InitInterruptVectors:
 		ld		(CTC_CH2_I_Vector),HL		;STORE CTC channel 2 VECTOR
 		ld		HL,CTC_CH3_Interrupt_Handler
 		ld		(CTC_CH3_I_Vector),HL		;STORE CTC channel 3 VECTOR
+			ld 		A,$7F
+			out 	(gpio_out),A
 
 		ret
 SIO_Init:		
@@ -1302,7 +1306,7 @@ SIO_A_RTS_OFF:
 		;signaling the host go or nogo for reception
 		ld		a,005h			;write into WR0: select WR5
 		out		(SIO_A_C),A
-		ld		a,_Tx_8bits_char|_Tx_Enable 				;TX 8bit, BREAK off, TX on, RTS inactive
+		ld		a,_Tx_8bits_char|_Tx_Enable 				; 8 bitars teckenlängd (6&5), ingen break (4), TX enable
 		ld		a,0E8h			
 		out		(SIO_A_C),A 
 		ret 
@@ -1313,7 +1317,7 @@ SIO_A_RTS_ON:
 		ld		a,005h			;write into WR0: select WR5
 		out		(SIO_A_C),A
 		; ld		a,_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
-		ld		a,0EAh	
+		ld		a,0EAh					
 		out		(SIO_A_C),A 
 		ret 
 		
@@ -1418,20 +1422,20 @@ TX_C:
 		RET
 
 TX_X:
-		ld		 a,'X'				;send 'C' to host
+		ld		 a,'X'				;send 'X' to host
 		out		(SIO_A_D),A
 		call	TX_EMP
 		RET
 
 
 TX_EMP:
-		; ransmitting a character to host
-		; check for TX buffer empty
-		sub		a				;clear a, write into WR0: select RR0
-		inc		a				;select RR1
+		; sänder tecken till värddator 
+		; kontroll att transmit buffer är tom.
+		sub		a				;nollställ A, skriv till skrivreg SIO WR0: välj läsregister RR0
+		inc		a				;välj läsregister  RR1
 		out		(SIO_A_C),A
-		in		A,(SIO_A_C)	;read TRx, all sent
-		bit		0,A
+		in		A,(SIO_A_C)		; läs sändbuffer TRx, 'all sent'
+		bit		0,A				; kontrollera bit 0
 		jp		z,TX_EMP
 		ret
 		
@@ -1724,11 +1728,11 @@ PIO_Init:
 		out (portA_Contr), A         ; set port A as output
 		ld 	A,%00000000					; msb=input lsb = output, 0-mosi, 1-clk, 2-ssel, 7-miso
 		out (portA_Contr), A         ; set port A as 4 input/ 4 output
-		; ld A, Interupt_vector&0xFF                   ; low byte of INT table
+		; ld A, SIO_PIO_CTC_stack&0xFF                   ; low byte of INT table
 		; out (portA_Contr), A         ; PIO A interrupt vector
 		ld A, $03
 		out (portA_Contr), A         ; PIO A interrupt disable
-		; ld a,Interupt_vector>>8      ; high byte of INT table
+		; ld a,SIO_PIO_CTC_stack>>8      ; high byte of INT table
 		; ld I,A
 		di
 ;----------******************* PIO PORT B

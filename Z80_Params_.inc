@@ -1,7 +1,6 @@
 ;Z80_PLD_PCB_.asm
 
 
-stacktop: equ	0xFFF0	
 
 
 ; PIO addressess...
@@ -32,25 +31,25 @@ sio_ad: 		equ 	SIO_A_D
 sio_bc: 		equ 	SIO_B_C
 sio_bd: 		equ 	SIO_B_D
 
-Interupt_vector		= SIO_Int_Vec
 
-SIO_Int_Vec		EQU     $F400				; interrupt vector 
-SIO_Int_WR_Vec	EQU     SIO_Int_Vec+8		;sio_0 channel A write interrupt vector
-SIO_Int_EXT_Vec	EQU     SIO_Int_Vec+10	;sio_0 channel A external/status ; interrupt vector
-SIO_Int_Read_Vec	EQU     SIO_Int_Vec+12	;sio_0 channel A read interrupt vector
-SIO_Int_Spec_Vec	EQU     SIO_Int_Vec+14	;sio_0 channel A special receive interrupt vector
+SIO_Int_Vec			EQU     SIO_PIO_CTC_stack	; avbrottsvektorer för InUt-kretsarna definieras i vlink/linkscript 
+SIO_Int_WR_Vec		EQU     SIO_PIO_CTC_stack+8		;sio_0 channel A write interrupt vector
+SIO_Int_EXT_Vec		EQU     SIO_PIO_CTC_stack+10	;sio_0 channel A external/status ; interrupt vector
+SIO_Int_Read_Vec	EQU     SIO_PIO_CTC_stack+12	;sio_0 channel A read interrupt vector
+SIO_Int_Spec_Vec	EQU     SIO_PIO_CTC_stack+14	;sio_0 channel A special receive interrupt vector
 
 		
-SIO_USB_WR_Vec	EQU     SIO_Int_Vec+0		;sio_0 channel B write interrupt vector
-SIO_USB_EXT_Vec	EQU     SIO_Int_Vec+2		;sio_0 channel B external/status ; interrupt vector
-SIO_USB_Read_Vec	EQU     SIO_Int_Vec+4		;sio_0 channel B read interrupt vector
-SIO_USB_Spec_Vec	EQU     SIO_Int_Vec+6		;sio_0 channel B special receive interrupt vector
+SIO_USB_WR_Vec		EQU     SIO_PIO_CTC_stack+0		;sio_0 channel B write interrupt vector
+SIO_USB_EXT_Vec		EQU     SIO_PIO_CTC_stack+2		;sio_0 channel B external/status ; interrupt vector
+SIO_USB_Read_Vec	EQU     SIO_PIO_CTC_stack+4		;sio_0 channel B read interrupt vector
+SIO_USB_Spec_Vec	EQU     SIO_PIO_CTC_stack+6		;sio_0 channel B special receive interrupt vector
+
 
 ;Write register 0
 WR0 equ 0
-_Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000
+_Reset_STAT_INT	equ 2<<3			; 10   000 0010 -> 001 0000   
 _Ch_Reset		equ 3<<3			; 18
-_EN_INT_Nx_Char	equ $20				; (20)  000 0100  -> 010 0000
+_EN_INT_Nxt_Rx_Char	equ $20				; (20)  000 0100  -> 010 0000
 _Reset_TxINT_Pend equ $28			; (28)  000 0101 ->  010 1000
 _Error_Reset 	equ $30				; (30)	
 _Ret_F_Int		equ $38				; (38)  0000111  ->  0011 1000
@@ -132,10 +131,10 @@ _Reset 		equ 	$02		; D1 - 1 Software reset
 _CW 		equ 	$01		; D0 - 1 Control word 		0 - Vector	
 
 ; Interrupt vectors for CTC
-CTC_CH0_I_Vector	EQU     SIO_Int_Vec+$10		;CTC channel 0 interrupt vector 
-CTC_CH1_I_Vector	EQU     SIO_Int_Vec+$12		;CTC channel 1 interrupt vector 
-CTC_CH2_I_Vector	EQU     SIO_Int_Vec+$14		;CTC channel 2 interrupt vector 
-CTC_CH3_I_Vector	EQU     SIO_Int_Vec+$16		;CTC channel 3 interrupt vector 
+CTC_CH0_I_Vector	EQU     SIO_PIO_CTC_stack+$10		;CTC channel 0 interrupt vector 
+CTC_CH1_I_Vector	EQU     SIO_PIO_CTC_stack+$12		;CTC channel 1 interrupt vector 
+CTC_CH2_I_Vector	EQU     SIO_PIO_CTC_stack+$14		;CTC channel 2 interrupt vector 
+CTC_CH3_I_Vector	EQU     SIO_PIO_CTC_stack+$16		;CTC channel 3 interrupt vector 
 
 
 ; SD_USB parameters
@@ -144,7 +143,7 @@ USB_EXIST 	EQU  0x02
 
 ; Data tables  (upper EPROM/FLASH)
 ; stack  				= $FF00
-Heap				= $F000				; space for variable storage
+Heap				= $F800				; space for variable storage
 
 ; variables  	(upper ram)
 PIO_B_value:		= $F1D0
