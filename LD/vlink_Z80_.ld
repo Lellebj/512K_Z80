@@ -41,6 +41,7 @@
 	PROVIDE( Textbuf		= _String_HEAP);		; /*text buffer */
 
 	PROVIDE( S1x			=	0x40 + _String_HEAP);  	/*Textbuf + Textbufsize used by DumpRegisters, SD/USB enum*/
+	PROVIDE( paramStack 	=   0x3E + _String_HEAP); 	/* adresspekare för utskrift av tal i textform */	 
 	PROVIDE( commParseTable =	0x80 + _String_HEAP);  	/*command parser table, size $80-$100=$80 (128 bytes) */
 	PROVIDE( commAdr1 =			0x84 + _String_HEAP);  	/*command address 1  4 byte*/  
 	PROVIDE( commAdr2 =			0x88 + _String_HEAP);  	/*command address 2  4 byte*/
@@ -49,9 +50,10 @@
 	PROVIDE( commStr1 =			0xB0 + _String_HEAP);  	/*command string 1 	 40 byte*/
 	PROVIDE( commStr2 =			0xD8 + _String_HEAP);  	/*command string 2 	 40 byte  -> 0xFF*/
 
-	PROVIDE( T_BUFFER 		=	0x100 + _String_HEAP);		/*;16-BYTE BUFFER */
+	PROVIDE( T_BUFFER 		=	0x100 + _String_HEAP);		/*;32-BYTE BUFFER */
 
-	PROVIDE( SP_value		=	0x120 + _String_HEAP);
+	PROVIDE( SP_value		=	0x120 + _String_HEAP);		/* sparat värde på stackpek  */
+	PROVIDE( SP_valueP		=	0x122 + _String_HEAP);		/* sparat värde på stackpek vid utskriftkö  */
 	PROVIDE( reg16_value	=	0x124 + _String_HEAP);
 	PROVIDE( reg16_value2	=	0x126 + _String_HEAP);
 	PROVIDE( validCommand	=	0x128 + _String_HEAP);		/* command number found 1 byte */

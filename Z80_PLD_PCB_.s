@@ -7,7 +7,7 @@
 
 
 
-			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, BN2DEC,BN2DEC_S,DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
+			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
 			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
 			xref	Textbuf, inBufferEnd,inBuffer,cleanInBuffer,cleanOutBuffer,InitInterrupt
 			xref	dumpMemory
@@ -1193,17 +1193,49 @@ p_exe:
 		ret
 p_go:
 
-		jr 	p_exe
-
-
-		ld 		A,(TempVar1)
-		inc 	A
-		ld 		(TempVar1),A
-		cp 		15
-		call 	DumpRegisters
+		ld  	(paramStack),SP			;spara värde för adress till första parameter i utskriftkö
+		ld  	(SP_valueP),SP			;spara värde på stackpek
+				; initiera pekare på Textbuf  - HL.
 		
-		ret 	P
-		jr 		p_go
+
+		ld  	DE,$D234
+		push 	DE 			; spara första data 2 byte
+		push 	DE 			; spara första data 2 byte
+		ld  	DE,$0056
+		push 	DE 			; spara andra data 1 byte
+		ld  	DE,$789A
+		push 	DE 			; spara tredje data 2 byte
+		ld  	DE,$117a
+		push 	DE 			; spara tredje data 2 byte
+		ld 		HL,dumpText+1
+		
+		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
+		DB 		0,"Parameter 1: [",p_D5,"] ",00
+
+		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
+		DB 		0,"Parameter 1: [",p_H4,"] och 2: (",p_H2,")",00
+
+		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
+		DB 		0," !, och 4: (",p_H4,") och tecken ",p_1C,CR,LF,00
+
+		ld 		iy,dumpText
+		call 	WriteLine
+	
+		ld  	SP,(SP_valueP)			;återställ värde på stackpek SP
+		ret 
+
+
+
+		; ld 		A,(TempVar1)
+		; inc 	A
+		; ld 		(TempVar1),A
+		; cp 		15
+		; call 	DumpRegisters
+		
+		; ret 	P
+		; jr 		p_go
+
+
 p_incDecPC:
 		ld 		HL,commLvl1
 		ld 		A,0
@@ -1229,6 +1261,10 @@ p_incDecPC:
 .common:
 		ld 		(PCvalue),HL
 		ret
+
+	;***************************************************************
+	;****	Write to Flash memory SST39SF020    *******************
+	;***************************************************************	
 p_flwr:
 		; *** 	testwrite to FLASH
 		
@@ -1248,15 +1284,23 @@ errNoFlash:
 		ret
 
 
+
+	;***************************************************************
+	;****	Clear Flash memory SST39SF020 to 'FF'   ****************
+	;***************************************************************	
 p_flse:
 		; *** 	erase the sector that contain the address of HL
 
 		push	HL
 		ld 		HL,$2010
-		call 	Flash_SE_Erase
+		; call 	Flash_SE_Erase
 		pop 	HL
 		ret
 
+
+	;***************************************************************
+	;****	XMODEM import to address DE   *******************
+	;***************************************************************	
 p_xmod:
 		; ***	Transfer files via x-modem
 		; ***	Check commParseTable+1 if required parameters
@@ -1267,7 +1311,7 @@ p_xmod:
 		bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
 		jr 		Z,.nxta
 		; ***	check the commLvl1 if zero
-		ld 		DE,(commLvl1)
+		ld 		DE,(commLvl1)	; valid adress in DE
 .nxta:		
 
 	ifndef BOOTLOAD				; används ej vid FLASH startsekvenser
@@ -1644,7 +1688,7 @@ bit_test9:
 
 		; ld		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
 		; ld		DE,Textbuf			;DE = 32767
-		; call	BN2DEC				; C0NVERT
+		; call	Num2Dec				; C0NVERT
 		; jp		textloop
 
 

@@ -784,7 +784,7 @@
 
 
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
-		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF,waitForKey,RetInpStatus
+		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF, addStrToPrintQueue, waitForKey,RetInpStatus
 		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterruptVectors,CTC1_INT_OFF,initSIOBInterrupt
 		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeTXA, TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
 		GLOBAL 	SIO_B_EI,SIO_B_RX_INTon,SIO_B_TXRX_INToff,SIO_B_EI,SIO_B_DI
@@ -913,24 +913,106 @@ bmve:
 		ret
 
 
+
+	;defb 	"text!!!",SOH,"öasdöa",STX,"poicpp",ETX,"wqembnrqeb",EOT,ENQ
+	;					1			2			  3				  4	  5	
+	; 					byte		bytes						bytes
 ;##############################################################
-; Write the null-terminated string starting after the call
-; instruction invoking this subroutine to the console.
-; Clobbers AF, C
+;	Skriv ut en sträng som slutar med '0' och finns 
+;	direkt efter anropet till denna subrutin (call writeSTRBelow)
+; 	använder  AF, C
 ;##############################################################
 writeSTRBelow:
-        ex      (sp),iy                 ; iy = @ of string to print
+        ex      (sp),iy                 ; iy = adress för strängen som skrivs ut.
 		call	WriteLine
-        inc     iy                      ; point past the end of the string
+        inc     iy                      ; pekar förbi slutet ('0') i strängen
         ex      (sp),iy
         ret
 
 writeSTRBelow_CRLF:
-		ex		(sp),iy                 ; iy = @ of string to print
+		ex		(sp),iy                 ; iy = adress för strängen som skrivs ut.
 		call	WriteLineCRNL
-		inc		iy                      ; point past the end of the string
-		ex		(sp),iy
+		inc		iy                      ; pekar förbi slutet ('0') i strängen
+        ex      (sp),iy
 		ret
+
+;##############################################################
+;	Läs in en sträng från subrutinanropet. IX pekar på innehåll
+;	Formatera en utskriftsträng i Textbuf av text och angivna 
+; 	parametrar omvandlade till ascii text. parametrar finns i 
+; 	stack och (paramStack) är pekare.
+;##############################################################
+addStrToPrintQueue:						; lägg till ny info till utskriftssträng...
+		; p_2H: värde i paramStack konverteras till 1byte text (2 tecken)
+		; p_4H: värde i paramStack konverteras till 2byte text (4 tecken)
+		; P_1C: värde i paramStack konverteras till 1byte text (1 tecken) 
+		; [EOT: värde i paramStack konverteras till 4byte text (8 tecken) ] för senare bruk
+
+
+        ex      (sp),IX                 ; IX = adress för strängen i anropet.
+		inc 	IX					; hoppa förbi inledande 0'a (filstorlek)
+
+		strloop:
+		ld 		A,(IX)
+		or 		a						; kolla om strängavslut (=0)
+		jr 		z,endproc
+
+		cp 		p_H2					; parameter för enkel byte (2 tecken) ?
+		jr 		nz,chkpD5
+		call 	convParamString
+		call 	Bin2Hex8				; fyll på med tecken i (HL)
+		jr 		p_nextchar
+		
+chkpD5:
+		cp 		p_D5					; parameter för enkel byte (2 tecken) ?
+		jr 		nz,chkpH4
+		call 	convParamString
+		call 	Num2Dec				; fyll på med tecken i (HL) decimal heltal
+		jr 		p_nextchar
+
+chkpH4:
+		cp 		p_H4					; parameter för enkel byte (4 tecken) ?
+		jr 		nz,chkchar
+
+		call 	convParamString
+		call 	Bin2Hex16				; fyll på med tecken i (HL)
+		jr 		p_nextchar
+
+chkchar:
+		cp 		p_1C					; parameter för enkelt tecken (ascii) (1 tecken) ?
+		jr 		nz,.noEvalue
+
+		ld  	A,E 					; hämta värde från ack E.
+.noEvalue:					;  skicka aktuell char (ix) till sträng för utskrift (ingen omvandling)
+		ld  	(HL),A				; fyll på med tecken i (HL)
+		inc 	HL
+		ld  	(HL),0
+
+p_nextchar:
+		inc 	IX				; peka på nästa sträng.
+		jr 		strloop
+endproc:
+		inc  	IX
+		ex 		(SP),IX			; ta tillbaka gamla värdet på SP 
+
+		ret
+
+
+convParamString:
+		ld 		IY,(paramStack)			; pekare för angivna parmetrar i stack
+		ld 		D,(IY-1)
+		ld 		E,(IY-2)				; DE innehåller aktuell parameter från stacken
+		dec 	iy
+		dec 	iy
+		ld 		(paramStack),IY			; visar på nästa parameter
+								; gör en sträng med 2 tecken
+		ret
+
+
+		call	WriteLine
+        inc     iy                      ; pekar förbi slutet ('0') i strängen
+        ex      (sp),iy
+        ret
 
 ;##############################################################
 ; Print a CRLF 
@@ -942,7 +1024,10 @@ puts_crlf:
         ret
 
 
-			; Write line from address in iy (until char = 00)
+;##############################################################
+; skriv ut strängen som pekas ut av IY. strängslut ='0'
+; använder  AF, C
+;##############################################################
 WriteLine:
 		; ld 		b,(iy)		; get length
 		inc		iy			; First pos point to str length, Dont check length, skip first len byte 22.05.01

@@ -1257,37 +1257,28 @@ checkZero16:
 		dec  	HL	
 		ret							; return with either Z or NZ
 
-
-
-; dumpText: DC	$80 '/'
-
-
 ;***************************************************************************************************
 ;***************************************************************************************************
-;***************************************************************************************************
-
-
 
 
 		;section 	STR_HEAP 
 		;	space for string constants
-		GLOBAL	DateBuf,MsgText1,st2g1,st1g2,steq,subst
+		; GLOBAL	DateBuf,MsgText1,st2g1,st1g2,steq,subst
 		GLOBAL	RegLabels1,RegLabels2,RegLabels3,RegFlags
-		xdef	Str0,Str2,Str3,Str4,Str7,sourctext1,sourctext2,endtext,src_size
 		
 	if DOALIGN
 		align 1
 	endif
  	
 String_HEAP_Start:
-DateBuf:		DB		"  2022-12-30_17:22   ",0,0
+; DateBuf:		DB		"  2022-12-30_17:22   ",0,0
 
-MsgText1:		DB		"Hello, enter command: >_",  0, 0
+; MsgText1:		DB		"Hello, enter command: >_",  0, 0
 
-st2g1:			DB		0x0F,"Str 2 > Str 1 !",0,0
-st1g2:			DB		0x0F,"Str 1 > Str 2 !",0,0
-steq:			DB		0x0F,"Strings Equal !",0,0
-subst:			DB		4,"seco",0,0
+; st2g1:			DB		0x0F,"Str 2 > Str 1 !",0,0
+; st1g2:			DB		0x0F,"Str 1 > Str 2 !",0,0
+; steq:			DB		0x0F,"Strings Equal !",0,0
+; subst:			DB		4,"seco",0,0
 
 
 RegLabels1:		DB		" |...PC...|...SP...|...IX...|...IY...|",0
@@ -1295,25 +1286,20 @@ RegLabels2:		DB		" |...AF...|...BC...|...DE...|...HL...|",0
 RegLabels3:		DB		" |...AF'..|...BC'..|...DE'..|...HL'..|",0
 RegFlags:		DB		" S Z X H X P N C",0
 
-Str0:			defb 	23,"Hello, finnally here !",0,0
-Str2:			defb	23,"This is the second Bank",0,0
-Str3:			defb	23,"This is the third Bank",0,0
-Str4:			defb	23,"This is the 4'th Bank",0,0
-Str7:			defb	23,"This is the 7'th Bank",0,0
 
-sourctext1:		DB		10,"First Str:",0,0
-sourctext2:		DB		14,"Appendix..../a",0,0	
+; Str0:			defb 	23,"Hello, finnally here !",0,0
+; Str2:			defb	23,"This is the second Bank",0,0
+; Str3:			defb	23,"This is the third Bank",0,0
+; Str4:			defb	23,"This is the 4'th Bank",0,0
+; Str7:			defb	23,"This is the 7'th Bank",0,0
 
-src_size:		equ		sourctext2-sourctext1
+; sourctext1:		DB		10,"First Str:",0,0
+; sourctext2:		DB		14,"Appendix..../a",0,0	
+
+; src_size:		equ		sourctext2-sourctext1
 
 endtext:
 String_HEAP_end:
-
-
-	if DOALIGN
-		align 4
-	endif
-
 
 
 .END
