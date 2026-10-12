@@ -146,7 +146,12 @@
 			. = ALIGN(0x20);
 			}	> RAM
 
-
+		LAB_RGBLED  0xA000 : 
+			{
+				KEEP(*.o(LAB_RGBLED))
+			. = ALIGN(0x20);
+	
+			}
 
 		TheMonitor  _RAMSTART :
 		{

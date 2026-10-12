@@ -907,7 +907,7 @@ paramLoopEntry:
 		and 	A
 		sbc 	HL,DE 						; amount of chars...
 		ld 		B,H							; amount of chars...
-		ld 		C,L							; amount of chars...
+		ld 		C,L							; beräkna antalet tecken i sträng-> BC
 		inc 	BC
 
 		ld 		HL,commStr1				; address for first string
@@ -935,9 +935,9 @@ paramLoopEntry:
 checkaddress:
 		; ***	A = (HL), first char after delimiter
 
-		ld 		(PCinpFlag+1),A			; if value '(PCinpFlag+1)' == '$' -> address input
-										; if value '(PCinpFlag+1)' == '@' -> relative (PCval) address input
-		cp 		'$'						; identified address id
+		ld 		(PCinpFlag+1),A			; om tecken är $ '(PCinpFlag+1)' == '$' -> angiven address
+										; om tecken är '(PCinpFlag+1)' == '@' -> relativ adress till (PCval) angiven
+		cp 		'$'						; jämför address id $
 		ld 		A,0
 		jr 		Z,chkADR			; first value of A (PCinpFlag+1) is '$' ??
 		; cp 		'@'						; identified address id
@@ -1187,7 +1187,7 @@ p_clearmem:
 .zero_byte:	db  0
 
 p_exe:
-
+		jp 		$A000				; jump to address in (PCvalue) 
 		; call 	LCD_Test
 
 		ret
@@ -1264,15 +1264,13 @@ p_xmod:
 		jp		NZ,argumentsError			; show argument error and return
 
 		ld 		A,(commParseTable+1)
-		bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
+		bit 	0,A 			; should be a 	1-address
 		jr 		Z,.nxta
 		; ***	check the commLvl1 if zero
 		ld 		DE,(commLvl1)
 .nxta:		
 
-	ifndef BOOTLOAD				; används ej vid FLASH startsekvenser
-		call 	doImportXMODEM
-	endif
+		; call 	doImportXMODEM
 
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF

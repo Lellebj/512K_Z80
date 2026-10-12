@@ -27,7 +27,7 @@ MEDIA?= $(shell ls /media/lellebj/)
 
 #****************************************************
 #SOURCES   = $(filter-out I2C*.s , $(wildcard *.s))
-SOURCES   = $(shell find  -maxdepth 1 -name "*.s" ! -name "I2C*.s"  ! -name "XMOD*.s" )
+SOURCES   = $(shell find  -maxdepth 1 -name "*.s" ! -name "I2C*.s" ! -name "RGBLED*.s"  ! -name "XMOD*.s" )
 OBJECTS = $(SOURCES:%$(S_EX)=$(OB_CODE)/%.o)
 
 # SOURCES = $(shell find  -maxdepth 1 -name "*$(S_EX)")

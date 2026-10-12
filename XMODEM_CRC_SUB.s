@@ -200,7 +200,7 @@ recMinicomTecken:
 
 doImportXMODEM: 
 		call 	writeSTRBelow
-		DB 		0,"Wait for XMODEM start... ",CR,LF,00
+		DB 		0,"Invänta XMODEM start... ",CR,LF,00
 		xor 	A
 		ld 		(TempVar1),A				; reset badblock counter
 		;------------INIT CTC (2 sec timing for 'C'/NAK process----------------
@@ -235,7 +235,6 @@ doKERMITentry:		; ***  Kermit initiering hoppar hit
 		ld 		HL,(commAdr1)
 		; ld 		HL,$A010
 		ld 		C,1					; block number
-
 
 
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
