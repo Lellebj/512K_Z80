@@ -942,6 +942,8 @@ writeSTRBelow_CRLF:
 ; 	parametrar omvandlade till ascii text. parametrar finns i 
 ; 	stack och (paramStack) är pekare.
 ;##############################################################
+addStrToPrintQueue_IY:		; lägg till ny info till utskriftssträng och starta parameter stack från topp.
+		ld 		IY,(paramStack)			; pekare för angivna parmetrar i stack
 addStrToPrintQueue:						; lägg till ny info till utskriftssträng...
 		; p_2H: värde i paramStack konverteras till 1byte text (2 tecken)
 		; p_4H: värde i paramStack konverteras till 2byte text (4 tecken)

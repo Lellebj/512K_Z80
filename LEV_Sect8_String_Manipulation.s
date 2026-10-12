@@ -1114,44 +1114,63 @@ zero_byte:	db  0
 
 
 dumpMemory:
-		; ***	Dump memory from either lvl1 or PCval and lvl2 or lvl1 bytes
+		; ***	Visa minnesinnehåll från adress 'lvl1' eller 'PCval'. Mängd 'lvl2' eller  'lvl1' bytes
 		xref 	add_space
 
-		; check if lvl2 is zero  
+		; Är lvl2 0 ?  
 
 		ld 		HL,commAdr1
-		call	checkZero16 			; check if (commAdr1)=0 2 bytes -> Z 
-		jr 		NZ,.adrSizeTyped 		; dump memory ; address and size are typed
+		call	checkZero16 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
+		jr 		NZ,.adrSizeTyped 		; Visa minnesinnehåll. adress och mängd angiven
 
-		; ***	Only size typed, address from PCvalue
+		; ***	Enbart mängd data som ska visas angiven...
 		ld 		HL,(PCvalue)				; HL = start address
-		ld 		(commAdr1),HL 			; temp storage of PCvalue
+		ld 		(commAdr1),HL 			; temporär plats PCvalue
 
 .adrSizeTyped:
-		; ***	both address and size typed
+		; ***	Visa minnesinnehåll. adress och mängd angiven
 		ld 		DE,commAdr1				; DE = start address
-		ld 		BC,commLvl1				; BC = number of bytes
+		ld 		BC,commLvl1				; BC = antal bytes
 
 		ld  	A,(DE)
-		and 	$F0 					; adjust to nearest 16 byte block
+		and 	$F0 					; justera till närmaste 16 byte block
 		ld 		(DE),A
 		ld 		DE,(commAdr1)			; HL = start address
 
-		ld 		BC,(commLvl1) 			; get the size...  divide by $10
+		ld 		BC,(commLvl1) 			; Läs antal och ...  div med $10 - > antal linjer
+		srl 	B 
+		RR 		C						; skifta BC 4 ggr
 		srl 	B 
 		RR 		C
 		srl 	B 
 		RR 		C
 		srl 	B 
-		RR 		C
-		srl 	B 
-		RR 		C					; BC = number of lines, nearest higher 16 byte block
+		RR 		C					; BC = antal linjer, närmast högre 16 byte block
 
 display_BC_bytes:
-		push 	bc					; save the line counter
+		push 	bc					; spara antal linjer på stacken
 
-			ld 		HL,dumpText+1		; new buffer for text output
-			call	Bin2Hex16			;address in DE -> result added to (HL)-> to last 0x00. hl updatd (+4)
+		;spara  16 värden på stacken
+
+		ld 		B,$10
+pushblock:
+		ld 		A,(DE)
+		push 	af
+		djnz	pushblock
+
+
+		ld 		HL,dumpText+1		; buffer för text 
+		
+		call 	addStrToPrintQueue   ; skriv ut adress och första 8 bytes till buffer
+		DB 		0,p_H4,": ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2,"   ",0
+
+		call 	addStrToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
+		DB 		0,p_H4,": ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," |",0
+
+		
+
+		
+		call	Bin2Hex16			;address in DE -> result added to (HL)-> to last 0x00. hl updatd (+4)
 			
 			ld  	A,':'
 			ld 		(HL),A  

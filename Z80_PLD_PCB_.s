@@ -1195,7 +1195,6 @@ p_go:
 
 		ld  	(paramStack),SP			;spara värde för adress till första parameter i utskriftkö
 		ld  	(SP_valueP),SP			;spara värde på stackpek
-				; initiera pekare på Textbuf  - HL.
 		
 
 		ld  	DE,$D234
@@ -1207,16 +1206,18 @@ p_go:
 		push 	DE 			; spara tredje data 2 byte
 		ld  	DE,$117a
 		push 	DE 			; spara tredje data 2 byte
+
+		; initiera pekare på Textbuf  - HL.
 		ld 		HL,dumpText+1
 		
 		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
-		DB 		0,"Parameter 1: [",p_D5,"] ",00
+		defb	0,"Parameter 1: [",p_D5,"] ",00
 
 		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
-		DB 		0,"Parameter 1: [",p_H4,"] och 2: (",p_H2,")",00
+		defb 	0,"Parameter 1: [",p_H4,"] och 2: (",p_H2,")",00
 
 		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
-		DB 		0," !, och 4: (",p_H4,") och tecken ",p_1C,CR,LF,00
+		defb 	0," !, och 4: (",p_H4,") och tecken ",p_1C,CR,LF,00
 
 		ld 		iy,dumpText
 		call 	WriteLine
