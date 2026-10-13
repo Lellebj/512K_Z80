@@ -783,8 +783,9 @@
 		; Section IOLIB
 
 
-		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLineCRNL, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
-		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF, addStrToPrintQueue, waitForKey,RetInpStatus
+		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLine_CRLF, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
+		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF
+		GLOBAL  addStrToPrintQueue,addStrToPrintQueue_IY, waitForKey,RetInpStatus
 		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterruptVectors,CTC1_INT_OFF,initSIOBInterrupt
 		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeTXA, TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
 		GLOBAL 	SIO_B_EI,SIO_B_RX_INTon,SIO_B_TXRX_INToff,SIO_B_EI,SIO_B_DI
@@ -931,7 +932,7 @@ writeSTRBelow:
 
 writeSTRBelow_CRLF:
 		ex		(sp),iy                 ; iy = adress för strängen som skrivs ut.
-		call	WriteLineCRNL
+		call	WriteLine_CRLF
 		inc		iy                      ; pekar förbi slutet ('0') i strängen
         ex      (sp),iy
 		ret
@@ -943,8 +944,10 @@ writeSTRBelow_CRLF:
 ; 	stack och (paramStack) är pekare.
 ;##############################################################
 addStrToPrintQueue_IY:		; lägg till ny info till utskriftssträng och starta parameter stack från topp.
-		ld 		IY,(paramStack)			; pekare för angivna parmetrar i stack
+		ld 		IY,(SP_valueP)			; välj pekare till början av angivna parmetrar i stack
+
 addStrToPrintQueue:						; lägg till ny info till utskriftssträng...
+		;  		IY uppdateras på nästa parameter i stacken
 		; p_2H: värde i paramStack konverteras till 1byte text (2 tecken)
 		; p_4H: värde i paramStack konverteras till 2byte text (4 tecken)
 		; P_1C: värde i paramStack konverteras till 1byte text (1 tecken) 
@@ -954,39 +957,41 @@ addStrToPrintQueue:						; lägg till ny info till utskriftssträng...
         ex      (sp),IX                 ; IX = adress för strängen i anropet.
 		inc 	IX					; hoppa förbi inledande 0'a (filstorlek)
 
-		strloop:
+strloop:
 		ld 		A,(IX)
 		or 		a						; kolla om strängavslut (=0)
 		jr 		z,endproc
 
 		cp 		p_H2					; parameter för enkel byte (2 tecken) ?
 		jr 		nz,chkpD5
-		call 	convParamString
-		call 	Bin2Hex8				; fyll på med tecken i (HL)
+		call 	convParamString			; nästa parameter i stack -> DE.
+		call 	Bin2Hex8				; bin i DE -> fyll på med tecken i (HL)
 		jr 		p_nextchar
 		
 chkpD5:
 		cp 		p_D5					; parameter för enkel byte (2 tecken) ?
 		jr 		nz,chkpH4
-		call 	convParamString
-		call 	Num2Dec				; fyll på med tecken i (HL) decimal heltal
+		call 	convParamString			; nästa parameter i stack -> DE.
+		call 	Num2Dec					; bin i DE -> fyll på med tecken i (HL)
 		jr 		p_nextchar
 
 chkpH4:
 		cp 		p_H4					; parameter för enkel byte (4 tecken) ?
 		jr 		nz,chkchar
-
-		call 	convParamString
-		call 	Bin2Hex16				; fyll på med tecken i (HL)
+		call 	convParamString			; nästa parameter i stack -> DE.
+		call 	Bin2Hex16					; bin i DE -> fyll på med tecken i (HL)
 		jr 		p_nextchar
 
 chkchar:
-		cp 		p_1C					; parameter för enkelt tecken (ascii) (1 tecken) ?
+		cp 		p_C1					; parameter för enkelt tecken (ascii) (1 tecken) ?
 		jr 		nz,.noEvalue
 
+		call 	convParamString			; nästa parameter i stack -> DE.
 		ld  	A,E 					; hämta värde från ack E.
+ 		call 	isChar_A				; kollar om (HL) är skrivbart tecken ? Carry->  A = '.'
+
 .noEvalue:					;  skicka aktuell char (ix) till sträng för utskrift (ingen omvandling)
-		ld  	(HL),A				; fyll på med tecken i (HL)
+		ld  	(HL),A				; fyll på med tecken från (IX)=A  i (HL)
 		inc 	HL
 		ld  	(HL),0
 
@@ -999,6 +1004,7 @@ endproc:
 
 		ret
 
+;##############################################################
 
 convParamString:
 		ld 		IY,(paramStack)			; pekare för angivna parmetrar i stack
@@ -1009,13 +1015,7 @@ convParamString:
 		ld 		(paramStack),IY			; visar på nästa parameter
 								; gör en sträng med 2 tecken
 		ret
-
-
-		call	WriteLine
-        inc     iy                      ; pekar förbi slutet ('0') i strängen
-        ex      (sp),iy
-        ret
-
+;##############################################################
 ;##############################################################
 ; Print a CRLF 
 ; Clobbers AF, C
@@ -1045,7 +1045,7 @@ nxtchr:
 
 		ret					; return on maxlength
 			; WriteLine from address (iy) (until char = 00)and add CRLF 
-WriteLineCRNL:
+WriteLine_CRLF:
 		call	WriteLine
 			; Entry for excl. output CRNL
 CRNL:

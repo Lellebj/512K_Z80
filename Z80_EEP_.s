@@ -6,7 +6,7 @@ GPIODEBUG EQU 0
 EPS1:
 
 		include 	"Z80_Params_.inc"
-		xref	RAM_Start, SC5B,SC4C,SC8B, WriteLineCRNL, WriteLine, ReadLine, CRLF,DumpRegisters
+		xref	RAM_Start, SC5B,SC4C,SC8B, WriteLine_CRLF, WriteLine, ReadLine, CRLF,DumpRegisters
 
 		xref	stacktop
 		global 	setFLASHBank, setSRAMBank, enableFLASH, disableFLASH, setFLASHBank
@@ -16,7 +16,7 @@ EPS1:
 		jp		setBanks
 		align 3
 		; section RST08
-		jp	WriteLineCRNL	
+		jp	WriteLine_CRLF	
 		align 3
 		; section RST10	
 		jp 	WriteLine

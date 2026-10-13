@@ -588,7 +588,7 @@ useFlash:
 		call 	ReadLine
 
 		ld 		iy,Textbuf
-		call	WriteLineCRNL
+		call	WriteLine_CRLF
 		; ld 		A,5
 		; out 	(portA_Data),A
 
@@ -1193,48 +1193,26 @@ p_exe:
 		ret
 p_go:
 
-		ld  	(paramStack),SP			;spara värde för adress till första parameter i utskriftkö
-		ld  	(SP_valueP),SP			;spara värde på stackpek
+		ld 		A,(TempVar1)
+		inc 	A
+		ld 		(TempVar1),A
+		cp 		15
+		ld 		IX,$1234
+		ld		IY,$5678
+		ld 		A,$55
+
+		LD 		BC,$789A
+		LD 		DE,$BCDE
+		LD 		HL,$F012
+		exx
+		LD 		BC,$1234
+		LD 		DE,$ABCD
+		LD 		HL,$F0F1
+		exx
+		call 	DumpRegisters
 		
-
-		ld  	DE,$D234
-		push 	DE 			; spara första data 2 byte
-		push 	DE 			; spara första data 2 byte
-		ld  	DE,$0056
-		push 	DE 			; spara andra data 1 byte
-		ld  	DE,$789A
-		push 	DE 			; spara tredje data 2 byte
-		ld  	DE,$117a
-		push 	DE 			; spara tredje data 2 byte
-
-		; initiera pekare på Textbuf  - HL.
-		ld 		HL,dumpText+1
-		
-		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
-		defb	0,"Parameter 1: [",p_D5,"] ",00
-
-		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
-		defb 	0,"Parameter 1: [",p_H4,"] och 2: (",p_H2,")",00
-
-		call 	addStrToPrintQueue			; lägg till sträng nedan till utskriftskö
-		defb 	0," !, och 4: (",p_H4,") och tecken ",p_1C,CR,LF,00
-
-		ld 		iy,dumpText
-		call 	WriteLine
-	
-		ld  	SP,(SP_valueP)			;återställ värde på stackpek SP
-		ret 
-
-
-
-		; ld 		A,(TempVar1)
-		; inc 	A
-		; ld 		(TempVar1),A
-		; cp 		15
-		; call 	DumpRegisters
-		
-		; ret 	P
-		; jr 		p_go
+		ret 	
+		jr 		p_go
 
 
 p_incDecPC:
@@ -1703,10 +1681,10 @@ bit_test9:
 		; call	Bin2Hex8			;result in T_buffer
 
 		; ld 		iy,T_BUFFER
-		; call 	WriteLineCRNL
+		; call 	WriteLine_CRLF
 
 		; ld 		iy,Textbuf
-		; call	WriteLineCRNL
+		; call	WriteLine_CRLF
 
 		; jp 		next_line
 
@@ -1749,7 +1727,7 @@ textloop:
 		; CALL 	COPY			; COPY SUBSTRING
 
 		; ld 		iy,COPY_BUFFER
-		; call 		WriteLineCRNL ; print the copy string
+		; call 		WriteLine_CRLF ; print the copy string
 
 
 		; ; test DELETE
@@ -1761,7 +1739,7 @@ textloop:
 		; CALL 	DELETE 			; DELETE CHARACTERS
 									; DELETING 4 CHARACTERS STARTING AT INDEX 1
 		; ld 		iy,Str0
-		; call 		WriteLineCRNL ; print the copy string
+		; call 		WriteLine_CRLF ; print the copy string
 
 
 ; 		;test INSERT
@@ -1774,7 +1752,7 @@ textloop:
 ; 		LD		B,0x40				; B = MAXIMUM LENGTH OF STRING
 ; 		CALL 	INSERT_STR			; INSERT SUBSTRING
 ; 		ld 		iy,Str3
-; 		; call	WriteLineCRNL 		; print the modified string
+; 		; call	WriteLine_CRLF 		; print the modified string
 
 
 ; 		jp		next_line

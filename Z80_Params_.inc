@@ -155,7 +155,7 @@ DOALIGN 	EQU 	00
 p_D5			EQU 	0x1			; decimal parameter 4 tecken
 p_H2			EQU 	0x2			; hex parameter 2 tecken
 p_H4			EQU 	0x3			; hex parameter 4 tecken
-p_1C 			EQU 	0x4			; char(tecken) 1 byte (1 tecken)
+p_C1 			EQU 	0x4			; char(tecken) 1 byte (1 tecken)
 
 EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
 TestChar:		EQU		'A'				;TEST CHARACTER = A

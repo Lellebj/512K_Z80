@@ -1008,13 +1008,17 @@ putDEtoScreenDEC:
 
 DumpRegisters:
 		ld		(SP_value),sp
-		ld		(reg16_value),hl
-		; ex		(sp),hl
+		ld		(reg16_value),hl		; spara HL värde
+		ld 		HL,2
+		add 	HL,SP
+		ld  	(paramStack),HL			;spara värde för adress till första parameter i utskriftkö (PC)
+
+		; ex		(sp),hl					; hämta värde av PC från stack -> HL
 		; ld		(PC_value),hl
 		; ex		(sp),hl
-		ld 		hl,(SP_value)		; get value of sp to hl
-		push 	hl				; push value of hl(=sp) to (sp)
-		ld		hl,(reg16_value)	
+		ld 		hl,(SP_value)		; HL = värde av SP
+		push 	hl					; lagra värdet av SP (=HL) i stacken
+		ld		hl,(reg16_value)	; verkligt värde på HL...
 		push	ix
 		push	iy
 		push	af
@@ -1029,67 +1033,37 @@ DumpRegisters:
 		push 	hl
 		ex		af,af'
 		exx
-
-
-
-
-; 			;	clear Textbuf
-; 		ld 		a,0
-; 		ld 		de,Textbuf
-; 		ld 		b,0x40
-; .zeroTextBuf:
-; 		ld 		(de),A
-; 		djnz	.zeroTextBuf		
-
 		
 
 		ld		ix,(SP_value)		; ix  points to stack
 
-		ld 		iy,RegLabels1
-		call 	WriteLineCRNL
+		ld 		HL,dumpText+1		; buffer för text 
+		call 	writeSTRBelow_CRLF
+		defb	" |...PC...|...SP...|...IX...|...IY...|",0
+		call 	outRegisters
 
-		ld		hl,S1x
-		call	display_4_registers
-		call  	CRLF
+		call 	writeSTRBelow_CRLF
+		defb	" |...AF...|...BC...|...DE...|...HL...|",0
+		call 	outRegisters
 
-		ld 		iy,RegLabels2
-		call 	WriteLineCRNL
+		call 	writeSTRBelow_CRLF
+		defb	" |...AF'..|...BC'..|...DE'..|...HL'..|",0
+		call 	outRegisters
 
-		ld		hl,S1x
-		call	display_4_registers
+		; visa  status flaggor  	defb	" C N P X H X Z S",0
+		call 	writeSTRBelow
+		defb	".C..N..P..X..H..X..Z..S.",0
+		call 	writeSTRBelow_CRLF
+		defb	"..C'.N'.P'.X'.H'.X'.Z'.S'.",0
+
+		ld		A,(ix-8)		; ordinarie flaggor
+		call 	skriv_flaggor
+
+		ld		A,(ix-16)		; exx  flaggor alternativ register
+		call 	skriv_flaggor
 		call 	CRLF
 
-		ld 		iy,RegLabels3
-		call	WriteLineCRNL
 
-		ld		hl,S1x
-		call	display_4_registers
-		call 	CRLF
-
-			; display status flags  	DB		38," S Z X H X P N C",0
-		ld		A,(ix+16)
-		ld 		c,a			; store A
-		ld		hl,S1x+1
-		ld		iy,RegFlags+1
-
-		ld 		b,05
-		call	add_space		; add (b) spaces to (hl), advance hl	
-
-		ld 		b,8
-all_flags:
-		sla		c			; shift msb bit to C flag
-
-		call	C,disp_flags			; set act. flag in text.buf
-
-		call	adv_iy
-		djnz	all_flags
-
-
-		xor 	a					; clear A
-		ld 		(hl),a				; set end of string
-		call	adjust_txtbuf_length
-		ld 		iy,S1x
-		call 	WriteLineCRNL
 
 		call 	waitForKey
 		call 	CRLF
@@ -1113,87 +1087,42 @@ all_flags:
 		ld 		sp,(SP_value)		; restore value of sp
 
 		ret
+
+;********************************************************************************************
+;********************************************************************************************
+
+outRegisters:
+		;		skriv ut en rad med register värden....
+		ld 		HL,dumpText+1		; buffer för text 
+		call 	addStrToPrintQueue   ; skriv ut adress och första 8 bytes till buffer
+		defb	0,"|  ",p_H4,"  |  ",p_H4,"  |  ",p_H4,"  |  ",p_H4,"  |",CR,LF,0
+		ld 		iy,dumpText
+		call 	WriteLine_CRLF
+		ret
+
+
 ;********************************************************************************************
 ;********************************************************************************************	
 
-disp_flags:
-		ld 		A,(iy)
-		ld		(hl),A
-		inc		hl
-		ld		a,(iy+1)
-		ld 		(hl),a
-		inc		hl
-		ret
-adv_iy:
-		inc		iy
-		inc		iy
-		ret
-;********************************************************************************************
-;********************************************************************************************	
+skriv_flaggor:	
+		ld  	B,8				; skriv 8 flaggor.
 
+allaflaggor:
+		SLA		A 				; bit 7 -> C flagga
+		push 	AF
+		jr 		C,skriv1
 
-		;	load 4 16bit values in buffer ->(HL)
-display_4_registers:
-		ld 		b,04
+		; skriv 0
+		call 	writeSTRBelow
+		defb	0,"0  ",0
+		jr 		nst_flagga
+skriv1:
+		call 	writeSTRBelow
+		defb	0,"1  ",0
+nst_flagga:
+		pop  	AF
+		djnz 	allaflaggor
 		
-display_regs:
-		ld		(reg16_value),bc		; save the # regs /line
-
-		ld 		b,05
-			; add (b) spaces to (hl), advance hl	
-		call	add_space
-
-
-		ld		d,(ix+1)
-		ld		e,(ix)		; get value from temp.stack..to de..?
-		dec		ix
-		dec		ix			; ix points to next rec in stack
-
-		call	Bin2Hex16			;result added to (HL)-> to last 0x00. hl updatd (+4)
-
-		ld		bc,(reg16_value)
-		djnz 	display_regs			; display (b) registers with spaces...
-
-		; call	adjust_txtbuf_length
-		xor 	a
-		ld 		(hl),A
-
-		ld 		iy,S1x
-		call	WriteLineCRNL
-		ret
-
-
-;********************************************************************************************
-;********************************************************************************************	
-
-;********************************************************************************************
-;********************************************************************************************	
-
-		;	load n 8bit values in buffer ->(HL); i.e. S1x
-		; 	ix points to data.
-		;	n = reg B
-display_n_8registers:
-		
-		ld		(reg16_value),bc		; save the # regs /line
-
-		ld 		b,02
-			; add (b) spaces to (hl), advance hl	
-		call	add_space
-
-		ld		e,(ix)		; get value from (ix) to e
-		inc		ix
-
-		call	Bin2Hex8			;result added to (HL)-> to last 0x00. hl updatd (+2)
-
-		ld		bc,(reg16_value)
-		djnz 	display_n_8registers			; display (b) registers with spaces...
-
-		; call	adjust_txtbuf_length
-		xor 	a
-		ld 		(hl),A
-
-		ld 		iy,S1x
-		call 	WriteLineCRNL
 		ret
 
 
@@ -1208,15 +1137,6 @@ add_space:
 		ld 		(hl),A
 		inc 	hl
 		djnz	add_space
-		ret
-
-adjust_txtbuf_length:
-
-		ld		de,S1x
-		SBC		hl,de		; calc new length of string
-		ld 		a,l
-		ld 		(de),a		; store in first pos
-		add		hl,de		; restore to first pos after spaces
 		ret
 ;********************************************************************************************
 ;********************************************************************************************	
