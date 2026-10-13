@@ -66,7 +66,7 @@ EPS1:
 
 		align 4
 setBanks:
-		; ld 		A,$80					; set bit 7 - SRAM64 set
+		; ld 		A,$80					; set bit 7 - enbart SRAM64 används, SRAM&Flash minnesbank #0
 		; ld 		(memBankID),A			; clear memory banks
 		
 		call 	EEPIO_Init
@@ -78,10 +78,10 @@ setBanks:
 
 		xor 	A					; A=0
 		ld 		(memBankID),A		; set memory banks #0
-	ifd NOFLASH
+	ifd NOFLASH						; NOFLASH definieras i 'Makefile'
 		call 	disableFLASH		; NO FLASH 
 	else	
-		call 	enableFLASH			; start from FLASH
+		call 	enableFLASH			; använd och starta frånn FLASH
 	endif
 
 		xor 	A
@@ -126,9 +126,10 @@ doCopy:
 
 
 ;********************************************************************************************
+;********************************************************************************************			
 ;********************************************************************************************	
 setSRAMBank:
-		; ***	set the SRAM bank ID; Bank ID in A
+		; ***	ange SRAM bank #; Värde i i A
 
 		push 	HL
 		push 	BC
@@ -169,13 +170,13 @@ putBank:
 ;********************************************************************************************
 ;********************************************************************************************	
 enableFLASH:
-		; ***	activate FLASH MEM, leave bank ID unchanged; 
-				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
-				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+		; ***	aktivera FLASH minne, värde på Flash ID oförändrat; 
+				; om '64K_SRAM' 1  ($08) inget FLASH minne används
+				; om '64K_SRAM' 0  ($00) FLASH minne används nedre 32K och SRAM övre 32k
 		push 	HL
 		push 	BC
 		ld 		HL,rstBankID
-		res 	3,(HL)				; clear bit 3 -> enable FLASH
+		res 	3,(HL)				; släck bit 3 i 'rstBankID' -> använd  FLASH minne
 		res 	2,(HL)				; temp enable reset of IC622
 putBankF:
 		ld 		A,(HL)
@@ -187,9 +188,9 @@ putBankF:
 ;********************************************************************************************
 ;********************************************************************************************	
 disableFLASH:
-		; ***	disconnect FLASH MEM, leave bank ID unchanged; 
-				; if '64K_SRAM' 1  ($08) no FLASH memory is selected
-				; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
+		; ***	deaktivera FLASH minne, värde på Flash ID oförändrat; 
+				; om '64K_SRAM' 1  ($08) inget FLASH minne används
+				; om '64K_SRAM' 0  ($00) FLASH minne används nedre 32K och SRAM övre 32k
 		push 	HL
 		push 	BC
 		ld 		HL,rstBankID
@@ -206,7 +207,7 @@ disableIC620_OE:
 		push 	HL
 		push 	BC
 		ld 		HL,rstBankID
-		res 	0,(HL)
+		res 	0,(HL)			; rstBankID [0] påverkar reset av IC 620. reset förhindrar reset av IC620
 		jr 		putBankF
 
 
@@ -218,7 +219,7 @@ enableIC620_OE:
 		push 	HL
 		push 	BC
 		ld 		HL,rstBankID
-		set 	0,(HL)
+		set 	0,(HL)			; rstBankID [0] påverkar reset av IC 620. set möjliggör reset av IC620
 		jr 		putBankF
 
 

@@ -1009,13 +1009,15 @@ putDEtoScreenDEC:
 DumpRegisters:
 		ld		(SP_value),sp
 		ld		(reg16_value),hl		; spara HL värde
-		ld 		HL,2
+		push 	AF 					; spara original flaggor
+		ld 		HL,4
 		add 	HL,SP
 		ld  	(paramStack),HL			;spara värde för adress till första parameter i utskriftkö (PC)
 
 		; ex		(sp),hl					; hämta värde av PC från stack -> HL
 		; ld		(PC_value),hl
 		; ex		(sp),hl
+		pop  	AF 					; återställ originalflaggor
 		ld 		hl,(SP_value)		; HL = värde av SP
 		push 	hl					; lagra värdet av SP (=HL) i stacken
 		ld		hl,(reg16_value)	; verkligt värde på HL...
@@ -1050,14 +1052,16 @@ DumpRegisters:
 		defb	" |...AF'..|...BC'..|...DE'..|...HL'..|",0
 		call 	outRegisters
 
-		; visa  status flaggor  	defb	" C N P X H X Z S",0
+		; visa  status flaggor  	defb	" S Z H X P X N C",0
 		call 	writeSTRBelow
-		defb	".C..N..P..X..H..X..Z..S.",0
-		call 	writeSTRBelow_CRLF
-		defb	"..C'.N'.P'.X'.H'.X'.Z'.S'.",0
+		defb	0,".S..Z..H..P..N..C.|",0
+		call 	writeSTRBelow
+		defb	0,".S'.Z'.H'.P'.N'.C'.",CR,LF," ",0
 
 		ld		A,(ix-8)		; ordinarie flaggor
 		call 	skriv_flaggor
+		call 	writeSTRBelow
+		defb	"| ",0
 
 		ld		A,(ix-16)		; exx  flaggor alternativ register
 		call 	skriv_flaggor
@@ -1094,7 +1098,7 @@ DumpRegisters:
 outRegisters:
 		;		skriv ut en rad med register värden....
 		ld 		HL,dumpText+1		; buffer för text 
-		call 	addStrToPrintQueue   ; skriv ut adress och första 8 bytes till buffer
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och första 8 bytes till buffer
 		defb	0,"|  ",p_H4,"  |  ",p_H4,"  |  ",p_H4,"  |  ",p_H4,"  |",CR,LF,0
 		ld 		iy,dumpText
 		call 	WriteLine_CRLF
@@ -1108,6 +1112,14 @@ skriv_flaggor:
 		ld  	B,8				; skriv 8 flaggor.
 
 allaflaggor:
+		push 	AF
+		ld 		A,B
+		cp 		6				; X - ingen flagga
+		jr  	z,skip_flagga
+		cp 		4				; X - ingen flagga
+		jr  	z,skip_flagga
+	
+		pop  	AF 				; återställ A
 		SLA		A 				; bit 7 -> C flagga
 		push 	AF
 		jr 		C,skriv1
@@ -1120,10 +1132,15 @@ skriv1:
 		call 	writeSTRBelow
 		defb	0,"1  ",0
 nst_flagga:
-		pop  	AF
+		pop  	AF			; återställ A
 		djnz 	allaflaggor
 		
 		ret
+		
+skip_flagga: 			; flagga 5 och 3
+		pop  	AF			; återställ A
+		SLA 	A			; nästa flagga
+		djnz 	allaflaggor
 
 
 ;********************************************************************************************

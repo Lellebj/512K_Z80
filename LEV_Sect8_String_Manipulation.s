@@ -1185,10 +1185,10 @@ pushblock:
 
 
 dumpLine:		; skriv ut en rad från minnet, subrutin för att fixa adress <128 för djnz....
-		call 	addStrToPrintQueue   ; skriv ut adress och första 8 bytes till buffer
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och första 8 bytes till buffer
 		defb	0,p_H4,": ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2,"   ",0
 
-		call 	addStrToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
 		defb 	0,p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2,"  | ",0
 
 		ld  	IY,(SP_valueP)		; återställ värde för adress till första parameter i utskriftkö
@@ -1197,9 +1197,9 @@ dumpLine:		; skriv ut en rad från minnet, subrutin för att fixa adress <128 f�
 		ld  	(paramStack),IY			;spara värde för adress till första parameter i utskriftkö
 					
 		; 		skriv ut ascii värden för motsvarande data på raden.
-		call 	addStrToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
 		defb 	0,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1," ",0
-		call 	addStrToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
 		defb 	0,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1," |",CR,LF,0
 
 		ld 		iy,dumpText

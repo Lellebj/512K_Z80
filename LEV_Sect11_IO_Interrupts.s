@@ -785,7 +785,7 @@
 
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLine_CRLF, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
 		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF
-		GLOBAL  addStrToPrintQueue,addStrToPrintQueue_IY, waitForKey,RetInpStatus
+		GLOBAL  addStrBelowToPrintQueue,addStrBelowToPrintQueue_IY, waitForKey,RetInpStatus
 		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterruptVectors,CTC1_INT_OFF,initSIOBInterrupt
 		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeTXA, TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
 		GLOBAL 	SIO_B_EI,SIO_B_RX_INTon,SIO_B_TXRX_INToff,SIO_B_EI,SIO_B_DI
@@ -943,10 +943,10 @@ writeSTRBelow_CRLF:
 ; 	parametrar omvandlade till ascii text. parametrar finns i 
 ; 	stack och (paramStack) är pekare.
 ;##############################################################
-addStrToPrintQueue_IY:		; lägg till ny info till utskriftssträng och starta parameter stack från topp.
+addStrBelowToPrintQueue_IY:		; lägg till ny info till utskriftssträng och starta parameter stack från topp.
 		ld 		IY,(SP_valueP)			; välj pekare till början av angivna parmetrar i stack
 
-addStrToPrintQueue:						; lägg till ny info till utskriftssträng...
+addStrBelowToPrintQueue:						; lägg till ny info till utskriftssträng...
 		;  		IY uppdateras på nästa parameter i stacken
 		; p_2H: värde i paramStack konverteras till 1byte text (2 tecken)
 		; p_4H: värde i paramStack konverteras till 2byte text (4 tecken)

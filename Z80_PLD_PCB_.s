@@ -100,7 +100,7 @@ SD_USB_startup:
 		call 	writeSTRBelow
 		defb   	"\0\r\n"
 		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
-		defb	"Starta direkt med förladdad Monitor i $D000 via Arduino\r\n"
+		defb	"Starta direkt med förladdad Monitor i $D000 \r\n"
 		defb	"Bootloader git: @@GIT_VERSION@@\r\n"
 		defb	"Bootloader skapad: @@DATE@@\r\n"
 		defb	"\0"
@@ -134,7 +134,7 @@ SD_USB_startup:
 
 		ld  	A,1 						; 1 = minimal utskrift under SD/USB läsning
 		ld  	(SDUSB_Helper),A
-		call 	BOOTcheckSD_USB_Presense	; kontrollera om SD kort eller USB finns, 
+		call 	BOOTcheckSD_USB_Presense	; kontrollera om SD kort eller USB finns, A=1 för SD och A=2 för USB
 
 		ld  	(SDUSB_Helper+1),A			; spara val för FLASH(0),SD(1),USB(2)
 		cp 		SD_EXIST
@@ -162,35 +162,12 @@ SD_USB_startup:
 		or 		A 							; = 0 ?
 		jr  	NZ,.nxtchr
 		ld 		(DE),A						; avsluta strängen med '0'
-		ld 		HL,S1x						; resultat i S1x
+		ld 		HL,S1x						; resultat (inläst filnamn) i S1x
 		ld 		(commAdr1),HL
-
 
 
 		;----------------------------------------------------------------
 		call 	p_C_Read_SD_USB 			; läs in från SD eller USB 
-; 		ld 		a,(SDUSB_Helper+1)			; SD (1) eller USB (2)
-; 		cp 		SD_EXIST 			; starta med SD kort  (1)
-; 		jr 		Z,.cont_SD
-; 		cp 		USB_EXIST			; kontrollera om USB ?
-; 		jp 		NZ, BOOTabort
-
-; 		call 	HC376S_diskConnectionStatus		; dont use with SD card
-; 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
-
-
-; 		jp 		NZ,BOOTabort
-
-; .cont_SD:
-; 		;*** 	Läs från SD och USB
-; 		call 	HC376S_setFileName
-; 		call 	HC376S_fileOpen
-; 		jp 		NZ,BOOTabort
-
-; 		call 	HC376S_getFileSize
-; 		call 	HC376S_fileRead
-; 		call 	HC376S_fileClose	; fil med boot filnamn finns i <S1x>
-
 		;----------------------------------------------------------------
 
 		;***  	Läs in Monitor med filnamnet i <S1x> som lästes in från <BOOTFILE.TXT>
@@ -210,31 +187,12 @@ SD_USB_startup:
 		ld 		(de),A			; ta bort $0A, $0D, ...
 		inc 	de
 		ld 		(de),A			; Filnamnet för Monitor ska finnas i commStr1
-		ld 		HL,_RAMSTART
+		ld 		HL,_RAMSTART	; från linkscript oftast $D00
 		ld 		(commAdr1),HL 	; lagra adress för Monitor i commAdr1
 
 		;----------------------------------------------------------------
 		call 	p_C_Read_SD_USB 			; läs in från SD eller USB 
 
-		
-; 		ld 		a,(SDUSB_Helper+1)			; SD (1) eller USB (2)
-; 		cp 		SD_EXIST 			; starta med SD kort  (1)
-; 		jr 		Z,.cont_SD2
-; 		cp 		USB_EXIST			; kontrollera om USB ?
-; 		jp 		NZ, BOOTabort
-
-; 		call 	HC376S_diskConnectionStatus		; dont use with SD card
-; 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
-
-; 		jp 		NZ,BOOTabort
-; .cont_SD2:
-; 		call 	HC376S_setFileName
-; 		call 	HC376S_fileOpen
-; 		jp 		NZ,BOOTabort
-
-; 		call 	HC376S_getFileSize
-; 		call 	HC376S_fileRead
-; 		call 	HC376S_fileClose
 		;----------------------------------------------------------------
 		call 	BOOTclear_p_C_read		; återställ normala CTC och SIO interrupt handterare
 	
@@ -338,7 +296,7 @@ p_C_Read_SD_USB:
 		jp 		NZ,BOOTabort
 
 		call 	HC376S_getFileSize
-		call 	HC376S_fileRead
+		call 	HC376S_fileRead			; filinnehåll -> (HL) [commAdr1]
 		call 	HC376S_fileClose
 		ret							; retur success	 (Z)
 
@@ -499,98 +457,71 @@ MONITOR_Start:
 		defb	"\0"
 		call 	waitForFinishedPrintout
 
-
-	if 	GPIODEBUG=1
-		ld 		A,$83
-		out 	(gpio_out),A
-	endif
 		call	CRLF
-		jr  next_line
 
 
 next_line:
 
 		call 	initCommParseTable			; Put zeros.....
-	if 	GPIODEBUG =1
-		ld 		A,$85
-		out 	(gpio_out),A
-	endif
 
 		; ***	visa minnesbanker FLASH  F[x]  Flash minnesbank x
 		; ***	visa minnesbanker SRAM   S[y]  SRAM minnesbank y
-				; if bit 3 (rstBankID) = 1  FLASH minne är inte vald
-				; if bit 3 (rstBankID) = 0 FLASH minne är < 32 k och SRAM övre 32k
-		ld 		HL,T_BUFFER+1 			; ange output burre T_BUFFER+1	
-		ld 		(HL),'F'	
+				; om bit 3 (rstBankID) = 1  FLASH minne är inte vald
+				; om bit 3 (rstBankID) = 0 FLASH minne är 0-32 k och SRAM övre 32k
+
 		ld 		A,(rstBankID)
 		bit 	3,A					; bit 3 set -> 64kSRAM
 		jr 		Z,useFlash
-		ld 		(HL),'S'	
-useFlash:
-		inc 	HL
-		ld 		(HL),'['	
-		inc 	HL
-		bit 	3,A					; bit 7 set -> 64kSRAM
-		ld  	A,(memBankID)
-		jr 		Z,.IDflash
+				; 64 K SRAM används !
 
-		; ***	show sram bank number
+		ld 		A,'S'	
+		ld 		E,A
+		; ***	visa använd bank nr # för sram minne
+		ld  	A,(memBankID)
 		and 	$0F					; sram bank #
-		call 	AddToT_Buf			; convert to 1 ascii char in (HL+)
-		jr 		.cont
-.IDflash:
-		; ***	show flash bank number
+		add 	A,'0'				; gör till ascii char (+$30) Ainnehåller bank#, E innehåller S/F
+		jr  	gem1
+useFlash:
+		ld 		A,'F'	
+		ld 		E,A
+		ld  	A,(memBankID)
 		srl 	A
 		srl 	A
 		srl 	A
 		srl 	A
 		and 	A,$07				; flash bank #
-		call	AddToT_Buf			; convert to 1 ascii char in (HL+)
-.cont:
-		ld  	(HL),']'
-		inc 	HL
+		add 	A,'0'				; gör till ascii char (+$30) Ainnehåller bank#, E innehåller S/F
 
-	if 	GPIODEBUG=1
-		ld 		A,$87
-		out 	(gpio_out),A
-	endif
+gem1:
+		ld  	(SP_valueP),SP			;spara värde på stackpek
+		ld  	(paramStack),SP			;spara värde för adress till första parameter i utskriftkö
 
-	; 	*** Print prompt text to screen, value of PC and content in memory
-		ld 		DE,(PCvalue)
-		ld  	(HL),'['
-		inc 	HL
-
-		; ***	Address in parenthesis
-		call 	Bin2Hex16
-		ld  	(HL),']'
-		inc 	HL
-		ld  	(HL),'='
-		inc 	HL
-
-		; ***	Value of the bytes in address (2 bytes) to screen
-		push 	HL
+	
+		push 	DE 					; spara parameter för (F)lash/(S)ram på stack
+		ld  	E,A
+		push 	DE 					; spara bank# för (F)lash/(S)ram på stack
 		ld 		HL,(PCvalue)
+		push	HL					; spara aktuell värde för PC på stack
 		ld 		D,(HL)
 		inc 	HL
 		ld 		E,(HL)
-		pop 	HL
-		call	Bin2Hex16
-		ld  	(HL),'-'
-		inc 	HL
-		ld  	(HL),'>'
-		inc 	HL
+		push 	DE					; spara aktuell värde i minne på adress PC på stack
 
-		ld  	(HL),$00
+		ld 		HL,T_BUFFER+1 			; ange output buffer T_BUFFER+1	
+
+		call 	addStrBelowToPrintQueue   ; skriv ut kommandoprompt
+		defb 	0,p_C1,"[",p_C1,"][",p_H4,"]=",p_H4,"->",0
+
 		ld 		iy,T_BUFFER
-		call	WriteLine
+		call 	WriteLine
+
+		ld  	SP,(SP_valueP)			;återställ värde på stackpek SP innan POP BC
 
 		ld 		hl,Textbuf
 		call 	ReadLine
 
 		ld 		iy,Textbuf
 		call	WriteLine_CRLF
-		; ld 		A,5
-		; out 	(portA_Data),A
 
 		;***  	compare input
 		; ld 		HL,Textbuf
@@ -1203,12 +1134,19 @@ p_go:
 
 		LD 		BC,$789A
 		LD 		DE,$BCDE
-		LD 		HL,$F012
+		LD 		HL,$F0F1
+
 		exx
+		ex		af,af'
+		ld 	a,18
 		LD 		BC,$1234
 		LD 		DE,$ABCD
 		LD 		HL,$F0F1
+		sub 	D 		; sign  minus ?
 		exx
+		ex		af,af'
+		xor 	A
+		scf
 		call 	DumpRegisters
 		
 		ret 	
