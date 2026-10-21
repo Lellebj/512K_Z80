@@ -80,6 +80,7 @@
 	PROVIDE( XMChkSum		=	0x1AA + _String_HEAP);			/*	XMODEM block checksum  2byte	*/
 	PROVIDE( SDUSB_Helper	=	0x1AC + _String_HEAP);			/*	SD och USB hjälpvariabel  2byte	*/
 
+	PROVIDE( TempVar0		=	0x1AE + _String_HEAP);			/*	Temp1	DS	2	*/
 	PROVIDE( TempVar1		=	0x1B1 + _String_HEAP);			/*	Temp1	DS	1	*/
 	PROVIDE( TempVar2		=	0x1B2 + _String_HEAP);			/*	Temp2	DS	1	*/
 	PROVIDE( TempVar3		=	0x1B3 + _String_HEAP);			/*	Temp3	DS	1	*/
@@ -89,7 +90,7 @@
 	PROVIDE( TempVar7		=	0x1B7 + _String_HEAP);			/*	Temp7	DS	1	*/
 	PROVIDE( TempVar8		=	0x1B8 + _String_HEAP);			/*	Temp8	DS	1	*/
 
-	PROVIDE( HD44780_CTRL 	= 	0x1B9 + _String_HEAP);			/*	HD44780 RS/ E/ R/W register 	*/
+	PROVIDE( Temp_CTRL	 	= 	0x1B9 + _String_HEAP);			/*	temp byte 	*/
 	PROVIDE( CTCdelayFlag 	= 	0x1BA + _String_HEAP);			/*	CTC flags that timeout has occured 1 byte	*/
 	PROVIDE( packLen 		=	0x1BC + _String_HEAP);			/*	length of packet   2-byte */
 	PROVIDE( charLen 		=	0x1BE + _String_HEAP);			/*	length of written file   2-byte */
@@ -128,9 +129,9 @@
 		; Code in $D008-D00D = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
 		; Code in $D008-D00D = $33333333: code uploaded from Arduino. Do not copy from flash, 
 	*/
-/*	PROVIDE( BootCode		=	0x33333333);	
-	PROVIDE( BootCode		=	0xCCCCCCCC);	*/	
-	PROVIDE( BootCode		=	0x11111111);		
+/*	PROVIDE( BootCode		=	0x33333333);	*/
+	PROVIDE( BootCode		=	0xCCCCCCCC);	
+/*	PROVIDE( BootCode		=	0x11111111);	*/	
 	PROVIDE( BootCodeAdr	=	_RAMSTART+8);	
 
 	SECTIONS

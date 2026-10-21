@@ -140,6 +140,7 @@ CTC_CH3_I_Vector	EQU     SIO_PIO_CTC_stack+$16		;CTC channel 3 interrupt vector
 ; SD_USB parameters
 SD_EXIST 	EQU  0x01
 USB_EXIST 	EQU  0x02
+USE_FLASH 	EQU  0x00
 
 ; Data tables  (upper EPROM/FLASH)
 ; stack  				= $FF00

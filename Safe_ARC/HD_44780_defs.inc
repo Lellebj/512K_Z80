@@ -1,9 +1,4 @@
 
-;CIO hardware addresses
-CIOC:   EQU     $A0       		; CIO PORT C
-CIOB:   EQU     CIOC+1  		; CIO PORT B
-CIOA:   equ     CIOC+2  		; CIO PORT A
-CIOCTL: equ     CIOC+3  		; CIO CTRL PORT
 
 ;I/D	= 1:Increment
 ;I/D	= 0:Decrement
@@ -18,6 +13,12 @@ CIOCTL: equ     CIOC+3  		; CIO CTRL PORT
 ;BF	= 1:Internally operating
 ;BF	= 0:Instructions acceptable DDRAM: Display data RAM
 
+
+_displayfunction:       defb $20
+_displaycontrol:        defb $10
+_displaymode:           defb $04
+
+
 LCD_CLEARDISPLAY	equ		0x01
 LCD_RETURNHOME 		equ		0x02
 
@@ -28,9 +29,10 @@ LCD_RETURNHOME 		equ		0x02
 LCD_ENTRYMODESET 	equ		0x04
 ;********************************
 LCD_ENTRYRIGHT 		equ		0x00
-LCD_ENTRYLEFT 		equ		0x02
-LCD_ENTRYSHIFTINCREMENT 	equ		0x01
-LCD_ENTRYSHIFTDECREMENT 	equ		0x00
+LCD_ENTRYLEFT 		equ		0x02            ; S	= 1:Accompanies display shift   
+LCD_ENTRYSHIFTDECREMENT 	equ		0x00 
+LCD_ENTRYSHIFTINCREMENT 	equ		0x01    ; I/D	= 1:Increment;I/D	= 0:Decrement
+
 
 ;// flags for display on/off control
 ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
@@ -39,12 +41,12 @@ LCD_ENTRYSHIFTDECREMENT 	equ		0x00
 ;blinking of cursor position character (B).
 LCD_DISPLAYCONTROL 	equ		0x08
 ;********************************
-LCD_DISPLAYON 		equ		0x04
-LCD_DISPLAYOFF 		equ		0x00
-LCD_CURSORON 		equ		0x02
-LCD_CURSOROFF 		equ		0x00
-LCD_BLINKON 		equ		0x01
-LCD_BLINKOFF 		equ		0x00
+LCD_DISPLAYON 		equ		0x04    ; D=1  : Display ON
+LCD_DISPLAYOFF 		equ		0x00    ; D=0  : Display OFF
+LCD_CURSORON 		equ		0x02    ; C=1  : Cursor ON
+LCD_CURSOROFF 		equ		0x00    ; C=0  : Cursor OFF
+LCD_BLINKON 		equ		0x01    ; B=1  : Blink ON
+LCD_BLINKOFF 		equ		0x00    ; B=0  : Blink OFF
 
 ;// flags for display/cursor shift
 ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
@@ -52,10 +54,10 @@ LCD_BLINKOFF 		equ		0x00
 ;display without changing DDRAM contents.
 LCD_CURSORSHIFT 	equ		0x10
 ;********************************
-LCD_DISPLAYMOVE 	equ		0x08
-LCD_CURSORMOVE 		equ		0x00
-LCD_MOVERIGHT 		equ		0x04
-LCD_MOVELEFT 		equ		0x00
+LCD_DISPLAYMOVE 	equ		0x08    ;S/C    = 1:Display shift 
+LCD_CURSORMOVE 		equ		0x00    ;S/C	= 0:Cursor move
+LCD_MOVERIGHT 		equ		0x04    ;R/L    = 1:Shift to the right
+LCD_MOVELEFT 		equ		0x00    ;R/L    = 0:Shift to the left
 
 ;// flags for function set
 ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
@@ -64,12 +66,12 @@ LCD_MOVELEFT 		equ		0x00
 ;(N), and character font (F).
 LCD_FUNCTIONSET 	equ		0x20
 ;*******************************
-LCD_8BITMODE 		equ		0x10
-LCD_4BITMODE 		equ		0x00
-LCD_2LINE 			equ		0x08
-LCD_1LINE 			equ		0x00
-LCD_5x10DOTS 		equ		0x04
-LCD_5x8DOTS 		equ		0x00
+LCD_8BITMODE 		equ		0x10    ;DL = 1:8 bits, 
+LCD_4BITMODE 		equ		0x00    ;DL = 0: 4 bits
+LCD_2LINE 			equ		0x08    ;N  = 1: 2 lines
+LCD_1LINE 			equ		0x00    ;N  = 0: 1 line
+LCD_5x10DOTS 		equ		0x04    ;F  = 1: 5 × 10 dots
+LCD_5x8DOTS 		equ		0x00    ;F  = 0: 5 × 8 dots
 
 ;							RS	R_W	DB7	DB6	DB5	DB4	DB3	DB2	DB1	DB0
 ;Set CGRAM address 			0 	0 	0 	1 	ACG ACG ACG ACG ACG ACG Sets CGRAM address.
@@ -89,17 +91,11 @@ LCD_SETDDRAMADDR	equ		0x80
 ;HD44780 pin assignments
 LCD_RS  =1<<0;
 LCD_RW  =1<<1;
-LCD_E   =1<<2;
+LCD_E   =1<<3;
 
-;Time constants @ 4MHz
-D_50ms  = $86A0
-D_20ms  = $9C40
-D_15ms  = $7530
-D_5ms   = $2710
-D_1.5ms = $0BBB
-D_1ms   = $07DD
-D_500us = $03E8
-D_100us = $00C8
+
+
+
 ;class LiquidCrystal : public Print {
 ;public:
 ;

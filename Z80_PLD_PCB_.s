@@ -136,22 +136,24 @@ SD_USB_startup:
 		ld  	(SDUSB_Helper),A
 		call 	BOOTcheckSD_USB_Presense	; kontrollera om SD kort eller USB finns, A=1 för SD och A=2 för USB
 
-		ld  	(SDUSB_Helper+1),A			; spara val för FLASH(0),SD(1),USB(2)
+		ld  	(SDUSB_Helper+1),A			; spara val för FLASH(0),SD(1),USB(2)  f9AD
+
+		cp 		USE_FLASH					; om A=0 finns inga media SD/USB, använd FLASH
+		jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
+
 		cp 		SD_EXIST
 		jr 		NZ,.showUSB
 		call 	writeSTRBelow
-		defb   	"\0"
-		defb	"SD-kort:      \0"
+		defb   	0,"SD-kort:      \0"
 		jr 		.same
 .showUSB:
 		call 	writeSTRBelow
-		defb   	"\0"
-		defb	"USB:      \0"
+		defb   	0,"USB:      \0"
 .same:
-		ld  	A,(SDUSB_Helper+1)			; val för FLASH(0),SD(1),USB(2)
-		or  	A							; ställ Z flagga om A=0
-		; kolla om flagga Z -> start från Flash bank....
-		jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
+		; ld  	A,(SDUSB_Helper+1)			; val för FLASH(0),SD(1),USB(2)
+		; or  	A							; ställ Z flagga om A=0
+		; ; kolla om flagga Z -> start från Flash bank....
+		; jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
 		;----------------------------------------------------------------
 
 		ld 		DE,commStr1					; lagra filnamn i commStr1 (40 byte area)
@@ -216,7 +218,6 @@ rfile_name:
 BOOTcheckSD_USB_Presense:
 ; ***		Kontrollera om SD kort eller USB finns, **
 ; ***		OM SD kort finns -> 0x01. OM USB finns -> 0x02. OM inget finns eller fel -> 0x00  ->> Z
-
 		ld 		DE,CTC_delay_INT_handler
 		ld 		(CTC_CH1_I_Vector),DE
 
@@ -241,7 +242,7 @@ BOOTcheckSD_USB_Presense:
 		jr 		Z,USB_exist				; om USB finns, -> Z och fortsätt, annars avbryt	
 
 		call 	BOOTclear_p_C_read		;Återställ normala CTC och SIO interrupt handterare
-		xor 	A						; ställ A=0 för SD och NZ
+		xor 	A						; ställ A=0 för SD och Z
 		ret
 SD_exist:
 		xor 	A
@@ -255,6 +256,9 @@ USB_exist:
 ;************************************************************************************************
 ;************************************************************************************************
 UseFLASH4000:
+		call 	writeSTRBelow
+		defb   	0,"FLASH $4000:      \0"
+
 		call 	writeSTRBelow
 		defb   	"\0\r\n"
 		defb	"-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
@@ -271,7 +275,7 @@ UseFLASH4000:
 
 
 
-		jp 		MONITOR_Start			; monitor start $D000 MONITOR_Start:
+		jp 		_RAMSTART			; starta om uppstart från kopierad Monitor till $D000 (_RAMSTART)
 
 
 

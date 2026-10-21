@@ -1,0 +1,208 @@
+
+Z80 SBC assembly code reading FAT32 8bit compact flash files
+
+Reading a FAT32 filesystem on an 8-bit Compact Flash (CF) card using native Z80 Assembly requires bridging two concepts: configuring the CF card into 8-bit IDE/LBA mode, and navigating the 32-bit byte structures of FAT32 with an 8-bit accumulator. [1] (/goto?url=CAESkgEB6zswFWI8p6OXYwd2Jg3yeQLst33dI4rBSuNXGT5erEVXHTWRYlAsOxuJDjM4YQbnuQTK4Z5YeMBmUkAyhrnpAclu-dJ3HlA-fVtu9-XuIQ_MCaTrg8x7sbaWf8QvGREUYMsWq-6T452ojsGHov--4KZ3diTvUehgcRcVdUXYQLg7z1nBKEuFeS1ix-2MxDLO-g), [2] (/goto?url=CAESXwHrOzAVeFf_yNvTKRkvczdmLXWU4fpEakivCMSVPga_ZeEr0Fe14RPw3JDihQI_ORq3TmedquYbdVkdqANor5auVvYIArLHPSUsGbcfyvQjT8bpOVO_yR5ynmZwYdoo), [3] (/goto?url=CAESkwEB6zswFbnvdjqzVOY62aPdgbWECYt-fh_rFLdsc5MLsPbSgP0bHKDRQFN8g4MuttmvRYGSnVeVIKDoEeyI5i3TpyXQ8I2VZ0wRkMu3OuXookga4v6DClypCqz6BYbx5TMYa8u3PE5C4KXWKS15SCIr7OmOX9R85AK8-wju-xTfH9cxMnNsQc09sXRHHpn5b-D3MqM)
+Below is a foundational, clean implementation written for standard Z80 assemblers (such as VASM or RASM). [1] (/goto?url=CAESWAHrOzAVO5_feyGwZxcvE4SoF0LoPI1GiUSLVlyBuzn3VzQmxm3352fuCNYndhvLZvmjXVgW_w5Z204VmRIw4nHfFwPHiIK6Zp3sEDFKiTdDqMiEMeVy29o), [2] (/goto?url=CAESXwHrOzAVeFf_yNvTKRkvczdmLXWU4fpEakivCMSVPga_ZeEr0Fe14RPw3JDihQI_ORq3TmedquYbdVkdqANor5auVvYIArLHPSUsGbcfyvQjT8bpOVO_yR5ynmZwYdoo)
+
+1. Compact Flash Hardware Mapping
+
+For this code, we assume the CF card is wired directly or via an 8255/buffers to a base I/O block. Change CF_BASE to match your Single Board Computer (SBC) schematics. [1] (/goto?url=CAESZQHrOzAV6YGuEVG0xXuFUwGdtXOlJQ8-IWoVkV_9RM18163qWAxcK7IBitvdoDFile8bctkBSnwNyEOsBCNCZo9CV_OHAC2FpLs0IvzzHs8NDKRjSVkFHNhxv7ps6eCgAmYCH2GQ), [2] (/goto?url=CAEShAEB6zswFf01TnQ1MKkMlwg43UQpcuJ04V5_vx9EBePqIi7SFKtKojn3OpwpJtjulC1ewyPbn9SPwgvf_KGMuC5mEYypG228gpwIifw2n_mHgS6P7yU3E_Pp15HRrW6zyrgKvhCnMSf1kWSbqHq82YQomnzENrch2zfs5iPPaMHp0cxykdQ), [3] (/goto?url=CAESkgEB6zswFWI8p6OXYwd2Jg3yeQLst33dI4rBSuNXGT5erEVXHTWRYlAsOxuJDjM4YQbnuQTK4Z5YeMBmUkAyhrnpAclu-dJ3HlA-fVtu9-XuIQ_MCaTrg8x7sbaWf8QvGREUYMsWq-6T452ojsGHov--4KZ3diTvUehgcRcVdUXYQLg7z1nBKEuFeS1ix-2MxDLO-g)
+assembly
+; ==============================================================================
+; COMPACT FLASH I/O PORT DEFINITIONS (8-bit True-IDE LBA Mode)
+; ==============================================================================
+CF_BASE         EQU $20         ; Base I/O address for your CF interface
+CF_DATA         EQU CF_BASE+0   ; Data Register
+CF_FEATURES     EQU CF_BASE+1   ; Features (Write) / Error (Read)
+CF_SEC_COUNT    EQU CF_BASE+2   ; Sector Count Register
+CF_LBA_0        EQU CF_BASE+3   ; LBA bits 0-7
+CF_LBA_1        EQU CF_BASE+4   ; LBA bits 8-15
+CF_LBA_2        EQU CF_BASE+5   ; LBA bits 16-23
+CF_LBA_3        EQU CF_BASE+6   ; LBA bits 24-27 & Drive/Head Select
+CF_COMMAND      EQU CF_BASE+7   ; Command (Write) / Status (Read)
+
+; IDE Commands & Status Flags
+CMD_SET_FEATURES EQU $EF
+CMD_READ_SECTOR  EQU $20
+STATUS_BSY      EQU $80         ; Busy flag bit
+STATUS_DRQ      EQU $08         ; Data Request flag bit
+Använd koden med försiktighet.
+
+2. Initializing 8-Bit Mode and Reading a Sector
+
+By default, CF cards power up expecting 16-bit word transfers. You must override this by passing feature command $01 to enable 8-bit transfers. 
+[1] (/goto?url=CAESkgEB6zswFWI8p6OXYwd2Jg3yeQLst33dI4rBSuNXGT5erEVXHTWRYlAsOxuJDjM4YQbnuQTK4Z5YeMBmUkAyhrnpAclu-dJ3HlA-fVtu9-XuIQ_MCaTrg8x7sbaWf8QvGREUYMsWq-6T452ojsGHov--4KZ3diTvUehgcRcVdUXYQLg7z1nBKEuFeS1ix-2MxDLO-g), [2] (/goto?url=CAESjAEB6zswFSTP6AW27TQZ3TgeNtuq1dtcSUa7Yt1UKFOCvJTHVxU-RyNjZG6NtXk_93zvXf_87PQmmWYKDM_yVAS8Ys7irgY9ssdeFwiE9chvCdjx7D1BGVhewDgWwieBxhO-dv5_UmMTBt7THaYvSfYgvQgqIkJKWGDo1Ow3EWYb51sIUAKRNxMHXWvFFw)
+assembly
+; ==============================================================================
+; CF_INIT: Force the CF Card into 8-bit transfer mode
+; ==============================================================================
+CF_INIT:
+    call    CF_WAIT_READY
+    ld      a, $01              ; Sub-command $01: Enable 8-bit PIO transfers
+    out     (CF_FEATURES), a
+    ld      a, CMD_SET_FEATURES
+    out     (CF_COMMAND), a
+    call    CF_WAIT_READY
+    ret
+
+CF_WAIT_READY:
+    in      a, (CF_COMMAND)
+    and     STATUS_BSY          ; Loop while Busy bit (7) is High
+    jr      nz, CF_WAIT_READY
+    ret
+
+; ==============================================================================
+; CF_READ_SECTOR: Reads a 512-byte block using a 32-bit LBA pointer
+; Input:  Variables (LBA_0..LBA_3) contain the target block
+;         HL points to the target destination RAM buffer (512 bytes reserved)
+; ==============================================================================
+CF_READ_SECTOR:
+    call    CF_WAIT_READY
+    
+    ; Setup LBA parameters
+    ld      a, 1
+    out     (CF_SEC_COUNT), a   ; Read exactly 1 sector
+    
+    ld      a, (VAR_LBA_0)
+    out     (CF_LBA_0), a
+    ld      a, (VAR_LBA_1)
+    out     (CF_LBA_1), a
+    ld      a, (VAR_LBA_2)
+    out     (CF_LBA_2), a
+    
+    ld      a, (VAR_LBA_3)
+    and     $0F                 ; Mask off upper nibble
+    or      $E0                 ; $E0 sets LBA mode master selection bit
+    out     (CF_LBA_3), a
+    
+    ld      a, CMD_READ_SECTOR
+    out     (CF_COMMAND), a
+
+.wait_drq:
+    in      a, (CF_COMMAND)
+    and     STATUS_DRQ          ; Wait until Data Request bit (3) is active
+    jr      z, .wait_drq
+
+    ; Read 512 bytes sequentially into RAM using a fast loop
+    ld      b, 0                ; 256 iterations * 2 reads = 512 bytes
+.read_loop:
+    in      a, (CF_DATA)
+    ld      (hl), a
+    inc     hl
+    in      a, (CF_DATA)
+    ld      (hl), a
+    inc     hl
+    djnz    .read_loop
+    ret
+Använd koden med försiktighet.
+
+3. Parsing FAT32 Structures
+
+To read a file, your code must perform basic math to track where the data clusters live. [1] (/goto?url=CAESkwEB6zswFbnvdjqzVOY62aPdgbWECYt-fh_rFLdsc5MLsPbSgP0bHKDRQFN8g4MuttmvRYGSnVeVIKDoEeyI5i3TpyXQ8I2VZ0wRkMu3OuXookga4v6DClypCqz6BYbx5TMYa8u3PE5C4KXWKS15SCIr7OmOX9R85AK8-wju-xTfH9cxMnNsQc09sXRHHpn5b-D3MqM), [2] (/goto?url=CAEShgEB6zswFd2kLWHH8kIUR6pHpEEPYwUIFzJZ1QWJDyNlrcmuvETvn0Za3B7zKH38sFW4zo5hvb3iN4MA3a6ek6gUYjrjn1GogxDT5pCD5lqC3Ur2v4MgCazv32GxzUAXw0IE71oKC7EBXxZp-ZcfUe4FSMw0pdRAzr3CnE1H3VN826l-tPm0Zw)
+assembly
+; ==============================================================================
+; FAT32 STRUCTURE PARSER (MINIMAL DEMO)
+; ==============================================================================
+
+; Step 1: Read MBR (Sector 0) to find the absolute Start of the Active Partition
+PARSE_MBR:
+    xor     a
+    ld      (VAR_LBA_0), a
+    ld      (VAR_LBA_1), a
+    ld      (VAR_LBA_2), a
+    ld      (VAR_LBA_3), a
+    ld      hl, SECTOR_BUFFER
+    call    CF_READ_SECTOR
+    
+    ; The first partition entry offset is at $1BE in the MBR
+    ; Partition offset 0x1C6 holds the 4-byte LBA Start Sector
+    ld      hl, SECTOR_BUFFER + $1C6
+    ld      a, (hl)
+    ld      (PART_START_0), a
+    inc     hl
+    ld      a, (hl)
+    ld      (PART_START_1), a
+    inc     hl
+    ld      a, (hl)
+    ld      (PART_START_2), a
+    inc     hl
+    ld      a, (hl)
+    ld      (PART_START_3), a
+    ret
+
+; Step 2: Read the Volume ID (BPB) at Part_Start to find Data regions
+PARSE_BPB:
+    ; Load the partition start sector into LBA registers
+    ld      a, (PART_START_0)
+    ld      (VAR_LBA_0), a
+    ld      a, (PART_START_1)
+    ld      (VAR_LBA_1), a
+    ld      a, (PART_START_2)
+    ld      (VAR_LBA_2), a
+    ld      a, (PART_START_3)
+    ld      (VAR_LBA_3), a
+    
+    ld      hl, SECTOR_BUFFER
+    call    CF_READ_SECTOR
+    
+    ; Extract Vital FAT32 Metrics
+    ld      a, (SECTOR_BUFFER + $0D) ; Sectors per Cluster
+    ld      (SEC_PER_CLUS), a
+    
+    ; Reserved Sectors (Offset $0E, 2 bytes)
+    ld      de, (SECTOR_BUFFER + $0E)
+    ld      (RESERVED_SECS), de
+    
+    ; Number of FATs (Offset $10, 1 byte, usually 2)
+    ld      a, (SECTOR_BUFFER + $10)
+    ld      (NUM_FATS), a
+    
+    ; Sectors per FAT (Offset $24, 4 bytes)
+    ld      hl, SECTOR_BUFFER + $24
+    ; (For brevity, store lower 16 bits; fine if volume is under 32GB)
+    ld      de, (hl)
+    ld      (FAT_SIZE_LOW), de 
+    
+    ; Root Cluster (Offset $2C, 4 bytes, usually Cluster 2)
+    ld      hl, SECTOR_BUFFER + $2C
+    ld      de, (hl)
+    ld      (ROOT_CLUSTER), de
+    
+    ; --- MATH ROUTINE: Calculate Data Sector Start ---
+    ; Formula: DataStart = PartStart + ReservedSectors + (NumFATs * FATSize)
+    ; (Implement 16-bit or 32-bit addition here depending on drive limits)
+    ret
+Använd koden med försiktighet.
+
+4. Memory Allocations & Buffers
+
+Ensure these variables are loaded in available scratchpad RAM. [1] (/goto?url=CAESfwHrOzAVO8qJ8XG2GjMdG1Glps2n0AIJddiKyrNwrVL9I-ymK9hlc1Wq8Oc2hPI1oMJq2enOlV94Kv1FwFYCmdZzAwLz-_Hsrk63E80VphWyN0jhy7Xn9vest6lJxbzeqkWw9PM9qiRjAcTN8BXgi9n0Uk6sQjzznCE4NSgm-RY)
+assembly
+; ==============================================================================
+; RAM VARIABLES BLOCK
+; ==============================================================================
+VAR_LBA_0:      DB 0
+VAR_LBA_1:      DB 0
+VAR_LBA_2:      DB 0
+VAR_LBA_3:      DB 0
+
+PART_START_0:   DB 0
+PART_START_1:   DB 0
+PART_START_2:   DB 0
+PART_START_3:   DB 0
+
+SEC_PER_CLUS:   DB 0
+RESERVED_SECS:  DW 0
+NUM_FATS:       DB 0
+FAT_SIZE_LOW:   DW 0
+ROOT_CLUSTER:   DW 0
+
+ALIGN 2         ; Keep buffer aligned for architecture performance if necessary
+SECTOR_BUFFER:  DS 512  ; Main 512-byte staging area for disk reads
+Använd koden med försiktighet.
+
+Key Technical Pitfalls to Avoid:
+
+• Endiana Compatibility: Z80 is Little-Endian, matching FAT32 storage layout. However, the IDE Get ID command returns string data byte-swapped; standard file reading behaves natively. [1] (/goto?url=CAESgQEB6zswFXdXQIGdb6WCRd6vkll3OMKQj53ZsGTYldIPF3BGh8oVBBHy43zBBIITWGDvRGpIctBY1r9AXVeTSJ1H_wr845MfzSkMWFXxux085sNYATVPIfqXjdfsryLbzV7brEOqyfdMztPgR-5wJtNUlXOrftlufIbEvDngaWJsyiM)
+• 32-Bit Math Limitations: Z80 registers (HL, DE, BC) are inherently 16-bit. When reading large Compact Flash cards, sector math will overflow 16 bits. You must utilize extended 32-bit registers (e.g., combining DE:HL) or loop routines to handle file addresses safely. [1] (/goto?url=CAESXwHrOzAVeFf_yNvTKRkvczdmLXWU4fpEakivCMSVPga_ZeEr0Fe14RPw3JDihQI_ORq3TmedquYbdVkdqANor5auVvYIArLHPSUsGbcfyvQjT8bpOVO_yR5ynmZwYdoo), [2] (/goto?url=CAESkwEB6zswFbnvdjqzVOY62aPdgbWECYt-fh_rFLdsc5MLsPbSgP0bHKDRQFN8g4MuttmvRYGSnVeVIKDoEeyI5i3TpyXQ8I2VZ0wRkMu3OuXookga4v6DClypCqz6BYbx5TMYa8u3PE5C4KXWKS15SCIr7OmOX9R85AK8-wju-xTfH9cxMnNsQc09sXRHHpn5b-D3MqM)
+Would you like assistance writing the 32-bit addition and multiplication math routines needed to track cluster offsets, or a breakdown of how to process the directory entries to locate your filename?

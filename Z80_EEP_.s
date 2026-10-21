@@ -78,10 +78,10 @@ setBanks:
 
 		xor 	A					; A=0
 		ld 		(memBankID),A		; set memory banks #0
-	ifd NOFLASH						; NOFLASH definieras i 'Makefile'
+	ifd NOFLASH						; NOFLASH definieras i 'Makefile'/'MakeBOOT'
 		call 	disableFLASH		; NO FLASH 
 	else	
-		call 	enableFLASH			; använd och starta frånn FLASH
+		call 	enableFLASH			; använd och starta från FLASH
 	endif
 
 		xor 	A
