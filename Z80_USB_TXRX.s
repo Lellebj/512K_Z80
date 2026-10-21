@@ -416,7 +416,7 @@ HC376S_fileOpen::
 	endif
 		ld 		IY,commStr1				;move.l 	USB_filename_ptr,A0 
 		dec 	IY
-		call 	WriteLineCRNL
+		call 	WriteLine_CRLF
 		call 	waitForFinishedPrintout
 
 		call 	beginUART
@@ -619,7 +619,7 @@ HC376S_fileCreate::
 	endif
 		ld 		IY,commStr1
 		dec 	IY
-		call 	WriteLineCRNL
+		call 	WriteLine_CRLF
 
 		call 	beginUART
 	
@@ -1026,7 +1026,7 @@ HC376S_fileDelete:
 
 		ld 		IY,commStr1				;move.l 	USB_filename_ptr,A0 
 		dec 	IY
-		call 	WriteLineCRNL
+		call 	WriteLine_CRLF
 
 
 		call 	HC376S_setFileName

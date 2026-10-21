@@ -140,6 +140,7 @@ CTC_CH3_I_Vector	EQU     SIO_PIO_CTC_stack+$16		;CTC channel 3 interrupt vector
 ; SD_USB parameters
 SD_EXIST 	EQU  0x01
 USB_EXIST 	EQU  0x02
+USE_FLASH 	EQU  0x00
 
 ; Data tables  (upper EPROM/FLASH)
 ; stack  				= $FF00
@@ -152,6 +153,10 @@ Result_NumToHex:	= $F1F0
 
 ;*****	ALIGN command  : 00 removes all align commands
 DOALIGN 	EQU 	00
+p_D5			EQU 	0x1			; decimal parameter 4 tecken
+p_H2			EQU 	0x2			; hex parameter 2 tecken
+p_H4			EQU 	0x3			; hex parameter 4 tecken
+p_C1 			EQU 	0x4			; char(tecken) 1 byte (1 tecken)
 
 EscChar:		EQU		1BH				;ASCII EscChar CHARACTER
 TestChar:		EQU		'A'				;TEST CHARACTER = A

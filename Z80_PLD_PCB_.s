@@ -7,7 +7,7 @@
 
 
 
-			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, BN2DEC,BN2DEC_S,DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
+			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
 			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
 			xref	Textbuf, inBufferEnd,inBuffer,cleanInBuffer,cleanOutBuffer,InitInterrupt
 			xref	dumpMemory
@@ -100,7 +100,7 @@ SD_USB_startup:
 		call 	writeSTRBelow
 		defb   	"\0\r\n"
 		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
-		defb	"Starta direkt med förladdad Monitor i $D000 via Arduino\r\n"
+		defb	"Starta direkt med förladdad Monitor i $D000 \r\n"
 		defb	"Bootloader git: @@GIT_VERSION@@\r\n"
 		defb	"Bootloader skapad: @@DATE@@\r\n"
 		defb	"\0"
@@ -134,24 +134,26 @@ SD_USB_startup:
 
 		ld  	A,1 						; 1 = minimal utskrift under SD/USB läsning
 		ld  	(SDUSB_Helper),A
-		call 	BOOTcheckSD_USB_Presense	; kontrollera om SD kort eller USB finns, 
+		call 	BOOTcheckSD_USB_Presense	; kontrollera om SD kort eller USB finns, A=1 för SD och A=2 för USB
 
-		ld  	(SDUSB_Helper+1),A			; spara val för FLASH(0),SD(1),USB(2)
+		ld  	(SDUSB_Helper+1),A			; spara val för FLASH(0),SD(1),USB(2)  f9AD
+
+		cp 		USE_FLASH					; om A=0 finns inga media SD/USB, använd FLASH
+		jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
+
 		cp 		SD_EXIST
 		jr 		NZ,.showUSB
 		call 	writeSTRBelow
-		defb   	"\0"
-		defb	"SD-kort:      \0"
+		defb   	0,"SD-kort:      \0"
 		jr 		.same
 .showUSB:
 		call 	writeSTRBelow
-		defb   	"\0"
-		defb	"USB:      \0"
+		defb   	0,"USB:      \0"
 .same:
-		ld  	A,(SDUSB_Helper+1)			; val för FLASH(0),SD(1),USB(2)
-		or  	A							; ställ Z flagga om A=0
-		; kolla om flagga Z -> start från Flash bank....
-		jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
+		; ld  	A,(SDUSB_Helper+1)			; val för FLASH(0),SD(1),USB(2)
+		; or  	A							; ställ Z flagga om A=0
+		; ; kolla om flagga Z -> start från Flash bank....
+		; jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
 		;----------------------------------------------------------------
 
 		ld 		DE,commStr1					; lagra filnamn i commStr1 (40 byte area)
@@ -162,35 +164,12 @@ SD_USB_startup:
 		or 		A 							; = 0 ?
 		jr  	NZ,.nxtchr
 		ld 		(DE),A						; avsluta strängen med '0'
-		ld 		HL,S1x						; resultat i S1x
+		ld 		HL,S1x						; resultat (inläst filnamn) i S1x
 		ld 		(commAdr1),HL
-
 
 
 		;----------------------------------------------------------------
 		call 	p_C_Read_SD_USB 			; läs in från SD eller USB 
-; 		ld 		a,(SDUSB_Helper+1)			; SD (1) eller USB (2)
-; 		cp 		SD_EXIST 			; starta med SD kort  (1)
-; 		jr 		Z,.cont_SD
-; 		cp 		USB_EXIST			; kontrollera om USB ?
-; 		jp 		NZ, BOOTabort
-
-; 		call 	HC376S_diskConnectionStatus		; dont use with SD card
-; 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
-
-
-; 		jp 		NZ,BOOTabort
-
-; .cont_SD:
-; 		;*** 	Läs från SD och USB
-; 		call 	HC376S_setFileName
-; 		call 	HC376S_fileOpen
-; 		jp 		NZ,BOOTabort
-
-; 		call 	HC376S_getFileSize
-; 		call 	HC376S_fileRead
-; 		call 	HC376S_fileClose	; fil med boot filnamn finns i <S1x>
-
 		;----------------------------------------------------------------
 
 		;***  	Läs in Monitor med filnamnet i <S1x> som lästes in från <BOOTFILE.TXT>
@@ -210,31 +189,12 @@ SD_USB_startup:
 		ld 		(de),A			; ta bort $0A, $0D, ...
 		inc 	de
 		ld 		(de),A			; Filnamnet för Monitor ska finnas i commStr1
-		ld 		HL,_RAMSTART
+		ld 		HL,_RAMSTART	; från linkscript oftast $D00
 		ld 		(commAdr1),HL 	; lagra adress för Monitor i commAdr1
 
 		;----------------------------------------------------------------
 		call 	p_C_Read_SD_USB 			; läs in från SD eller USB 
 
-		
-; 		ld 		a,(SDUSB_Helper+1)			; SD (1) eller USB (2)
-; 		cp 		SD_EXIST 			; starta med SD kort  (1)
-; 		jr 		Z,.cont_SD2
-; 		cp 		USB_EXIST			; kontrollera om USB ?
-; 		jp 		NZ, BOOTabort
-
-; 		call 	HC376S_diskConnectionStatus		; dont use with SD card
-; 		call 	HC376S_USBdiskMount				; ret with NZ  on failure
-
-; 		jp 		NZ,BOOTabort
-; .cont_SD2:
-; 		call 	HC376S_setFileName
-; 		call 	HC376S_fileOpen
-; 		jp 		NZ,BOOTabort
-
-; 		call 	HC376S_getFileSize
-; 		call 	HC376S_fileRead
-; 		call 	HC376S_fileClose
 		;----------------------------------------------------------------
 		call 	BOOTclear_p_C_read		; återställ normala CTC och SIO interrupt handterare
 	
@@ -258,7 +218,6 @@ rfile_name:
 BOOTcheckSD_USB_Presense:
 ; ***		Kontrollera om SD kort eller USB finns, **
 ; ***		OM SD kort finns -> 0x01. OM USB finns -> 0x02. OM inget finns eller fel -> 0x00  ->> Z
-
 		ld 		DE,CTC_delay_INT_handler
 		ld 		(CTC_CH1_I_Vector),DE
 
@@ -283,7 +242,7 @@ BOOTcheckSD_USB_Presense:
 		jr 		Z,USB_exist				; om USB finns, -> Z och fortsätt, annars avbryt	
 
 		call 	BOOTclear_p_C_read		;Återställ normala CTC och SIO interrupt handterare
-		xor 	A						; ställ A=0 för SD och NZ
+		xor 	A						; ställ A=0 för SD och Z
 		ret
 SD_exist:
 		xor 	A
@@ -297,6 +256,9 @@ USB_exist:
 ;************************************************************************************************
 ;************************************************************************************************
 UseFLASH4000:
+		call 	writeSTRBelow
+		defb   	0,"FLASH $4000:      \0"
+
 		call 	writeSTRBelow
 		defb   	"\0\r\n"
 		defb	"-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
@@ -313,7 +275,7 @@ UseFLASH4000:
 
 
 
-		jp 		MONITOR_Start			; monitor start $D000 MONITOR_Start:
+		jp 		_RAMSTART			; starta om uppstart från kopierad Monitor till $D000 (_RAMSTART)
 
 
 
@@ -338,7 +300,7 @@ p_C_Read_SD_USB:
 		jp 		NZ,BOOTabort
 
 		call 	HC376S_getFileSize
-		call 	HC376S_fileRead
+		call 	HC376S_fileRead			; filinnehåll -> (HL) [commAdr1]
 		call 	HC376S_fileClose
 		ret							; retur success	 (Z)
 
@@ -499,98 +461,71 @@ MONITOR_Start:
 		defb	"\0"
 		call 	waitForFinishedPrintout
 
-
-	if 	GPIODEBUG=1
-		ld 		A,$83
-		out 	(gpio_out),A
-	endif
 		call	CRLF
-		jr  next_line
 
 
 next_line:
 
 		call 	initCommParseTable			; Put zeros.....
-	if 	GPIODEBUG =1
-		ld 		A,$85
-		out 	(gpio_out),A
-	endif
 
 		; ***	visa minnesbanker FLASH  F[x]  Flash minnesbank x
 		; ***	visa minnesbanker SRAM   S[y]  SRAM minnesbank y
-				; if bit 3 (rstBankID) = 1  FLASH minne är inte vald
-				; if bit 3 (rstBankID) = 0 FLASH minne är < 32 k och SRAM övre 32k
-		ld 		HL,T_BUFFER+1 			; ange output burre T_BUFFER+1	
-		ld 		(HL),'F'	
+				; om bit 3 (rstBankID) = 1  FLASH minne är inte vald
+				; om bit 3 (rstBankID) = 0 FLASH minne är 0-32 k och SRAM övre 32k
+
 		ld 		A,(rstBankID)
 		bit 	3,A					; bit 3 set -> 64kSRAM
 		jr 		Z,useFlash
-		ld 		(HL),'S'	
-useFlash:
-		inc 	HL
-		ld 		(HL),'['	
-		inc 	HL
-		bit 	3,A					; bit 7 set -> 64kSRAM
-		ld  	A,(memBankID)
-		jr 		Z,.IDflash
+				; 64 K SRAM används !
 
-		; ***	show sram bank number
+		ld 		A,'S'	
+		ld 		E,A
+		; ***	visa använd bank nr # för sram minne
+		ld  	A,(memBankID)
 		and 	$0F					; sram bank #
-		call 	AddToT_Buf			; convert to 1 ascii char in (HL+)
-		jr 		.cont
-.IDflash:
-		; ***	show flash bank number
+		add 	A,'0'				; gör till ascii char (+$30) Ainnehåller bank#, E innehåller S/F
+		jr  	gem1
+useFlash:
+		ld 		A,'F'	
+		ld 		E,A
+		ld  	A,(memBankID)
 		srl 	A
 		srl 	A
 		srl 	A
 		srl 	A
 		and 	A,$07				; flash bank #
-		call	AddToT_Buf			; convert to 1 ascii char in (HL+)
-.cont:
-		ld  	(HL),']'
-		inc 	HL
+		add 	A,'0'				; gör till ascii char (+$30) Ainnehåller bank#, E innehåller S/F
 
-	if 	GPIODEBUG=1
-		ld 		A,$87
-		out 	(gpio_out),A
-	endif
+gem1:
+		ld  	(SP_valueP),SP			;spara värde på stackpek
+		ld  	(paramStack),SP			;spara värde för adress till första parameter i utskriftkö
 
-	; 	*** Print prompt text to screen, value of PC and content in memory
-		ld 		DE,(PCvalue)
-		ld  	(HL),'['
-		inc 	HL
-
-		; ***	Address in parenthesis
-		call 	Bin2Hex16
-		ld  	(HL),']'
-		inc 	HL
-		ld  	(HL),'='
-		inc 	HL
-
-		; ***	Value of the bytes in address (2 bytes) to screen
-		push 	HL
+	
+		push 	DE 					; spara parameter för (F)lash/(S)ram på stack
+		ld  	E,A
+		push 	DE 					; spara bank# för (F)lash/(S)ram på stack
 		ld 		HL,(PCvalue)
+		push	HL					; spara aktuell värde för PC på stack
 		ld 		D,(HL)
 		inc 	HL
 		ld 		E,(HL)
-		pop 	HL
-		call	Bin2Hex16
-		ld  	(HL),'-'
-		inc 	HL
-		ld  	(HL),'>'
-		inc 	HL
+		push 	DE					; spara aktuell värde i minne på adress PC på stack
 
-		ld  	(HL),$00
+		ld 		HL,T_BUFFER+1 			; ange output buffer T_BUFFER+1	
+
+		call 	addStrBelowToPrintQueue   ; skriv ut kommandoprompt
+		defb 	0,p_C1,"[",p_C1,"][",p_H4,"]=",p_H4,"->",0
+
 		ld 		iy,T_BUFFER
-		call	WriteLine
+		call 	WriteLine
+
+		ld  	SP,(SP_valueP)			;återställ värde på stackpek SP innan POP BC
 
 		ld 		hl,Textbuf
 		call 	ReadLine
 
 		ld 		iy,Textbuf
-		call	WriteLineCRNL
-		; ld 		A,5
-		; out 	(portA_Data),A
+		call	WriteLine_CRLF
 
 		;***  	compare input
 		; ld 		HL,Textbuf
@@ -1193,17 +1128,35 @@ p_exe:
 		ret
 p_go:
 
-		jr 	p_exe
-
-
 		ld 		A,(TempVar1)
 		inc 	A
 		ld 		(TempVar1),A
 		cp 		15
+		ld 		IX,$1234
+		ld		IY,$5678
+		ld 		A,$55
+
+		LD 		BC,$789A
+		LD 		DE,$BCDE
+		LD 		HL,$F0F1
+
+		exx
+		ex		af,af'
+		ld 	a,18
+		LD 		BC,$1234
+		LD 		DE,$ABCD
+		LD 		HL,$F0F1
+		sub 	D 		; sign  minus ?
+		exx
+		ex		af,af'
+		xor 	A
+		scf
 		call 	DumpRegisters
 		
-		ret 	P
+		ret 	
 		jr 		p_go
+
+
 p_incDecPC:
 		ld 		HL,commLvl1
 		ld 		A,0
@@ -1229,6 +1182,10 @@ p_incDecPC:
 .common:
 		ld 		(PCvalue),HL
 		ret
+
+	;***************************************************************
+	;****	Write to Flash memory SST39SF020    *******************
+	;***************************************************************	
 p_flwr:
 		; *** 	testwrite to FLASH
 		
@@ -1248,15 +1205,23 @@ errNoFlash:
 		ret
 
 
+
+	;***************************************************************
+	;****	Clear Flash memory SST39SF020 to 'FF'   ****************
+	;***************************************************************	
 p_flse:
 		; *** 	erase the sector that contain the address of HL
 
 		push	HL
 		ld 		HL,$2010
-		call 	Flash_SE_Erase
+		; call 	Flash_SE_Erase
 		pop 	HL
 		ret
 
+
+	;***************************************************************
+	;****	XMODEM import to address DE   *******************
+	;***************************************************************	
 p_xmod:
 		; ***	Transfer files via x-modem
 		; ***	Check commParseTable+1 if required parameters
@@ -1267,7 +1232,7 @@ p_xmod:
 		bit 	0,A 			; should be a 	1-address
 		jr 		Z,.nxta
 		; ***	check the commLvl1 if zero
-		ld 		DE,(commLvl1)
+		ld 		DE,(commLvl1)	; valid adress in DE
 .nxta:		
 
 		; call 	doImportXMODEM
@@ -1642,7 +1607,7 @@ bit_test9:
 
 		; ld		HL,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
 		; ld		DE,Textbuf			;DE = 32767
-		; call	BN2DEC				; C0NVERT
+		; call	Num2Dec				; C0NVERT
 		; jp		textloop
 
 
@@ -1656,10 +1621,10 @@ bit_test9:
 		; call	Bin2Hex8			;result in T_buffer
 
 		; ld 		iy,T_BUFFER
-		; call 	WriteLineCRNL
+		; call 	WriteLine_CRLF
 
 		; ld 		iy,Textbuf
-		; call	WriteLineCRNL
+		; call	WriteLine_CRLF
 
 		; jp 		next_line
 
@@ -1702,7 +1667,7 @@ textloop:
 		; CALL 	COPY			; COPY SUBSTRING
 
 		; ld 		iy,COPY_BUFFER
-		; call 		WriteLineCRNL ; print the copy string
+		; call 		WriteLine_CRLF ; print the copy string
 
 
 		; ; test DELETE
@@ -1714,7 +1679,7 @@ textloop:
 		; CALL 	DELETE 			; DELETE CHARACTERS
 									; DELETING 4 CHARACTERS STARTING AT INDEX 1
 		; ld 		iy,Str0
-		; call 		WriteLineCRNL ; print the copy string
+		; call 		WriteLine_CRLF ; print the copy string
 
 
 ; 		;test INSERT
@@ -1727,7 +1692,7 @@ textloop:
 ; 		LD		B,0x40				; B = MAXIMUM LENGTH OF STRING
 ; 		CALL 	INSERT_STR			; INSERT SUBSTRING
 ; 		ld 		iy,Str3
-; 		; call	WriteLineCRNL 		; print the modified string
+; 		; call	WriteLine_CRLF 		; print the modified string
 
 
 ; 		jp		next_line

@@ -233,7 +233,6 @@ doKERMITentry:		; ***  Kermit initiering hoppar hit
 		call  	purgeRXA
 
 		ld 		HL,(commAdr1)
-		; ld 		HL,$A010
 		ld 		C,1					; block number
 
 
@@ -265,9 +264,6 @@ XnextBlock:
 		out		(SIO_A_C),A
 
 		ld 		A,E
-
-		; out 	(portB_Data),A
-		; ld 		($B000),A
 
 		cp		CTCtimeout					; timeout error ; no file transfer started
 		jp		Z,timeOutErr		
@@ -433,14 +429,23 @@ restoreSIO_0IO:
 		ret
 
 exitRecBlock:
-		; ***	File transfer OK
+		push HL
+
+	; ***	File transfer OK
 		call 	TX_ACK
 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
 		call 	writeSTRBelow_CRLF
 		defb    "\0\r\n"
 		defb	"XMODEM file transfer OK !",00
-		ret
 
+		pop HL
+
+		ld DE,(commAdr1)		; get the start address of memory to write to
+		ccf
+		sbc  HL,DE
+		call DumpRegisters
+
+		ret
 
 		
 timeOutErr:

@@ -1,0 +1,129 @@
+
+68020 SBC assembly code reading FAT32 16bit compact flash files
+
+Att läsa en fil från ett FAT32-formaterat Compact Flash (CF)-kort via ett 16-bitars gränssnitt på en Motorola 68020 SBC (Single Board Computer) kräver hantering av tre lager: hårdvaruportar (IDE/ATA-protokoll), byte-ordning (Big-Endian vs Little-Endian) och FAT32-datastrukturen.
+Nedan visas ett grundläggande exempel på 68020 monteringskod (SBC assembly). Koden förutsätter att CF-kortet är kopplat i 16-bitars IDE-läge (True IDE Mode) och adreras via minnesmappad I/O.
+
+Hårdvarukonfiguration & Antaganden
+
+1. IDE Basadress: $FFFC0000 (Ersätt med din SBC:s specifika adress).
+2. Byte-Sapping: CF-kort lagrar data i Little-Endian (Intel). 68020 är Big-Endian (Motorola). Vid 16-bitars läsning måste bytes kastas om (ROL.W #8 eller ROR.W #8), såvida inte din hårdvara kastar om dem automatiskt i databussen.
+3. LBA-adressering: Koden använder 28-bitars LBA (Logical Block Addressing) för att läsa sektorer (512 bytes styck).
+assembly
+; =============================================================================
+; 68020 SBC - CF-kort (FAT32) 16-bitars Sektorläsning och Filhantering
+; =============================================================================
+
+; IDE/ATA Registeroffsetter (Baserat på en hypotetisk minnesmappning)
+IDE_BASE    EQU $FFFC0000
+IDE_DATA    EQU IDE_BASE+$00    ; 16-bitars dataport
+IDE_FEAT    EQU IDE_BASE+$02    ; Feature register
+IDE_SC      EQU IDE_BASE+$04    ; Sector Count
+IDE_LBA0    EQU IDE_BASE+$06    ; LBA Bits 0-7
+IDE_LBA1    EQU IDE_BASE+$08    ; LBA Bits 8-15
+IDE_LBA2    EQU IDE_BASE+$0A    ; LBA Bits 16-23
+IDE_LBA3    EQU IDE_BASE+$0C    ; LBA Bits 24-27 & Drive select
+IDE_CMD     EQU IDE_BASE+$0E    ; Kommandoregister (Skriv) / Status (Läs)
+
+; ATA Kommandon
+CMD_READ_SECT EQU $20
+
+; Filkonstanter
+SECTOR_SIZE EQU 512
+
+            SECTION code
+
+; -----------------------------------------------------------------------------
+; Rutin: READ_SECTOR
+; Syfte: Läser en 512-byte sektor från CF-kort via LBA
+; Indata: D0.L = 28-bit LBA Sektornummer
+;         A0   = Pekare till buffert i RAM (Minst 512 bytes)
+; -----------------------------------------------------------------------------
+READ_SECTOR:
+            MOVEM.L D0-D2/A1,-(A7)  ; Spara register på stacken
+            LEA     (IDE_BASE),A1   ; Läs in basadress för IDE
+
+    .WaitReady:
+            MOVE.B  IDE_CMD(A1),D1  ; Läs statusregister
+            BTST    #7,D1           ; Kontrollera BSY (Busy) biten
+            BNE.S   .WaitReady      ; Vänta om upptagen
+            BTST    #6,D1           ; Kontrollera DRDY (Drive Ready)
+            BEQ.S   .WaitReady      ; Vänta tills redo
+
+            ; Skriv Sector Count (1 sektor)
+            MOVE.B  #1,IDE_SC(A1)
+
+            ; Skriv LBA Adress (28-bitar uppdelat på 4 register)
+            MOVE.B  D0,IDE_LBA0(A1) ; Bits 0-7
+            LSR.L   #8,D0
+            MOVE.B  D0,IDE_LBA1(A1) ; Bits 8-15
+            LSR.L   #8,D0
+            MOVE.B  D0,IDE_LBA2(A1) ; Bits 16-23
+            LSR.L   #8,D0
+            AND.B   #$0F,D0         ; Maskera ut bits 24-27
+            OR.B    #$E0,D0         ; $E0 = LBA-läge, Master drive
+            MOVE.B  D0,IDE_LBA3(A1)
+
+            ; Skicka Läs-kommando
+            MOVE.B  #CMD_READ_SECT,IDE_CMD(A1)
+
+    .WaitDRQ:
+            MOVE.B  IDE_CMD(A1),D1  ; Läs status
+            BTST    #7,D1           ; BSY måste vara 0
+            BNE.S   .WaitDRQ
+            BTST    #3,D1           ; DRQ (Data Request) måste vara 1
+            BEQ.S   .WaitDRQ
+
+            ; Läs 256 ord (512 bytes) från 16-bitars dataport
+            MOVE.W  #(SECTOR_SIZE/2)-1,D2
+    .ReadLoop:
+            MOVE.W  IDE_DATA(A1),D0 ; Läs 16-bitars ord från CF-kort
+            
+            ; --- BYTE SWAP (M68020 specifik / Big-Endian fix) ---
+            ; CF-kort skickar data i Little-Endian format.
+            ROR.W   #8,D0           ; Kastar om hög och låg byte i D0
+            
+            MOVE.W  D0,(A0)+        ; Spara i RAM-bufferten
+            DBRA    D2,.ReadLoop    ; Loopa tills sektorn är tömd
+
+            MOVEM.L (A7)+,D0-D2/A1  ; Återställ register
+            RTS
+
+; -----------------------------------------------------------------------------
+; Rutin: PARSE_FAT32_FILE
+; Översiktlig logik för att hitta en fil (Exempelstruktur)
+; -----------------------------------------------------------------------------
+PARSE_FAT32_FILE:
+            ; 1. Läs LBA 0 (Master Boot Record / Boot Sector)
+            ; 2. Hitta FAT32 "Partition Boot Record" (PBR)
+            ; 3. Extrahera:
+            ;    - Bytes Per Sector (Bör vara 512)
+            ;    - Sectors Per Cluster (Hittas på offset $0D i PBR)
+            ;    - Reserved Sectors (Offset $0E)
+            ;    - Number of FATs (Offset $10)
+            ;    - FAT Size (Sectors) (Offset $24)
+            ;    - Root Cluster (Oftast cluster 2, offset $2C)
+            ; 4. Beräkna start-LBA för Root Directory och FAT-tabellen:
+            ;    FAT_LBA = PBR_LBA + Reserved_Sectors
+            ;    DATA_LBA = FAT_LBA + (Number_of_FATs * FAT_Size)
+            RTS
+
+            SECTION bss
+            ALIGN   2
+BUFFER:     DS.B    SECTOR_SIZE     ; Buffert för en sektor
+Använd koden med försiktighet.
+
+Förklaring av 68020-specifika detaljer
+
+• ROR.W #8, D0 (Byte Swap): Eftersom hårdvarugränssnittet är 16-bitars, kommer den lägsta byten (t.ex. ASCII-karaktär 1 i filnamnet) att hamna på fel ställe i 68020:s register jämfört med x86/Little-Endian-strukturen som FAT32 använder. Denna instruktion roterar byten på ett effektivt sätt direkt i processorn.
+• Minnesmappad I/O: 68020 har inga dedikerade I/O-instruktioner (som IN / OUT på x86). All kommunikation sker med vanliga MOVE-instruktioner mot adresser som styrs av SBC:s adressavkodare (Address Decoder).
+
+FAT32 Traversering (Nästa steg)
+
+För att faktiskt läsa en hel fil måste din kod implementera följande formel för att översätta ett Cluster-nummer från FAT-tabellen till ett LBA-sektornummer på CF-kortet:
+\(\text{LBA}=\text{Data\_Start\_LBA}+((\text{Cluster}-2)\times \text{Sectors\_Per\_Cluster})\)
+Du läser Root Directory-sektorerna, matchar filnamnet (8.3-format i standard FAT32), hämtar filens Start Cluster från dess Directory Entry, och följer sedan kedjan i FAT-tabellen (där varje FAT-post är 32 bitar / 4 bytes) tills du möter EOF ($0FFFFFF8).
+Om du vill bygga vidare på detta, berätta gärna:
+• Vilken basadress har din IDE/CF-dekoder i din SBC?
+• Vill du ha hjälp med koden för att beräkna adresser i FAT32-strukturen eller läsa filallokeringstabellen (FAT)?
+• Har din hårdvara inbyggd byte-swapping (hårdvarustödd kasting av databussens linjer), eller måste det ske i mjukvaran?

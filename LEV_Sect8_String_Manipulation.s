@@ -6,7 +6,7 @@
 
 
 
-		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size,isHex,isChar,dumpMemory
+		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size,isHex,isChar, isChar_A, dumpMemory
 		xref	isDelimit
 		
 		; String Manipulation
@@ -214,9 +214,10 @@ isHex:
 ;****************************************************************************************************************
 
 isChar:
-		; ***	Check if characters are Char ? 
-		; ***	from (HL)  $21 .. $-7E -> NC  others -> C
+		; ***	kontrollera om (HL) är skrivbart tecken ? 
+		; ***	(HL)  $21 .. $-7E -> ger NC  övriga ger -> C
 		ld 		A,(HL)
+isChar_A:		; ***	kontrollera om värde i A är skrivbart tecken ?. HL används ej. 	
 		cp	 	$21
 		jp 		M,.setCarry 		; less than '!'
 		cp 		$7F						
@@ -1114,138 +1115,97 @@ zero_byte:	db  0
 
 
 dumpMemory:
-		; ***	Dump memory from either lvl1 or PCval and lvl2 or lvl1 bytes
+		; ***	Visa minnesinnehåll från adress 'lvl1' eller 'PCval'. Mängd 'lvl2' eller  'lvl1' bytes
 		xref 	add_space
 
-		; check if lvl2 is zero  
+		; Är lvl2 0 ?  
 
 		ld 		HL,commAdr1
-		call	checkZero16 			; check if (commAdr1)=0 2 bytes -> Z 
-		jr 		NZ,.adrSizeTyped 		; dump memory ; address and size are typed
+		call	checkZero16 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
+		jr 		NZ,.adrSizeTyped 		; Visa minnesinnehåll. adress och mängd angiven
 
-		; ***	Only size typed, address from PCvalue
+		; ***	Enbart mängd data som ska visas angiven...
 		ld 		HL,(PCvalue)				; HL = start address
-		ld 		(commAdr1),HL 			; temp storage of PCvalue
+		ld 		(commAdr1),HL 			; temporär plats PCvalue
 
 .adrSizeTyped:
-		; ***	both address and size typed
+		; ***	Visa minnesinnehåll. adress och mängd angiven
 		ld 		DE,commAdr1				; DE = start address
-		ld 		BC,commLvl1				; BC = number of bytes
+		ld 		BC,commLvl1				; BC = antal bytes
 
 		ld  	A,(DE)
-		and 	$F0 					; adjust to nearest 16 byte block
+		and 	$F0 					; justera till närmaste 16 byte block
 		ld 		(DE),A
 		ld 		DE,(commAdr1)			; HL = start address
 
-		ld 		BC,(commLvl1) 			; get the size...  divide by $10
+		ld 		BC,(commLvl1) 			; Läs antal och ...  div med $10 - > antal linjer
+		srl 	B 
+		RR 		C						; skifta C 4 ggr, använd endast B och djnz.
 		srl 	B 
 		RR 		C
 		srl 	B 
 		RR 		C
 		srl 	B 
-		RR 		C
-		srl 	B 
-		RR 		C					; BC = number of lines, nearest higher 16 byte block
+		RR 		C					; BC = antal linjer, närmast högre 16 byte block
+		ld 		B,C 					; max 255 rader, endast lägre byte.
+
+
+		; initiera parametriserad utskrift
+
 
 display_BC_bytes:
-		push 	bc					; save the line counter
 
-			ld 		HL,dumpText+1		; new buffer for text output
-			call	Bin2Hex16			;address in DE -> result added to (HL)-> to last 0x00. hl updatd (+4)
-			
-			ld  	A,':'
-			ld 		(HL),A  
-			inc 	HL
-			push 	DE 			; store adress of first char
-				xor 	A						; clear A
-				ld 		(generalFlags),A 		; indicate first round , hexvalues
-				call 	displayBytes		; put values in buffer pointed by HL, advance HL
-			pop 	DE					; pop back address of first char.
-	
-			ld 		A,'|'
-			ld 		(HL),A  
-			inc 	HL
+		push 	bc					; spara antal linjer på stacken (reg B...)
 
+		ld  	(SP_valueP),SP			;spara värde på stackpek
+		ld  	(paramStack),SP			;spara värde för adress till första parameter i utskriftkö
 
-			ld 		A,$0F
-			ld 		(generalFlags),A 		; indicate second round , chars
-			call 	displayBytes
+		;spara  adress(DE) och 16 värden på stacken
+		push 	DE
+		ld 		B,$10
+pushblock:
+		ld 		A,(DE)
+		ld  	L,A 			; låga byten i HL.
+		inc 	DE 				; nästa data byte....
+		push 	HL
+		djnz	pushblock
+
+		; initiera pekare på Textbuf  - HL.
+		ld 		HL,dumpText+1		; buffer för text 
+		push  	DE 					; spara adress (DE)
+		call 	dumpLine
+
+		pop 	DE 					; återställ adress, pek på nästa 16 bytes.
+		ld  	SP,(SP_valueP)			;återställ värde på stackpek SP innan POP BC
+		pop 	bc						; Återställ linjeräknare till BC
+
+		djnz 	display_BC_bytes
 		
-			ld 		A,'|'
-			ld 		(HL),A  
-			inc 	HL
-
-			xor 	a
-			ld 		(hl),A
-
-			ld 		iy,dumpText
-			call	WriteLineCRNL
-
-		pop 	bc						; pop back the line counter
-		dec 	bc 						; decrease # lines...
-		ld  	A,0
-		cp    	B
-		jr 		NZ,display_BC_bytes
-		cp 		C
-		jr 		NZ,display_BC_bytes
-
-
-
 		ret
 
 
+dumpLine:		; skriv ut en rad från minnet, subrutin för att fixa adress <128 för djnz....
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och första 8 bytes till buffer
+		defb	0,p_H4,": ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2,"   ",0
 
-displayBytes:
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
+		defb 	0,p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2," ",p_H2,"  | ",0
 
-		ld 		b,$10
-displayLoop:
-		ld 		A,B
-		push 	BC			; save the # byte counter
-	
-		cp 		$08			; is B ( A-8) 8 bytes ?
-		ld 		A,$01
-		jr 		NZ,.noextraSpace
-		add 	$03 	
-.noextraSpace:
-		ld 		B,A
-		call	add_space		; add (b) spaces to (hl), advance hl	
+		ld  	IY,(SP_valueP)		; återställ värde för adress till första parameter i utskriftkö
+		dec 	IY
+		dec 	IY					; använd samma stack en gång till (utom adress)
+		ld  	(paramStack),IY			;spara värde för adress till första parameter i utskriftkö
+					
+		; 		skriv ut ascii värden för motsvarande data på raden.
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
+		defb 	0,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1," ",0
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och nästa 8 bytes till buffer
+		defb 	0,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1,p_C1," |",CR,LF,0
 
-		ld  	A,(generalFlags)
-		or  	A 				; check if zero ->  first round - Hex values
-		jr  	Z,firstRound
+		ld 		iy,dumpText
+		call 	WriteLine
+		ret
 
-		; ***	print out the ascii characters.
-		; ***	if val isChar	
-
-		ex 		DE,HL 				; HL -> memory bytes
-		call 	isChar				; is (HL) char ? return with Carry-> value in A is always '.'
-		ex 		DE,HL				; swithch HL back to text buf dumpText		
-		
-		ld 		(HL),A
-		inc 	HL
-		inc 	DE
- 		pop 	bc					; pop back the # byte counter
-		djnz 	displayLoop			; display (b) bytes  with spaces...
-
-		ret 
-
-
-
-firstRound:		
-		push 	DE
-		ld		A,(DE)				; get value from memory to E..?
-		ld 		E,A
-
-		call	Bin2Hex8			;result added to (HL)-> to last 0x00. hl updatd (+4)
-		
-		pop 	DE
-		inc 	DE
-
-
-		pop 	bc					; pop back the # byte counter
-		djnz 	displayLoop			; display (b) bytes  with spaces...
-
-		ret 
 
 checkZero16:
 		; ***	check if (HL),(HL+1) = 0 ?		
@@ -1257,63 +1217,44 @@ checkZero16:
 		dec  	HL	
 		ret							; return with either Z or NZ
 
-
-
-; dumpText: DC	$80 '/'
-
-
 ;***************************************************************************************************
 ;***************************************************************************************************
-;***************************************************************************************************
-
-
 
 
 		;section 	STR_HEAP 
 		;	space for string constants
-		GLOBAL	DateBuf,MsgText1,st2g1,st1g2,steq,subst
+		; GLOBAL	DateBuf,MsgText1,st2g1,st1g2,steq,subst
 		GLOBAL	RegLabels1,RegLabels2,RegLabels3,RegFlags
-		xdef	Str0,Str2,Str3,Str4,Str7,sourctext1,sourctext2,endtext,src_size
 		
 	if DOALIGN
 		align 1
 	endif
  	
 String_HEAP_Start:
-DateBuf:		DB		"  2022-12-30_17:22   ",0,0
+; DateBuf:		DB		"  2022-12-30_17:22   ",0,0
 
-MsgText1:		DB		"Hello, enter command: >_",  0, 0
+; MsgText1:		DB		"Hello, enter command: >_",  0, 0
 
-st2g1:			DB		0x0F,"Str 2 > Str 1 !",0,0
-st1g2:			DB		0x0F,"Str 1 > Str 2 !",0,0
-steq:			DB		0x0F,"Strings Equal !",0,0
-subst:			DB		4,"seco",0,0
+; st2g1:			DB		0x0F,"Str 2 > Str 1 !",0,0
+; st1g2:			DB		0x0F,"Str 1 > Str 2 !",0,0
+; steq:			DB		0x0F,"Strings Equal !",0,0
+; subst:			DB		4,"seco",0,0
 
 
-RegLabels1:		DB		" |...PC...|...SP...|...IX...|...IY...|",0
-RegLabels2:		DB		" |...AF...|...BC...|...DE...|...HL...|",0
-RegLabels3:		DB		" |...AF'..|...BC'..|...DE'..|...HL'..|",0
-RegFlags:		DB		" S Z X H X P N C",0
 
-Str0:			defb 	23,"Hello, finnally here !",0,0
-Str2:			defb	23,"This is the second Bank",0,0
-Str3:			defb	23,"This is the third Bank",0,0
-Str4:			defb	23,"This is the 4'th Bank",0,0
-Str7:			defb	23,"This is the 7'th Bank",0,0
+; Str0:			defb 	23,"Hello, finnally here !",0,0
+; Str2:			defb	23,"This is the second Bank",0,0
+; Str3:			defb	23,"This is the third Bank",0,0
+; Str4:			defb	23,"This is the 4'th Bank",0,0
+; Str7:			defb	23,"This is the 7'th Bank",0,0
 
-sourctext1:		DB		10,"First Str:",0,0
-sourctext2:		DB		14,"Appendix..../a",0,0	
+; sourctext1:		DB		10,"First Str:",0,0
+; sourctext2:		DB		14,"Appendix..../a",0,0	
 
-src_size:		equ		sourctext2-sourctext1
+; src_size:		equ		sourctext2-sourctext1
 
 endtext:
 String_HEAP_end:
-
-
-	if DOALIGN
-		align 4
-	endif
-
 
 
 .END

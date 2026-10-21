@@ -41,6 +41,7 @@
 	PROVIDE( Textbuf		= _String_HEAP);		; /*text buffer */
 
 	PROVIDE( S1x			=	0x40 + _String_HEAP);  	/*Textbuf + Textbufsize used by DumpRegisters, SD/USB enum*/
+	PROVIDE( paramStack 	=   0x3E + _String_HEAP); 	/* adresspekare för utskrift av tal i textform */	 
 	PROVIDE( commParseTable =	0x80 + _String_HEAP);  	/*command parser table, size $80-$100=$80 (128 bytes) */
 	PROVIDE( commAdr1 =			0x84 + _String_HEAP);  	/*command address 1  4 byte*/  
 	PROVIDE( commAdr2 =			0x88 + _String_HEAP);  	/*command address 2  4 byte*/
@@ -49,9 +50,10 @@
 	PROVIDE( commStr1 =			0xB0 + _String_HEAP);  	/*command string 1 	 40 byte*/
 	PROVIDE( commStr2 =			0xD8 + _String_HEAP);  	/*command string 2 	 40 byte  -> 0xFF*/
 
-	PROVIDE( T_BUFFER 		=	0x100 + _String_HEAP);		/*;16-BYTE BUFFER */
+	PROVIDE( T_BUFFER 		=	0x100 + _String_HEAP);		/*;32-BYTE BUFFER */
 
-	PROVIDE( SP_value		=	0x120 + _String_HEAP);
+	PROVIDE( SP_value		=	0x120 + _String_HEAP);		/* sparat värde på stackpek  */
+	PROVIDE( SP_valueP		=	0x122 + _String_HEAP);		/* sparat värde på stackpek vid utskriftkö  */
 	PROVIDE( reg16_value	=	0x124 + _String_HEAP);
 	PROVIDE( reg16_value2	=	0x126 + _String_HEAP);
 	PROVIDE( validCommand	=	0x128 + _String_HEAP);		/* command number found 1 byte */
@@ -78,6 +80,7 @@
 	PROVIDE( XMChkSum		=	0x1AA + _String_HEAP);			/*	XMODEM block checksum  2byte	*/
 	PROVIDE( SDUSB_Helper	=	0x1AC + _String_HEAP);			/*	SD och USB hjälpvariabel  2byte	*/
 
+	PROVIDE( TempVar0		=	0x1AE + _String_HEAP);			/*	Temp1	DS	2	*/
 	PROVIDE( TempVar1		=	0x1B1 + _String_HEAP);			/*	Temp1	DS	1	*/
 	PROVIDE( TempVar2		=	0x1B2 + _String_HEAP);			/*	Temp2	DS	1	*/
 	PROVIDE( TempVar3		=	0x1B3 + _String_HEAP);			/*	Temp3	DS	1	*/
@@ -87,7 +90,7 @@
 	PROVIDE( TempVar7		=	0x1B7 + _String_HEAP);			/*	Temp7	DS	1	*/
 	PROVIDE( TempVar8		=	0x1B8 + _String_HEAP);			/*	Temp8	DS	1	*/
 
-	PROVIDE( HD44780_CTRL 	= 	0x1B9 + _String_HEAP);			/*	HD44780 RS/ E/ R/W register 	*/
+	PROVIDE( Temp_CTRL	 	= 	0x1B9 + _String_HEAP);			/*	temp byte 	*/
 	PROVIDE( CTCdelayFlag 	= 	0x1BA + _String_HEAP);			/*	CTC flags that timeout has occured 1 byte	*/
 	PROVIDE( packLen 		=	0x1BC + _String_HEAP);			/*	length of packet   2-byte */
 	PROVIDE( charLen 		=	0x1BE + _String_HEAP);			/*	length of written file   2-byte */
@@ -126,9 +129,9 @@
 		; Code in $D008-D00D = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
 		; Code in $D008-D00D = $33333333: code uploaded from Arduino. Do not copy from flash, 
 	*/
-/*	PROVIDE( BootCode		=	0x33333333);	
-	PROVIDE( BootCode		=	0xCCCCCCCC);	*/	
-	PROVIDE( BootCode		=	0x11111111);		
+/*	PROVIDE( BootCode		=	0x33333333);	*/
+	PROVIDE( BootCode		=	0xCCCCCCCC);	
+/*	PROVIDE( BootCode		=	0x11111111);	*/	
 	PROVIDE( BootCodeAdr	=	_RAMSTART+8);	
 
 	SECTIONS

@@ -10,7 +10,7 @@
 
 
 		
-		GLOBAL 	BN2BCD,BCD2BN, BN2HEX,Bin2Hex8,Bin2Hex16,HEX2BN,BN2DEC,DEC2BN,LC2UC
+		GLOBAL 	BN2BCD,BCD2BN, BN2HEX,Bin2Hex8,Bin2Hex16,HEX2BN,BN2DEC, Num2Dec, DEC2BN,LC2UC
 		GLOBAL	DumpRegisters,MFILL,BLKMOV,putDEtoScreen,putDEtoScreenDEC,AddToT_Buf
 
 
@@ -381,109 +381,109 @@ SC4D:
 ;*************************************************************************************************
 
 
-BN2DEC:
-			; SAVE PARAMETERS
-			LD		(BUFPTR),HL			;ST0RE THE BUFFER P0INTER
-			EX		DE,HL
-			LD		A,0
-			LD		(CURLEN),A			;CURRENT BUFFER LENGTH IS 0
-			LD		A,H
-			LD		(NGFLAG),A			;SAVE SIGN 0F VALUE
-			OR		A					;SET FLAGS FR0M VALUE
-			JP		P,CNVERT_4E			;JUMP IF VALUE IS P0SITIVE
-			EX		DE,HL				;ELSE TAKE ABS0LUTE VALUE (0 - VALUE)
-			LD		HL,0
-			OR		A					;CLEAR CARRY
-			SBC		HL,DE				;SUBTRACT VALUE FR0M 0
-          ;C0NVERT VALUE T0 A STRING
-CNVERT_4E:
-			;HL := HL DIV 10     (DIVIDEND, QU0TIENT)
-			;DE := HL M0D 10     (REMAINDER)
-			LD		E,0					;REMAINDER = 0
-			LD		B,16				;16 BITS IN DIVIDEND
-			OR		A					;CLEAR CARRY T0 START
-DVL00P:
-			;SHIFT THE NEXT BIT 0F THE QU0TIENT INT0 BIT 0 0F THE DIVIDEND
-			; SHIFT NEXT M0ST SIGNIFICANT BIT 0F DIVIDEr.D INT0
-			;LEAST SIGNIFICANT BIT 0F REMAINDER
-			;HL    H0LDS B0TH DIVIDEND AND QU0TIENT. QU0TIENT IS SHIFTED
-			;     IN AS THE DIVIDEND IS SHIFTED 0UT.
-			;E    IS THE REMAINDER.
-			;D0 A 24-BIT SHIFT LEFT, SHIFTING
-			; CARRY T0 L, L T0 H, H T0 E
-			RL		L					; CARRY (NEXT BIT 0F QU0TIENT) T0 BIT 0
-			RL		H					; SHIFT HIGH BYTE
-			RL		E					;SHIFT NEXT BIT 0F DIVIDEND
-			;IF REMAINDER IS 10 0R M0RE, NEXT BIT 0F 
-			;QU0TIENT IS 1 (THIS BIT IS PLACED IN CARRY)
-			LD		A,E
-			SUB		10					;SUBTRACT 10 FR0M REMAINDER
-			CCF							;C0MPLEMENT CARRY
-										; (THIS IS NEXT BIT 0F QU0TIENT)
-			JR		NC,DECCNT			; JUMP IF REMAINDER IS LESS THAN 10
-			LD		E,A					;0THERWISE REMAINDER = DIFFERENCE
-										; BETWEEN PREVI0US REMAINDER AND 10
-DECCNT:
-			DJNZ	DVL00P				; C0NTINUE UNTIL ALL BITS ARE D0NE
-			;SHIFT LAST CARRY INT0 QU0TIENT
-			RL		L					;LAST BIT 0F QU0TIENT T0 BIT 0
-			RL		H
-			;INSERT     THE NEXT CHARACTER IN ASCI I
-CHINS:
-			LD		A,E
-			ADD		A,'0'				;~C0NVERT   0 ••• 9 T0 ASCII '0' ••• '9'
-			CALL	INSERT
-			;IF     QU0TIENT IS N0T 0 THEN KEEP DIVIDING
-			LD		A,H
-			OR		L
-			JR		NZ,CNVERT_4E
-EXIT:
-			LD		A,(NGFLAG)
-			OR		A
-			JP		P,P0S				;BRANCH I F 0R ICi I NAL VALUE WAS P0S I TI VE
-			LD		A,'-'			;ELSE
-			CALL	INSERT				; PUT A MINUS SIGN IN FR0NT
-P0S:
-			RET							;RETURN
-			;----------------------------------
-			; SUBR0UTINE: INSERT
-			; PURP0SE: INSERT THE CHARACTER IN REGISTER A AT THE
-			;			FR0NT 0F THE BUFFER
-			; ENTRY: CURLEN = LENGTH 0F BUFFER
-			;		BUFPTR = CURRENT ADDRESS 0F LAST CHARACTER IN BUFFER
-			;EXIT: REGISTER A INSERTED IMMEDIATELY AFTER LENGTH BYTE
-			;REGISTERS USED: AF,B,C,D,E
-			;----------------------------------
-INSERT:
-			PUSH	HL					;SAVE HL
-			PUSH	AF					;SAVE CHARACTER T0 INSERT
-			;M0VE ENTIRE BUFFER UP 1 BYTE IN MEM0RY
-			LD		HL, (BUFPTR)		;GET BUFFER P0INTER
-			LD		D,H					;HL = S0URCE (CURRENT END 0F BUFFER)
-			LD		E,L
-			INC		DE					;DE = DESTINATI0N (CURRENT END + 1)
-			LD		(BUFPTR),DE			;ST0RE NEW BUFFER P0INTER
-			LD		A, (CURLEN)
-			OR		A					;TEST F0R CURLEN = 0
-			JR		Z,EXITMR			;.JUMP IF ZER0 (N0THING T0 M0VE,
-										; .JUST ST0RE THE CHARACTER.\
-			LD		C,A					;BC = L00P C0UNTER
-			LD		B,0
-			LDDR						;M0VE ENTIRE BUFFER UP 1 BYTE
-EXITMR:
-			LD		A, (CURLEN)			; INCREMENT CURRENT LENGTH BY 1
-			INC		A
-			LD		(CURLEN),A
-			LD		(HL),A				;UPDATE LENGTH BYTE 0F BUFFER
-			EX		DE,HL				;HL P0INTS T0 FIRST CHARACTER IN BUFFER
-			POP		AF					;GET CHARACTER T0 INSERT
-			LD		(HL),A				; INSERT CHARACTER AT FR0NT 0F BUFFER
-			POP		HL					;REST0RE HL
-			RET
-			; DATA
-BUFPTR: DS	2							;ADDRESS 0F LAST CHARACTER IN BUFFER
-CURLEN: DS	1							;CURRENT LENGTH 0F BUFFER
-NGFLAG: DS	1							; SIGN 0F 0R I GI NAL VALUE
+; BN2DEC:
+; 			; SAVE PARAMETERS
+; 			LD		(BUFPTR),HL			;ST0RE THE BUFFER P0INTER
+; 			EX		DE,HL
+; 			LD		A,0
+; 			LD		(CURLEN),A			;CURRENT BUFFER LENGTH IS 0
+; 			LD		A,H
+; 			LD		(NGFLAG),A			;SAVE SIGN 0F VALUE
+; 			OR		A					;SET FLAGS FR0M VALUE
+; 			JP		P,CNVERT_4E			;JUMP IF VALUE IS P0SITIVE
+; 			EX		DE,HL				;ELSE TAKE ABS0LUTE VALUE (0 - VALUE)
+; 			LD		HL,0
+; 			OR		A					;CLEAR CARRY
+; 			SBC		HL,DE				;SUBTRACT VALUE FR0M 0
+;           ;C0NVERT VALUE T0 A STRING
+; CNVERT_4E:
+; 			;HL := HL DIV 10     (DIVIDEND, QU0TIENT)
+; 			;DE := HL M0D 10     (REMAINDER)
+; 			LD		E,0					;REMAINDER = 0
+; 			LD		B,16				;16 BITS IN DIVIDEND
+; 			OR		A					;CLEAR CARRY T0 START
+; DVL00P:
+; 			;SHIFT THE NEXT BIT 0F THE QU0TIENT INT0 BIT 0 0F THE DIVIDEND
+; 			; SHIFT NEXT M0ST SIGNIFICANT BIT 0F DIVIDEr.D INT0
+; 			;LEAST SIGNIFICANT BIT 0F REMAINDER
+; 			;HL    H0LDS B0TH DIVIDEND AND QU0TIENT. QU0TIENT IS SHIFTED
+; 			;     IN AS THE DIVIDEND IS SHIFTED 0UT.
+; 			;E    IS THE REMAINDER.
+; 			;D0 A 24-BIT SHIFT LEFT, SHIFTING
+; 			; CARRY T0 L, L T0 H, H T0 E
+; 			RL		L					; CARRY (NEXT BIT 0F QU0TIENT) T0 BIT 0
+; 			RL		H					; SHIFT HIGH BYTE
+; 			RL		E					;SHIFT NEXT BIT 0F DIVIDEND
+; 			;IF REMAINDER IS 10 0R M0RE, NEXT BIT 0F 
+; 			;QU0TIENT IS 1 (THIS BIT IS PLACED IN CARRY)
+; 			LD		A,E
+; 			SUB		10					;SUBTRACT 10 FR0M REMAINDER
+; 			CCF							;C0MPLEMENT CARRY
+; 										; (THIS IS NEXT BIT 0F QU0TIENT)
+; 			JR		NC,DECCNT			; JUMP IF REMAINDER IS LESS THAN 10
+; 			LD		E,A					;0THERWISE REMAINDER = DIFFERENCE
+; 										; BETWEEN PREVI0US REMAINDER AND 10
+; DECCNT:
+; 			DJNZ	DVL00P				; C0NTINUE UNTIL ALL BITS ARE D0NE
+; 			;SHIFT LAST CARRY INT0 QU0TIENT
+; 			RL		L					;LAST BIT 0F QU0TIENT T0 BIT 0
+; 			RL		H
+; 			;INSERT     THE NEXT CHARACTER IN ASCI I
+; CHINS:
+; 			LD		A,E
+; 			ADD		A,'0'				;~C0NVERT   0 ••• 9 T0 ASCII '0' ••• '9'
+; 			CALL	INSERT
+; 			;IF     QU0TIENT IS N0T 0 THEN KEEP DIVIDING
+; 			LD		A,H
+; 			OR		L
+; 			JR		NZ,CNVERT_4E
+; EXIT:
+; 			LD		A,(NGFLAG)
+; 			OR		A
+; 			JP		P,P0S				;BRANCH I F 0R ICi I NAL VALUE WAS P0S I TI VE
+; 			LD		A,'-'			;ELSE
+; 			CALL	INSERT				; PUT A MINUS SIGN IN FR0NT
+; P0S:
+; 			RET							;RETURN
+; 			;----------------------------------
+; 			; SUBR0UTINE: INSERT
+; 			; PURP0SE: INSERT THE CHARACTER IN REGISTER A AT THE
+; 			;			FR0NT 0F THE BUFFER
+; 			; ENTRY: CURLEN = LENGTH 0F BUFFER
+; 			;		BUFPTR = CURRENT ADDRESS 0F LAST CHARACTER IN BUFFER
+; 			;EXIT: REGISTER A INSERTED IMMEDIATELY AFTER LENGTH BYTE
+; 			;REGISTERS USED: AF,B,C,D,E
+; 			;----------------------------------
+; INSERT:
+; 			PUSH	HL					;SAVE HL
+; 			PUSH	AF					;SAVE CHARACTER T0 INSERT
+; 			;M0VE ENTIRE BUFFER UP 1 BYTE IN MEM0RY
+; 			LD		HL, (BUFPTR)		;GET BUFFER P0INTER
+; 			LD		D,H					;HL = S0URCE (CURRENT END 0F BUFFER)
+; 			LD		E,L
+; 			INC		DE					;DE = DESTINATI0N (CURRENT END + 1)
+; 			LD		(BUFPTR),DE			;ST0RE NEW BUFFER P0INTER
+; 			LD		A, (CURLEN)
+; 			OR		A					;TEST F0R CURLEN = 0
+; 			JR		Z,EXITMR			;.JUMP IF ZER0 (N0THING T0 M0VE,
+; 										; .JUST ST0RE THE CHARACTER.\
+; 			LD		C,A					;BC = L00P C0UNTER
+; 			LD		B,0
+; 			LDDR						;M0VE ENTIRE BUFFER UP 1 BYTE
+; EXITMR:
+; 			LD		A, (CURLEN)			; INCREMENT CURRENT LENGTH BY 1
+; 			INC		A
+; 			LD		(CURLEN),A
+; 			LD		(HL),A				;UPDATE LENGTH BYTE 0F BUFFER
+; 			EX		DE,HL				;HL P0INTS T0 FIRST CHARACTER IN BUFFER
+; 			POP		AF					;GET CHARACTER T0 INSERT
+; 			LD		(HL),A				; INSERT CHARACTER AT FR0NT 0F BUFFER
+; 			POP		HL					;REST0RE HL
+; 			RET
+; 			; DATA
+; BUFPTR: DS	2							;ADDRESS 0F LAST CHARACTER IN BUFFER
+; CURLEN: DS	1							;CURRENT LENGTH 0F BUFFER
+; NGFLAG: DS	1							; SIGN 0F 0R I GI NAL VALUE
 
 
 
@@ -509,6 +509,46 @@ NGFLAG: DS	1							; SIGN 0F 0R I GI NAL VALUE
 
 BUFFER: DS	7						;7-BYTE BUFFER
 
+;*************************************************************************************************
+
+; =============================================================================
+; Rutin: Num2Dec
+; Beskrivning: Konverterar ett 16-bitars osignerat tal till en decimal ASCII-sträng.
+;
+; Input:  DE = Talet som ska konverteras (0 - 65535)
+;         HL = Bufferadress där ASCII-strängen ska sparas (minst 5 bytes)
+; Output: Minnet vid (HL) fylls med 5 ASCII-tecken (t.ex. "00123")
+;         H pekar på adressen direkt efter strängen efter körning.
+; Modifierar: A, BC, DE, HL
+; =============================================================================
+
+Num2Dec:
+	ex 	de,hl
+    ld bc,-10000
+    call .SubDigit
+    ld bc,-1000
+    call .SubDigit
+    ld bc,-100
+    call .SubDigit
+    ld c,-10
+    call .SubDigit
+    ld c,-1
+    call .SubDigit
+	ex 	de,hl
+    ld 	(hl),0			; avsluta med '0' markering
+	ret
+
+.SubDigit:
+    ld a,'0'-1          ; Initiera ASCII-räknaren till '0' minus 1
+.Loop:
+    inc a               ; Öka ASCII-tecknet för varje lyckad subtraktion
+    add hl,bc           ; Subtrahera potensen av 10 (genom att addera negativt tal)
+    jr c,.Loop          ; Om Carry är satt (inget lån), fortsätt subtrahera
+
+    sbc hl,bc           ; Återställ HL eftersom vi gick under 0 (addera tillbaka potensen)
+    ld (de),a           ; Spara det färdiga ASCII-tecknet i bufferten
+    inc de              ; Flytta bufferpekaren till nästa position
+    ret
 
 ;*************************************************************************************************
 				; Conversi0n of ASCII Decimal to Binary (DEC2BN)                                                                                             4F
@@ -954,7 +994,7 @@ putDEtoScreenDEC:
 		; Binary to HEX  BN2HEX   DE->(HL)
 		ld 		hl,T_BUFFER			;HL = BASE ADDRESS 0F BUFFER
 		inc		hl
-		CALL	BN2DEC				; C0NVERT ;result in T_buffer
+		CALL	Num2Dec				; C0NVERT ;result in T_buffer
 		ld 		iy,T_BUFFER
 		call	WriteLine
 		ret
@@ -968,13 +1008,19 @@ putDEtoScreenDEC:
 
 DumpRegisters:
 		ld		(SP_value),sp
-		ld		(reg16_value),hl
-		; ex		(sp),hl
+		ld		(reg16_value),hl		; spara HL värde
+		push 	AF 					; spara original flaggor
+		ld 		HL,4
+		add 	HL,SP
+		ld  	(paramStack),HL			;spara värde för adress till första parameter i utskriftkö (PC)
+
+		; ex		(sp),hl					; hämta värde av PC från stack -> HL
 		; ld		(PC_value),hl
 		; ex		(sp),hl
-		ld 		hl,(SP_value)		; get value of sp to hl
-		push 	hl				; push value of hl(=sp) to (sp)
-		ld		hl,(reg16_value)	
+		pop  	AF 					; återställ originalflaggor
+		ld 		hl,(SP_value)		; HL = värde av SP
+		push 	hl					; lagra värdet av SP (=HL) i stacken
+		ld		hl,(reg16_value)	; verkligt värde på HL...
 		push	ix
 		push	iy
 		push	af
@@ -989,67 +1035,39 @@ DumpRegisters:
 		push 	hl
 		ex		af,af'
 		exx
-
-
-
-
-; 			;	clear Textbuf
-; 		ld 		a,0
-; 		ld 		de,Textbuf
-; 		ld 		b,0x40
-; .zeroTextBuf:
-; 		ld 		(de),A
-; 		djnz	.zeroTextBuf		
-
 		
 
 		ld		ix,(SP_value)		; ix  points to stack
 
-		ld 		iy,RegLabels1
-		call 	WriteLineCRNL
+		ld 		HL,dumpText+1		; buffer för text 
+		call 	writeSTRBelow_CRLF
+		defb	" |...PC...|...SP...|...IX...|...IY...|",0
+		call 	outRegisters
 
-		ld		hl,S1x
-		call	display_4_registers
-		call  	CRLF
+		call 	writeSTRBelow_CRLF
+		defb	" |...AF...|...BC...|...DE...|...HL...|",0
+		call 	outRegisters
 
-		ld 		iy,RegLabels2
-		call 	WriteLineCRNL
+		call 	writeSTRBelow_CRLF
+		defb	" |...AF'..|...BC'..|...DE'..|...HL'..|",0
+		call 	outRegisters
 
-		ld		hl,S1x
-		call	display_4_registers
+		; visa  status flaggor  	defb	" S Z H X P X N C",0
+		call 	writeSTRBelow
+		defb	0,".S..Z..H..P..N..C.|",0
+		call 	writeSTRBelow
+		defb	0,".S'.Z'.H'.P'.N'.C'.",CR,LF," ",0
+
+		ld		A,(ix-8)		; ordinarie flaggor
+		call 	skriv_flaggor
+		call 	writeSTRBelow
+		defb	"| ",0
+
+		ld		A,(ix-16)		; exx  flaggor alternativ register
+		call 	skriv_flaggor
 		call 	CRLF
 
-		ld 		iy,RegLabels3
-		call	WriteLineCRNL
 
-		ld		hl,S1x
-		call	display_4_registers
-		call 	CRLF
-
-			; display status flags  	DB		38," S Z X H X P N C",0
-		ld		A,(ix+16)
-		ld 		c,a			; store A
-		ld		hl,S1x+1
-		ld		iy,RegFlags+1
-
-		ld 		b,05
-		call	add_space		; add (b) spaces to (hl), advance hl	
-
-		ld 		b,8
-all_flags:
-		sla		c			; shift msb bit to C flag
-
-		call	C,disp_flags			; set act. flag in text.buf
-
-		call	adv_iy
-		djnz	all_flags
-
-
-		xor 	a					; clear A
-		ld 		(hl),a				; set end of string
-		call	adjust_txtbuf_length
-		ld 		iy,S1x
-		call 	WriteLineCRNL
 
 		call 	waitForKey
 		call 	CRLF
@@ -1073,88 +1091,56 @@ all_flags:
 		ld 		sp,(SP_value)		; restore value of sp
 
 		ret
+
+;********************************************************************************************
+;********************************************************************************************
+
+outRegisters:
+		;		skriv ut en rad med register värden....
+		ld 		HL,dumpText+1		; buffer för text 
+		call 	addStrBelowToPrintQueue   ; skriv ut adress och första 8 bytes till buffer
+		defb	0,"|  ",p_H4,"  |  ",p_H4,"  |  ",p_H4,"  |  ",p_H4,"  |",CR,LF,0
+		ld 		iy,dumpText
+		call 	WriteLine_CRLF
+		ret
+
+
 ;********************************************************************************************
 ;********************************************************************************************	
 
-disp_flags:
-		ld 		A,(iy)
-		ld		(hl),A
-		inc		hl
-		ld		a,(iy+1)
-		ld 		(hl),a
-		inc		hl
-		ret
-adv_iy:
-		inc		iy
-		inc		iy
-		ret
-;********************************************************************************************
-;********************************************************************************************	
+skriv_flaggor:	
+		ld  	B,8				; skriv 8 flaggor.
 
+allaflaggor:
+		push 	AF
+		ld 		A,B
+		cp 		6				; X - ingen flagga
+		jr  	z,skip_flagga
+		cp 		4				; X - ingen flagga
+		jr  	z,skip_flagga
+	
+		pop  	AF 				; återställ A
+		SLA		A 				; bit 7 -> C flagga
+		push 	AF
+		jr 		C,skriv1
 
-		;	load 4 16bit values in buffer ->(HL)
-display_4_registers:
-		ld 		b,04
+		; skriv 0
+		call 	writeSTRBelow
+		defb	0,"0  ",0
+		jr 		nst_flagga
+skriv1:
+		call 	writeSTRBelow
+		defb	0,"1  ",0
+nst_flagga:
+		pop  	AF			; återställ A
+		djnz 	allaflaggor
 		
-display_regs:
-		ld		(reg16_value),bc		; save the # regs /line
-
-		ld 		b,05
-			; add (b) spaces to (hl), advance hl	
-		call	add_space
-
-
-		ld		d,(ix+1)
-		ld		e,(ix)		; get value from temp.stack..to de..?
-		dec		ix
-		dec		ix			; ix points to next rec in stack
-
-		call	Bin2Hex16			;result added to (HL)-> to last 0x00. hl updatd (+4)
-
-		ld		bc,(reg16_value)
-		djnz 	display_regs			; display (b) registers with spaces...
-
-		; call	adjust_txtbuf_length
-		xor 	a
-		ld 		(hl),A
-
-		ld 		iy,S1x
-		call	WriteLineCRNL
 		ret
-
-
-;********************************************************************************************
-;********************************************************************************************	
-
-;********************************************************************************************
-;********************************************************************************************	
-
-		;	load n 8bit values in buffer ->(HL); i.e. S1x
-		; 	ix points to data.
-		;	n = reg B
-display_n_8registers:
 		
-		ld		(reg16_value),bc		; save the # regs /line
-
-		ld 		b,02
-			; add (b) spaces to (hl), advance hl	
-		call	add_space
-
-		ld		e,(ix)		; get value from (ix) to e
-		inc		ix
-
-		call	Bin2Hex8			;result added to (HL)-> to last 0x00. hl updatd (+2)
-
-		ld		bc,(reg16_value)
-		djnz 	display_n_8registers			; display (b) registers with spaces...
-
-		; call	adjust_txtbuf_length
-		xor 	a
-		ld 		(hl),A
-
-		ld 		iy,S1x
-		call 	WriteLineCRNL
-		ret
+skip_flagga: 			; flagga 5 och 3
+		pop  	AF			; återställ A
+		SLA 	A			; nästa flagga
+		djnz 	allaflaggor
 
 
 ;********************************************************************************************
@@ -1168,15 +1154,6 @@ add_space:
 		ld 		(hl),A
 		inc 	hl
 		djnz	add_space
-		ret
-
-adjust_txtbuf_length:
-
-		ld		de,S1x
-		SBC		hl,de		; calc new length of string
-		ld 		a,l
-		ld 		(de),a		; store in first pos
-		add		hl,de		; restore to first pos after spaces
 		ret
 ;********************************************************************************************
 ;********************************************************************************************	
