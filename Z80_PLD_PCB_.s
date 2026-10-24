@@ -1235,7 +1235,7 @@ p_xmod:
 		ld 		DE,(commLvl1)	; valid adress in DE
 .nxta:		
 
-		; call 	doImportXMODEM
+		call 	doImportXMODEM
 
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
