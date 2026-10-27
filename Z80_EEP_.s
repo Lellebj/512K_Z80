@@ -7,13 +7,15 @@ EPS1:
 
 		include 	"Z80_Params_.inc"
 		xref	RAM_Start, SC5B,SC4C,SC8B, WriteLine_CRLF, WriteLine, ReadLine, CRLF,DumpRegisters
-
 		xref	stacktop
 		global 	setFLASHBank, setSRAMBank, enableFLASH, disableFLASH, setFLASHBank
 
-		ld		sp,stacktop
 		
+;********************************************************
+		ld		sp,stacktop
 		jp		setBanks
+;********************************************************
+
 		align 3
 		; section RST08
 		jp	WriteLine_CRLF	
@@ -52,7 +54,6 @@ EPS1:
 		align 3
 		defb	"    git: @@GIT_VERSION@@\r\n"
 		defb	"    build: @@DATE@@\r\n"
-
 
 
 ;************************************************************************************************
@@ -113,7 +114,7 @@ setBanks:
 		;JP PE means "branch if BC has not been decremented to 0."
 
 		; the code 'CCCC' is found in $D002-D005, do not copy from flashmem.
-		; jp		MONITOR_Start
+		; jp		_RAMSTART
 
 doCopy:
 		ld 		HL,$400				; source
@@ -122,7 +123,7 @@ doCopy:
 
 		ldir
 
-		; jp		MONITOR_Start
+		; jp		_RAMSTART
 
 
 ;********************************************************************************************
@@ -249,6 +250,306 @@ EEPIO_Init:
  		out (portB_Data), a
 	ret
  
+
+
+
+	GLOBAL   SD_USB_startup
+;************************************************************************************************
+;************************************************************************************************
+;***		SDcard/USB startup sequence
+;************************************************************************************************
+;************************************************************************************************
+		section SD_USB_Start
+
+
+SD_USB_startup:
+
+	if  	GPIODEBUG = 1
+		ld 		A,$39
+		out 	(gpio_out),A
+
+		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
+
+		ld 		(SP_value),SP
+
+		ld 		A,$3A
+		out 	(gpio_out),A
+		
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+				; initialize buffer counters and pointers.
+		ld 		A,$3B
+		out 	(gpio_out),A
+
+			call	PIO_Init
+		ld 		A,$3C
+		out 	(gpio_out),A
+			call 	CTC_Init
+		ld 		A,$3D
+		out 	(gpio_out),A
+			call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+		ld 		A,$3E
+		out 	(gpio_out),A
+			call	S_head_tail			; save input heads and tails
+		ld 		A,$3F
+		out 	(gpio_out),A
+	
+	else
+	
+		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
+			; initialize buffer counters and pointers.
+		call	PIO_Init
+		call 	CTC_Init
+		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
+		call	S_head_tail			; save input heads and tails
+	endif
+
+		; call	sh_test
+		; call 	Flash_WR_Test
+		; ld	HL,$2010
+		; call	Flash_SE_Erase
+
+		; check  $D008-$D00B for $33333333 -> starta monitor direkt (laddad från Arduino/ Linux-arduino-serial-master_68K_V3)
+		; check  $D008-$D00B for $CCCCCCCC -> starta normalt (SD/USB boot) utan att kopiera från flash
+
+		ld 		HL,BootCodeAdr
+		ld 		B,04
+		ld 		A,'3'
+.checkBootCode:	
+		cp 		(HL)	
+		inc 	HL
+		jp 		NZ,.SDstart
+		djnz 	.checkBootCode
+
+;		*****************************************************************************************
+; 		*** Om RAM minnet $D008- $D00B är $3333, starta monitor direkt utan att kopiera från flash
+		call 	writeSTRBelow
+		defb   	"\0\r\n"
+		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
+		defb	"Starta direkt med förladdad Monitor i $D000 \r\n"
+		defb	"Bootloader git: @@GIT_VERSION@@\r\n"
+		defb	"Bootloader skapad: @@DATE@@\r\n"
+		defb	"\0"
+
+		ld 		A,$4C
+		out 	(gpio_out),A
+		call 	waitForFinishedPrintout
+		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
+		
+
+.SDstart:
+		
+		call 	writeSTRBelow
+		defb   	"\0\r\n"
+		defb	"-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
+		defb	"Bootloader git: @@GIT_VERSION@@\r\n"
+		defb	"Bootloader build: @@DATE@@\r\n"
+	;	defb	"Load <BOOTFILE.TXT> from SD/USB to 0xD000\r\n"
+		defb	"\0"
+
+		call 	waitForFinishedPrintout
+
+	if 	GPIODEBUG =1
+		ld 		A,$83
+		out 	(gpio_out),A
+	endif
+		call	CRLF
+
+;*****	BOOT: direkt lagrat i FLASH, eller SD eller USB
+;*******************************************************
+
+		ld  	A,1 						; 1 = minimal utskrift under SD/USB läsning
+		ld  	(SDUSB_Helper),A
+		call 	BOOTcheckSD_USB_Presense	; kontrollera om SD kort eller USB finns, A=1 för SD och A=2 för USB
+
+		ld  	(SDUSB_Helper+1),A			; spara val för FLASH(0),SD(1),USB(2)  f9AD
+
+		cp 		USE_FLASH					; om A=0 finns inga media SD/USB, använd FLASH
+		jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
+
+		cp 		SD_EXIST
+		jr 		NZ,.showUSB
+		call 	writeSTRBelow
+		defb   	0,"SD-kort:      \0"
+		jr 		.same
+.showUSB:
+		call 	writeSTRBelow
+		defb   	0,"USB:      \0"
+.same:
+		; ld  	A,(SDUSB_Helper+1)			; val för FLASH(0),SD(1),USB(2)
+		; or  	A							; ställ Z flagga om A=0
+		; ; kolla om flagga Z -> start från Flash bank....
+		; jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
+		;----------------------------------------------------------------
+
+		; 		Hoppa över inläsning av filnamn på USB/SD, gå direkt på 'rfilename'
+		; 		ld 		DE,commStr1					; lagra filnamn i commStr1 (40 byte area)
+		; 		ld 		HL,boot_name
+		; .nxtchr:
+		; 		ldi									; (DE) <- (HL) 
+		; 		ld 		A,(HL)
+		; 		or 		A 							; = 0 ?
+		; 		jr  	NZ,.nxtchr
+		; 		ld 		(DE),A						; avsluta strängen med '0'
+		; 		ld 		HL,S1x						; resultat (inläst filnamn) i S1x
+		; 		ld 		(commAdr1),HL
+
+
+		; 		;----------------------------------------------------------------
+		; 		call 	p_C_Read_SD_USB 			; läs in bootfil namn från SD eller USB 
+		; 		;----------------------------------------------------------------
+
+		; 		;***  	Läs in Monitor med filnamnet i <S1x> som lästes in från <BOOTFILE.TXT>
+		; ;***	correct $0A to $00 $00 in S1x (check for ascii lower than $20)
+
+		; 		ld 		HL,S1x
+
+		ld 		HL,rfile_name
+
+		ld 		A,$20			; max 32 tecken....
+		ld 		DE,commStr1
+
+.find0A:
+		ldi						; (DE) <- (HL) 
+		cp 		(HL)			; char lower than ' '  $20 - (HL)
+		jp 		M,.find0A		; char > ' '...
+
+		ld 		A,00
+		ld 		(de),A
+		inc 	de
+		ld 		(de),A			; ta bort $0A, $0D, ...
+		inc 	de
+		ld 		(de),A			; Filnamnet för Monitor ska finnas i commStr1
+		ld 		HL,_RAMSTART	; från linkscript oftast $D00
+		ld 		(commAdr1),HL 	; lagra adress för Monitor i commAdr1
+
+		;----------------------------------------------------------------
+		call 	p_C_Read_SD_USB 			; läs in från SD eller USB 
+
+		;----------------------------------------------------------------
+		call 	BOOTclear_p_C_read		; återställ normala CTC och SIO interrupt handterare
+	
+		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
+
+.doHALT:
+		halt
+		halt
+		halt
+		halt
+
+
+		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
+		even
+boot_name:
+		;  db "BOOTFILE.TXT",0,0
+		even
+rfile_name:
+	db "Z80F.BIN",0,0
+
+;************************************************************************************************
+;************************************************************************************************
+BOOTcheckSD_USB_Presense:
+; ***		Kontrollera om SD kort eller USB finns, **
+; ***		OM SD kort finns -> 0x01. OM USB finns -> 0x02. OM inget finns eller fel -> 0x00  ->> Z
+		ld 		DE,CTC_delay_INT_handler
+		ld 		(CTC_CH1_I_Vector),DE
+
+		ld a,e
+		call 	initSIOBInterrupt			; ställ in interrupt på SIO B (CH376S) [LEV_Sect11_IO_Interrupts.s]
+		call 	HC376S_ResetAll
+		call 	HC376S_CheckConnection
+		jr 		Z,.BOOTnextcheck					; om kontakt med CH376S, -> Z och fortsätt, annars -> NZ och avbryt
+
+		call 	writeSTRBelow
+		DB 		0,"CH376S enhet inte ansluten !",CR,LF,00
+		jp 		BOOTabort
+.BOOTnextcheck:
+		call 	HC376S_setSDMode
+		call 	HC376S_USBdiskMount				; svarar med NZ  om fel
+		jr 		Z,SD_exist					; om SD kort finns, -> Z och fortsätt, annars kolla USB	
+		 								; om SD kort saknas är A = 0x82	
+		;***		Kolla istället om USB finns
+		call 	HC376S_CheckConnection
+		call 	HC376S_setUSBMode
+
+		jr 		Z,USB_exist				; om USB finns, -> Z och fortsätt, annars avbryt	
+
+		call 	BOOTclear_p_C_read		;Återställ normala CTC och SIO interrupt handterare
+		xor 	A						; ställ A=0 för SD och Z
+		ret
+SD_exist:
+		xor 	A
+		inc  	A						; ställ A=1 för SD och NZ
+		ret
+USB_exist:
+		ld 		A,1
+		inc 	A						; ställ A=2 för USB och NZ
+		ret
+
+;************************************************************************************************
+;************************************************************************************************
+UseFLASH4000:
+		call 	writeSTRBelow
+		defb   	0,"FLASH $4000:      \0"
+
+		call 	writeSTRBelow
+		defb   	"\0\r\n"
+		defb	"-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
+		defb	"Läs in TheMonitor från FLASH $4000 till SRAM 0xD000\r\n"
+		defb	"\0"
+		; ***	kopiera $4000 till $D000, (0x24FF bytes) använd sedan $D000 som startadress för monitor
+		ld  	BC,$24FF		; count  kbytes
+.loopBlocks:
+
+		ld 		HL,$4000		; end of flash memory area
+		ld 		DE,$D000		; temp storage area 0xCF00-CFFF		
+		ldir					; (DE)<-(HL) and DE,HL auto increment, BC auto decrement, repeat until BC=0		
+
+
+
+
+		jp 		_RAMSTART			; starta om uppstart från kopierad Monitor till $D000 (_RAMSTART)
+
+
+
+;************************************************************************************************
+;************************************************************************************************
+
+p_C_Read_SD_USB:
+
+		ld 		a,(SDUSB_Helper+1)			; SD (1) eller USB (2)
+		cp 		SD_EXIST 			; starta med SD kort  (1)
+		jr 		Z,.cont_SD2
+		cp 		USB_EXIST			; kontrollera om USB ?
+		jp 		NZ, BOOTabort
+
+		call 	HC376S_diskConnectionStatus		; dont use with SD card
+		call 	HC376S_USBdiskMount				; ret with NZ  on failure
+
+		jp 		NZ,BOOTabort
+.cont_SD2:
+		call 	HC376S_setFileName
+		call 	HC376S_fileOpen
+		jp 		NZ,BOOTabort
+
+		call 	HC376S_getFileSize
+		call 	HC376S_fileRead			; filinnehåll -> (HL) [commAdr1]
+		call 	HC376S_fileClose
+		ret							; retur success	 (Z)
+
+BOOTabort:
+		;***	 'Abort' om ingen kontakt, inget SD kort, ingen USB eller fel vid mount eller filhantering. Retur med NZ
+		call 	writeSTRBelow
+		DB 		0,"Läsfel med SD eller USB, läser FLASH !",CR,LF,00
+		call    delay5ms				; vänta en stund innan du kollar USB, ibland kan det ta en stund innan SD kortet är redo
+		call    waitForCTCResponse		; vänta enbart på CTC interrupt, inte SIO interrupt,
+
+		call 	BOOTclear_p_C_read		; återställ normala CTC och SIO interrupt handterare
+
+		inc 	A 					; retur felkod (NZ)
+		jp 		UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
+		ret							; retur felkod (NZ)
+
+
 
 
 		

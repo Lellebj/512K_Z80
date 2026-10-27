@@ -785,6 +785,7 @@
 
 		GLOBAL 	InitBuffers,ReadChar,WriteChar, WriteLine, WriteLine_CRLF, ReadLine, CRLF, puts_crlf,cleanInBuffer,cleanOutBuffer
 		GLOBAL	S_head_tail, inBufferEnd, inBuffer, writeSTRBelow, writeSTRBelow_CRLF
+		GLOBAL  BOOTclear_p_C_read
 		GLOBAL  addStrBelowToPrintQueue,addStrBelowToPrintQueue_IY, waitForKey,RetInpStatus
 		GLOBAL	PIO_Init,CTC_Init,SIO_Init,InitInterruptVectors,CTC1_INT_OFF,initSIOBInterrupt
 		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeTXA, TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
@@ -1892,6 +1893,16 @@ showtimeout:
 ;********************************************************************************************     
 ;********************************************************************************************     
 
+
+BOOTclear_p_C_read:
+		; ***	återställ avbrottshanterare och vektorer till normalt avbrottshanterare för CTC och SIO 
+		; call 	SIO_A_EI					; enable text output
+		call 	HC376S_ResetAll
+		call 	CTC1_INT_OFF
+		ld		HL,CTC_CH1_Interrupt_Handler
+		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
+		xor 	A
+		ret
 
 
 CTC_Init:

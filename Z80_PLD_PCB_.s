@@ -3,15 +3,12 @@
 		include 	"Z80_Params_.inc"
 		include 	"Salea_Logic.inc"
 	
-
-
-
+		GLOBAL  	MONITOR_Start
 
 			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
 			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
 			xref	Textbuf, inBufferEnd,inBuffer,cleanInBuffer,cleanOutBuffer,InitInterrupt
-			xref	dumpMemory
-			xref 	doImportXMODEM
+			xref	dumpMemory, doImportXMODEM
 
 			xref	st2g1,st1g2,steq,subst
 			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
@@ -25,307 +22,6 @@
 	;SAMPLE EXECUTION:
 	;***************************************************************
 GPIODEBUG EQU 0
-
-
-
-	GLOBAL  MONITOR_Start, SD_USB_startup
-;************************************************************************************************
-;************************************************************************************************
-;***		SDcard/USB startup sequence
-;************************************************************************************************
-;************************************************************************************************
-		section SD_USB_Start
-
-		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
-
-SD_USB_startup:
-
-	if  	GPIODEBUG = 0
-		ld 		A,$39
-		out 	(gpio_out),A
-
-		; call	Init_RAM_HEAP			; put zero values to addr $F000 - $FFF0
-
-		ld 		(SP_value),SP
-
-		ld 		A,$3A
-		out 	(gpio_out),A
-		
-		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-				; initialize buffer counters and pointers.
-		ld 		A,$3B
-		out 	(gpio_out),A
-
-			call	PIO_Init
-		ld 		A,$3C
-		out 	(gpio_out),A
-			call 	CTC_Init
-		ld 		A,$3D
-		out 	(gpio_out),A
-			call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-		ld 		A,$3E
-		out 	(gpio_out),A
-			call	S_head_tail			; save input heads and tails
-		ld 		A,$3F
-		out 	(gpio_out),A
-	
-	else
-	
-		CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
-			; initialize buffer counters and pointers.
-		call	PIO_Init
-		call 	CTC_Init
-		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-		call	S_head_tail			; save input heads and tails
-	endif
-		; call	sh_test
-		; call 	Flash_WR_Test
-		; ld	HL,$2010
-		; call	Flash_SE_Erase
-
-		; check  $D008-$D00B for $33333333 -> starta monitor direkt (laddad från Arduino/ Linux-arduino-serial-master_68K_V3)
-		; check  $D008-$D00B for $CCCCCCCC -> starta normalt (SD/USB boot) utan att kopiera från flash
-
-		ld 		HL,BootCodeAdr
-		ld 		B,04
-		ld 		A,'3'
-.checkBootCode:	
-		cp 		(HL)	
-		inc 	HL
-		jp 		NZ,.SDstart
-		djnz 	.checkBootCode
-
-;		*****************************************************************************************
-; 		*** Om RAM minnet $D008- $D00B är $3333, starta monitor direkt utan att kopiera från flash
-		call 	writeSTRBelow
-		defb   	"\0\r\n"
-		defb	"+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
-		defb	"Starta direkt med förladdad Monitor i $D000 \r\n"
-		defb	"Bootloader git: @@GIT_VERSION@@\r\n"
-		defb	"Bootloader skapad: @@DATE@@\r\n"
-		defb	"\0"
-
-		ld 		A,$4C
-		out 	(gpio_out),A
-		call 	waitForFinishedPrintout
-		jp 		MONITOR_Start			; monitor start $D000 MONITOR_Start:
-		
-
-.SDstart:
-		
-		call 	writeSTRBelow
-		defb   	"\0\r\n"
-		defb	"-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
-		defb	"Bootloader git: @@GIT_VERSION@@\r\n"
-		defb	"Bootloader build: @@DATE@@\r\n"
-	;	defb	"Load <BOOTFILE.TXT> from SD/USB to 0xD000\r\n"
-		defb	"\0"
-
-		call 	waitForFinishedPrintout
-
-	if 	GPIODEBUG =1
-		ld 		A,$83
-		out 	(gpio_out),A
-	endif
-		call	CRLF
-
-;*****	BOOT: direkt lagrat i FLASH, eller SD eller USB
-;*******************************************************
-
-		ld  	A,1 						; 1 = minimal utskrift under SD/USB läsning
-		ld  	(SDUSB_Helper),A
-		call 	BOOTcheckSD_USB_Presense	; kontrollera om SD kort eller USB finns, A=1 för SD och A=2 för USB
-
-		ld  	(SDUSB_Helper+1),A			; spara val för FLASH(0),SD(1),USB(2)  f9AD
-
-		cp 		USE_FLASH					; om A=0 finns inga media SD/USB, använd FLASH
-		jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
-
-		cp 		SD_EXIST
-		jr 		NZ,.showUSB
-		call 	writeSTRBelow
-		defb   	0,"SD-kort:      \0"
-		jr 		.same
-.showUSB:
-		call 	writeSTRBelow
-		defb   	0,"USB:      \0"
-.same:
-		; ld  	A,(SDUSB_Helper+1)			; val för FLASH(0),SD(1),USB(2)
-		; or  	A							; ställ Z flagga om A=0
-		; ; kolla om flagga Z -> start från Flash bank....
-		; jp 		Z,UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
-		;----------------------------------------------------------------
-
-		ld 		DE,commStr1					; lagra filnamn i commStr1 (40 byte area)
-		ld 		HL,rfile_name
-.nxtchr:
-		ldi									; (DE) <- (HL) 
-		ld 		A,(HL)
-		or 		A 							; = 0 ?
-		jr  	NZ,.nxtchr
-		ld 		(DE),A						; avsluta strängen med '0'
-		ld 		HL,S1x						; resultat (inläst filnamn) i S1x
-		ld 		(commAdr1),HL
-
-
-		;----------------------------------------------------------------
-		call 	p_C_Read_SD_USB 			; läs in från SD eller USB 
-		;----------------------------------------------------------------
-
-		;***  	Läs in Monitor med filnamnet i <S1x> som lästes in från <BOOTFILE.TXT>
-;***	correct $0A to $00 $00 in S1x (check for ascii lower than $20)
-		ld 		HL,S1x
-		ld 		A,$20			; max 32 tecken....
-		ld 		DE,commStr1
-
-.find0A:
-		ldi						; (DE) <- (HL) 
-		cp 		(HL)			; char lower than ' '  $20 - (HL)
-		jp 		M,.find0A		; char > ' '...
-
-		ld 		A,00
-		ld 		(de),A
-		inc 	de
-		ld 		(de),A			; ta bort $0A, $0D, ...
-		inc 	de
-		ld 		(de),A			; Filnamnet för Monitor ska finnas i commStr1
-		ld 		HL,_RAMSTART	; från linkscript oftast $D00
-		ld 		(commAdr1),HL 	; lagra adress för Monitor i commAdr1
-
-		;----------------------------------------------------------------
-		call 	p_C_Read_SD_USB 			; läs in från SD eller USB 
-
-		;----------------------------------------------------------------
-		call 	BOOTclear_p_C_read		; återställ normala CTC och SIO interrupt handterare
-	
-		jp 		MONITOR_Start			; monitor start $D000 MONITOR_Start:
-
-.doHALT:
-		halt
-		halt
-		halt
-		halt
-
-
-		jp 		_RAMSTART			; monitor start $D000 MONITOR_Start:
-
-rfile_name:
-	 db "BOOTFILE.TXT",0,0,0,0
-	; db "PROVIDE.txt",0,0,0,0
-
-;************************************************************************************************
-;************************************************************************************************
-BOOTcheckSD_USB_Presense:
-; ***		Kontrollera om SD kort eller USB finns, **
-; ***		OM SD kort finns -> 0x01. OM USB finns -> 0x02. OM inget finns eller fel -> 0x00  ->> Z
-		ld 		DE,CTC_delay_INT_handler
-		ld 		(CTC_CH1_I_Vector),DE
-
-		ld a,e
-		call 	initSIOBInterrupt			; ställ in interrupt på SIO B (CH376S) [LEV_Sect11_IO_Interrupts.s]
-		call 	HC376S_ResetAll
-		call 	HC376S_CheckConnection
-		jr 		Z,.BOOTnextcheck					; om kontakt med CH376S, -> Z och fortsätt, annars -> NZ och avbryt
-
-		call 	writeSTRBelow
-		DB 		0,"CH376S enhet inte ansluten !",CR,LF,00
-		jp 		BOOTabort
-.BOOTnextcheck:
-		call 	HC376S_setSDMode
-		call 	HC376S_USBdiskMount				; svarar med NZ  om fel
-		jr 		Z,SD_exist					; om SD kort finns, -> Z och fortsätt, annars kolla USB	
-		 								; om SD kort saknas är A = 0x82	
-		;***		Kolla istället om USB finns
-		call 	HC376S_CheckConnection
-		call 	HC376S_setUSBMode
-
-		jr 		Z,USB_exist				; om USB finns, -> Z och fortsätt, annars avbryt	
-
-		call 	BOOTclear_p_C_read		;Återställ normala CTC och SIO interrupt handterare
-		xor 	A						; ställ A=0 för SD och Z
-		ret
-SD_exist:
-		xor 	A
-		inc  	A						; ställ A=1 för SD och NZ
-		ret
-USB_exist:
-		ld 		A,1
-		inc 	A						; ställ A=2 för USB och NZ
-		ret
-
-;************************************************************************************************
-;************************************************************************************************
-UseFLASH4000:
-		call 	writeSTRBelow
-		defb   	0,"FLASH $4000:      \0"
-
-		call 	writeSTRBelow
-		defb   	"\0\r\n"
-		defb	"-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=-+-=\r\n"
-		defb	"Läs in TheMonitor från FLASH $4000 till SRAM 0xD000\r\n"
-		defb	"\0"
-		; ***	kopiera $4000 till $D000, använd sedan $D000 som startadress för monitor
-		ld  	BC,$1FFF		; count 8 kbytes
-.loopBlocks:
-
-		ld 		HL,$4000		; end of flash memory area
-		ld 		DE,$D000		; temp storage area 0xCF00-CFFF		
-		ldir					; (DE)<-(HL) and DE,HL auto increment, BC auto decrement, repeat until BC=0		
-
-
-
-
-		jp 		_RAMSTART			; starta om uppstart från kopierad Monitor till $D000 (_RAMSTART)
-
-
-
-;************************************************************************************************
-;************************************************************************************************
-
-p_C_Read_SD_USB:
-
-		ld 		a,(SDUSB_Helper+1)			; SD (1) eller USB (2)
-		cp 		SD_EXIST 			; starta med SD kort  (1)
-		jr 		Z,.cont_SD2
-		cp 		USB_EXIST			; kontrollera om USB ?
-		jp 		NZ, BOOTabort
-
-		call 	HC376S_diskConnectionStatus		; dont use with SD card
-		call 	HC376S_USBdiskMount				; ret with NZ  on failure
-
-		jp 		NZ,BOOTabort
-.cont_SD2:
-		call 	HC376S_setFileName
-		call 	HC376S_fileOpen
-		jp 		NZ,BOOTabort
-
-		call 	HC376S_getFileSize
-		call 	HC376S_fileRead			; filinnehåll -> (HL) [commAdr1]
-		call 	HC376S_fileClose
-		ret							; retur success	 (Z)
-
-BOOTabort:
-		;***	 'Abort' om ingen kontakt, inget SD kort, ingen USB eller fel vid mount eller filhantering. Retur med NZ
-		call 	writeSTRBelow
-		DB 		0,"Läsfel med SD eller USB, läser FLASH !",CR,LF,00
-		call    delay5ms				; vänta en stund innan du kollar USB, ibland kan det ta en stund innan SD kortet är redo
-		call    waitForCTCResponse		; vänta enbart på CTC interrupt, inte SIO interrupt,
-
-		call 	BOOTclear_p_C_read		; återställ normala CTC och SIO interrupt handterare
-
-		inc 	A 					; retur felkod (NZ)
-		jp 		UseFLASH4000		; starta monitor från flash minnet $4000-$7FFF, kopiera till $D000
-		ret							; retur felkod (NZ)
-
-BOOTclear_p_C_read:
-		; ***	återställ avbrottshanterare och vektorer till normalt avbrottshanterare för CTC och SIO 
-		; call 	SIO_A_EI					; enable text output
-		call 	HC376S_ResetAll
-		call 	CTC1_INT_OFF
-		ld		HL,CTC_CH1_Interrupt_Handler
-		ld		(CTC_CH1_I_Vector),HL		;STORE CTC channel 1 VECTOR
-		xor 	A
-		ret
 
 
 ;***********************************************************************
@@ -594,10 +290,10 @@ findNextITEM:
 		cp 		LISTEND
 		jr 		NZ,.cont
 
-		; ***	Command list did not match; check if direct address '$' or byte input
+		; ***	kommando hittades inte i listan command_list; kontrollera om adress '$' eller datavärde input
 		ld 		A,$FF
-		ld 		(PCinpFlag),A			; indicate ev. typed ($)address to change PCV or input bytes ...
-		pop 	HL						; HL start of typed string (again)
+		ld 		(PCinpFlag),A			; indikera angiven adress ($)<address> att ändra programräknare PCV eller input bytes ...
+		pop 	HL						; HL pekar på start av sträng (again)
 		ld 		A,(HL)
 		jp 		checkaddress			; No more commands to check, check if address entered , '$'
 										; or relative adress '@'
@@ -625,7 +321,7 @@ nextInList:
 inputerror:
 		push   	HL
 		call 	writeSTRBelow
-		DB 		0,"Input Semantic Error... ! code(DE):",00
+		DB 		0,"Oläsligt kommande... ! ",00
 		pop 	DE
 		call 	putDEtoScreen
 		call 	CRLF
@@ -671,7 +367,7 @@ command_list:
 		dw 		p_pc,0
 		db		ITEM,4,3,"eep",	STEND,%000000,0,CDEL
 		dw 		p_eep,0
-		db		ITEM,5,2,"cm",	STEND,%000000,0,CDEL
+		db		ITEM,5,2,"cm",	STEND,%000010,0,CDEL
 		dw  	p_clearmem,0
 		db		ITEM,6,3,"exe",	STEND,%000000,0,CDEL
 		dw 		p_exe,0
@@ -790,243 +486,223 @@ initCommParseTable:
 ;/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/
 
 	;***************************************************************
-	;	Command identified -> now search for string :
+	;	Kommando identifierat -> börja med att söka efter strängargument:
 	;***************************************************************
 
 matchInList:
-		; ***	Command found. Then, check for string input "<string>"
-		; ***	DE points to first delimiter after command 
-						;delimiters found ? =>Z, else ~Z
-						;char in (HL) is '0' ->  set C, else NC
+		; ***	Leta efter sträng  "<string>" i kommandorad
+ 		; ***	DE pekar på första tecken efter kommando 
+						;Om avgränsningstecken hittas ? =>Z, annars ~Z
+						;tecken i (HL) är '0' ->  sätt C, annars släck NC
 
 		inc 	sp
 		inc 	sp						; restore PC from PUSH in <scanCommandList>
-		inc 	HL 						; HL point to first after <STEND>  ->req arguments  (STEND,%100010,0,CDEL,p_load,0)
-		ld 		A,(HL) 					; A= required arguments from table
+		inc 	HL 						; HL pekar på första tecken efter <STEND>  ->argument krav  (STEND,%100010,0,CDEL,p_load,0)
+		ld 		A,(HL) 					; A= argumentkrav från tabell i kommandolista, ex %100010
 		ld 		IY,commParseTable		; IY =commParseTable =	0x80 + _String_HEAP
 		ld   	(IY+2),L 
-		ld   	(IY+3),H				; save the command adress.
+		ld   	(IY+3),H				;   ld (IY),HL..... första tecken efter <STEND> till commParseTable'.
 		
-		ld 		(IY),C 					; store the command number in (commParseTable, 0x80)
-		ld 		(IY+1),A				; store required arguments  in (commParseTable+1, 0x81)
+		ld 		(IY),C 					; kommandonummer  i (commParseTable, 0x80)
+		ld 		(IY+1),A				; antal nödvändiga krav  i (commParseTable+1, 0x81), ex %100010
 		; call 	writeSTRBelow_CRLF
 		; DB 		0,"Found a valid command  see (C).. !",CR,LF,00
 		push 	DE
-		pop 	HL						; HL=DE = first delimiter after command
-		dec 	HL							; DE -> HL -> last char before delimiter
+		pop 	HL						; HL (=DE) = första tecken efter kommando ord
+		dec 	HL							;  HL -> sista tecken i kommando (1 föra avgränsare)
 paramLoopEntry:	
 
-		call 	skipPriorDelimit 			; look for next char (  '"' ?)
-		jp 		C,executeCommand			; C set from 'skipPriorDelimit', no command parameters
+		call 	skipPriorDelimit 			; stega fram till första tecken efter avgränsare (  '"' ?)
+		jp 		C,executeCommand			; om C från 'skipPriorDelimit': inga fler kommando parametrar angivna (radslut) =0
 
-		ld 		A,(HL)
+		ld 		A,(HL)						; A = första tecken efter avgränsare
 
-		cp 		'"'							; beginning of string ?̣
-		jr 		NZ,checkaddress				;  NZ -> (HL) points to non delimiter
+		cp 		'"'							; Strängstart  ?̣
+		jr 		NZ,checkaddress				;  NZ -> (HL)   Ej ett '"', kolla adress...
 
-		; ***	extract string 
-		inc 	HL 							; skip '"' (HL)-> first char
+		; ***	spara träng 
+		inc 	HL 							; skip '"' (HL)-> första tecken i sträng
 
 		push  	HL
-		pop  	DE							; DE -> first char after '"' <source>
-		call 	skipCharsUntilDelim			; find second '"'
-		dec 	HL 							; skip first delimiter (ev. CR)
+		pop  	DE							; DE -> första tecken i sträng efter '"' 
+		call 	skipCharsUntilDelim			; hitta avslutande '"' -> HL pekar på avgränsae efter '"'
+		dec 	HL 							; (HL ) = '"' (ev. CR)
 		ld 		A,(HL)
-		cp 		'"' 						; found second '"' ??
+		cp 		'"' 						; avslutande  '"' ??
 		jp 		NZ,inputerror
-		dec 	HL 							; skip second '"'
+		dec 	HL 							; sista tecken i sträng innan '"'
 	;***************************************************************
-	;	copy string to  'commParseTable'
+	;	kopiera sträng till  'commParseTable'
 	;***************************************************************
 
 		and 	A
 		sbc 	HL,DE 						; amount of chars...
 		ld 		B,H							; amount of chars...
 		ld 		C,L							; beräkna antalet tecken i sträng-> BC
-		inc 	BC
+		inc 	BC							; +1
 
-		ld 		HL,commStr1				; address for first string
+		ld 		HL,commStr1				; address första strängvärde i commParseTable
 		ld 		A,(HL)
 		or 		A 						; =0?
-		jr 		Z, .strone
-		ld 		HL,commStr2				; address for second string
+		jr 		Z, .endasten
+		ld 		HL,commStr2				; address för andra strängvärde i commParseTable
 		ld 		A,(HL)
 		or  	A						; =0 ?
-		jp 		NZ,inputerror			; too many strings
-.strone:
+		jp 		NZ,inputerror			; mer än två strängar
+.endasten:
 		ex 		DE,HL 					; HL = <source>, DE = <dest>, size = BC
 		ldir 							; make the copy
-		; ex		DE,HL
 		inc 	HL 						; (HL) past the second '"'
 
 		jr 		paramLoopEntry
 
 
 	;***************************************************************
-	;	Check if address is specified in input 
+	;	kolla om en  adress <$nnnn> finns på kommandorad
+	; 	Hoppa till inputerror om ogiltiga tecken eller fler än två adresser eller värden anges
 	;***************************************************************
 
 
 checkaddress:
-		; ***	A = (HL), first char after delimiter
+		; ***	A = (HL), första tecken efter avgränsare 
 
 		ld 		(PCinpFlag+1),A			; om tecken är $ '(PCinpFlag+1)' == '$' -> angiven address
 										; om tecken är '(PCinpFlag+1)' == '@' -> relativ adress till (PCval) angiven
 		cp 		'$'						; jämför address id $
 		ld 		A,0
 		jr 		Z,chkADR			; first value of A (PCinpFlag+1) is '$' ??
-		; cp 		'@'						; identified address id
-		; jr 		Z,chkADR			; first value of A (PCinpFlag+1) is '$' ??
 
-		jr 		getLvalue				
+		jr 		getLvalue				; ingen adress ('$' eller '@' hittad: kolla värde  (n hexadecimala tal))
 
-chkADR:		inc 	HL 						; skip past '$' or '@'
+chkADR:	inc 	HL 						; (HL) första efter '$' eller '@'
+		
+		exx						; alternativa register
 
 chkADR1:
-	; ***		Check where to store address...
+	; ***		Bestäm var i commParseTable adressen eller värdet ska sparas...
 
-		ld 		IX,commAdr1
-		; ld 		A,0
-		cp 		(IX)			; check if zero ? (ascii value already stored)
+		ld 		HL,commAdr1		; commAdr1 (2 byte) i commParseTable
+		cp 		(HL)			; värde ej 0 (NZ) ? (ascii värde redan lagrat)
 		jr 		NZ,chkADR2
-		cp 		(IX+1)			; check if zero (byte 2)? (ascii value already stored)
+		inc 	HL
+		cp 		(HL)			; kolla om värde ej 0 (NZ)  (byte 2)? (ascii värde redan lagrat)
 		jr 		NZ,chkADR2
 		jr 		makeASCIItoHEX
 chkADR2:
 
-		ld 		IX,commAdr2
-		; ld 		A,0
-		cp 		(IX)			; check if zero ? (already stored)
-		jp 		NZ,inputerror	; error : No more addresses to store
-		cp 		(IX+1)			; check if zero (byte 2)? (already stored)
-		jp 		NZ,inputerror	; error : No more addresses to store
+		ld 		HL,commAdr2
+		cp 		(HL)			; värde ej 0 (NZ) ? (ascii värde redan lagrat)
+		jp 		NZ,visafel		; error : inga mer adresser kan sparas.
+		inc 	HL
+		cp 		(HL)			; kolla om värde ej 0 (NZ)  (byte 2)? (ascii värde redan lagrat)
+		jp 		NZ,visafel		;  error : inga mer adresser kan sparas.
 		jr 		makeASCIItoHEX
 
 getLvalue:
-		ld 		IX,commLvl1
-		cp 		(IX)			; check if zero ? (ascii value already stored)
+		exx
+		ld 		HL,commLvl1
+		cp 		(HL)			; värde ej 0 (NZ) ? (ascii värde redan lagrat)
 		jr 		NZ,chkLVL2
-		cp 		(IX+1)			; check if zero (byte 2)? (ascii value already stored)
+		inc 	HL
+		cp 		(HL)			; kolla om värde ej 0 (NZ)  (byte 2)? (ascii värde redan lagrat)
 		jr 		NZ,chkLVL2
 		jr 		makeASCIItoHEX
 
 chkLVL2:
-		ld 		IX,commLvl2
-		cp 		(IX)			; check if zero ? (ascii value already stored)
-		jp 		NZ,inputerror	; error : No more addresses to store
-		cp 		(IX+1)			; check if zero (byte 2) ? (ascii value already stored)
-		jp 		NZ,inputerror	; error : No more addresses to store
-
+		ld 		HL,commLvl2
+		cp 		(H)				; värde ej 0 (NZ) ? (ascii värde redan lagrat)
+		jp 		NZ,visafel		; error : inga mer värden kan sparas.
+		inc 	HL
+		cp 		(HL)			; kolla om värde ej 0 (NZ)  (byte 2)? (ascii värde redan lagrat)
+		jr 		Z,makeASCIItoHEX	; error : inga mer värden kan sparas.
+visafel:
+		exx						; tillbaka till normala register, HL' pekar på aktuell plats i commParseTable
+		jp 		inputerror
 
 makeASCIItoHEX:
-		; ***	copy from command line to adr or lvalue in table
-		; ***	only two bytes (four chars)....
-		; 		IX point to destination...
-		ld 		D,H
-		ld		E,L						; DE -> first char after '$' | '@' <source>
-		call 	skipCharsUntilDelim		; find next delimiter or CR ; adr in HL
+		; ***	omvandla från kommandorad till adress eller värde (lvalue) i commParseTable
+		; ***	Två ! bytes (fyra tecken)....
+		; 		HL' pekar på destination i commParseTable...
+		dec 	HL
+		exx						; tillbaka till normala register, HL' pekar på aktuell plats i commParseTable
+		push 	HL
+		push 	HL
+		pop 	DE					; (HL) första efter '$' eller '@'
+									; DE -> första tecken efter '$' | '@' <source>
+		call 	skipCharsUntilDelim		; hitta nästa avgränsare eller CR ; -> HL
 		ld 		A,(HL)
 
 	;***************************************************************
-	;	copy string to  'commParseTable', IX points to dest address.
+	;	HL' pekar på aktuell post i 'commParseTable'.
 	;***************************************************************
 
-		and 	A						; clear Carry
-		sbc 	HL,DE 					; amount of chars...->HL ( H=0); DE -> first char after '$' <source>
+		and 	A						; släck Carry
+		sbc 	HL,DE 					; antal tecken..->HL ( H=0 L ska vara max 4) ; DE -> första tecken efter '$' <source>
 
-		; ***	Do not check even or odd...
-		; bit 	0,L 					; even or odd (=1)?
-		; jp 		NZ,inputerror
-
-		ld 		B,L 					; char counter
-		ld 		HL,00					;  
-
-		ex 		DE,HL					; HL -> first char after '$' <ascii source>	
+		ld 		B,L 					; antal tecken i B (max 4)
+		pop 	HL					;HL -> första tecken efter '$' <ascii source>, 	
 
 nextHalfByte:
 
-		call 	isHex					; check char in (HL) return with Carry, value in A is NOT HEX
-		jp 		C,inputerror			; return with Carry, value in A is NOT HEX
+		call 	isHex					; kolla tecken i(HL). Carry: Värde i A inte ett HEX tecken
+		jp 		C,inputerror			; kolla tecken i(HL). EJ Carry: Värde i A är ett HEX tecken
+				 					; halvbyte(nibble) i A
 
-		sla 	E						; shift left E-> Carry
-		rl 		D 						; Carry -> rotate left D
-		sla 	E						; shift left E-> Carry
-		rl 		D 						; Carry -> rotate left D
-		sla 	E						; shift left E-> Carry
-		rl 		D 						; Carry -> rotate left D
-		sla 	E						; shift left E-> Carry
-		rl 		D 						; Carry -> rotate left D
-		or      E  						; A OR E(0..3) are zero
-		ld 		E,A
+							;****************************************************************************
+							; binärvärde skiftas in i adress som pekas av HL'
+		exx
+		rld 						; 	A(låg½)->(HL)låg½; (HL)låg½->(HL)hög½; (HL)hög½->A(låg½) ; HL pekar på lägre byte lsb
+		inc 	HL					;   HL pekar på högre byte (0)
+		rld 	 					; 	A(låg½)->(HL)låg½; (HL)låg½->(HL)hög½; (HL)hög½->A(låg½) ; HL pekar på lägre byte msb
+		dec 	HL					;   HL pekar på lägre byte (+1)
+		exx
 
-		ld 		(IX),E					; store E value [big endian]
-		ld 		(IX+1),D				; store D value [big endian]
-
-		inc 	HL
+		inc 	HL						; nästa tecken i kommandorad
 
 		djnz 	nextHalfByte
-		;***	HL should point to first delimiter...
+	;	HL borde peka på första avgränsare efter adress/värde eller CR...
 
 byteEnd:
 
-		ld  	A,(PCinpFlag)
-		or  	A 						; check Z; =0 -> normal parameter save
+		ld  	A,(PCinpFlag)			; (PCinpFlag) är inte 0 om adress/värde angivet.
+		or  	A 						; check Z; =0 -> normal parameter hantering
 		jp 	   	Z,paramLoopEntry
+				
+				;**********************************************
+				; 	Hantera adress/relativ adress/ data värde
 
 		ld  	A,(PCinpFlag+1) 		; address input for PCValue ?
 		cp 		'$' 					; adress flag ?
-		; jr 		Z,changePCVal
-		; cp 		'@' 					; relative adress flag ?
 		jr 		Z,changePCVal
 
-		; ***	Store  bytes from LVL1 to (PCval)
-		push 	HL
+		; ***	Lagra  bytes från LVL1 i (PCval)
+		push 	HL						; nästa tecken i kommandorad
+
 		ld 		DE,(PCvalue)	
 		ld 		HL,commLvl1
-		; ld 		A,(DE)
-		; ld 		(HL),A
-		; inc 	HL
-		; inc 	DE
+
 		ldi  							; (DE)<-(HL), inc HL,DE, dec BC
 		ld 		A,(HL)
 		or 		A
 		jr 		Z,noHighNib
 		ld 		(DE),A
 noHighNib:
-		pop 	HL		
-		; ***	reset flag
-		; ld 		A,0
-		; ld 		(PCinpFlag),A
-		; ld 		(PCinpFlag+1),A
+		pop 	HL							; nästa tecken i kommandorad
+
 		jp 		paramLoopEntry 				; loop and check for more parameters
 
 		
 changePCVal:
-		; ***	Change relative PCvalue from 'commAdr1' or
 		; ***	change PCvalue from 'commAdr1'
-		; ***	A contains '$' or '@'
+		; ***	A contains '$' 
 		push 	HL
-		push  	DE
-		cp   	'@' 					; relative adress ?
-		jr 		Z,.reladr
-; 		***		absolute adr !		
-		ld 		HL,00
-		ld 		(PCvalue),HL				; clear and then add value from commAdr1
-
-.reladr:		
 		ld 		HL,(commAdr1)
-		ld  	DE,(PCvalue)
-		add 	HL,DE
 		ld 		(PCvalue),HL
-		pop 	DE
 		pop 	HL 						; restore value of first delimiter
 		jp 		paramLoopEntry 				; loop and check for more parameters
 
 executeCommand:	
 		; ***	execute commands (and arguments)
-		; call 	writeSTRBelow
-		; DB 		0,"Finish parsing !",CR,LF,00
-		; call 	DumpRegisters			; checkpoint for list of arguments
 		; ***	IY+2 point to command address. IY=commParseTable
 
 		ld 		A,(PCinpFlag)
@@ -1074,7 +750,7 @@ JPTable01:
 
 argumentsError:
 		call 	writeSTRBelow
-		DB 		0,"Some arguments mismatch !",CR,LF,00
+		DB 		0,"Argument fel i kommando !",CR,LF,00
 		ret
 
 
@@ -1094,7 +770,13 @@ p_reset:
 p_load:
 		ret
 p_dumpmem:
-		call 	dumpMemory
+
+	; Är lvl2 0 ?  
+		; call 	checkArgsTAL				; kolla att nödvändiga arg (antal) är angivna 
+		; jp		NZ,argumentsError			; show argument error and return
+		call 	p_kollaAntalAdress
+
+		call 	dumpMemory			; filen LEV_Sect8_String_Manipulation.s
 
 		ret
 p_pc:
@@ -1107,10 +789,13 @@ p_eep:
 		ret
 
 p_clearmem:
-;		***		clear memory from PC/Adr n bytes from ram memory
+;		***		radera minne (SRAM) från PCvalue eller angiven adress, antal bytes
+		; call 	checkArgsTAL				; kolla att nödvändiga arg (antal) är angivna 
+		; jp		NZ,argumentsError			; show argument error and return
+		call 	p_kollaAntalAdress
 
 		ld 		BC,(commLvl1)    	;amount of bytes
-		ld   	DE,(PCvalue)		 
+		ld   	DE,(commAdr1)		 
 		ld		hl,.zero_byte
 		
 .cl_vars:
@@ -1120,6 +805,31 @@ p_clearmem:
 
 		ret
 .zero_byte:	db  0
+
+
+		;********************************************************************
+		;  	Kolla kommando adress och värde: defaultvärde är PCval och 80
+		;********************************************************************
+
+p_kollaAntalAdress:
+		ld 		HL,commAdr1
+		call	checkZero16 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
+		jr 		NZ,.adrSizeAngiven 		; Visa minnesinnehåll. adress  angiven !
+
+		; ***	Enbart mängd data som ska visas angiven...
+		ld 		HL,(PCvalue)				; HL = start address
+		ld 		(commAdr1),HL 			; temporär plats PCvalue
+.adrSizeAngiven:
+
+		ld 		HL,commLvl1
+		call	checkZero16 			; Inget angivet antal i kommando: 2 bytes =0 -> Z 
+		jr 		NZ,.sizeAngiven 		; Visa minnesinnehåll.  mängd angiven !
+
+		ld  	HL,$80					; ange default mängd $80
+		ld 		(commLvl1),HL 			; 
+.sizeAngiven:	
+		ret
+
 
 p_exe:
 		jp 		$A000				; jump to address in (PCvalue) 
@@ -1189,7 +899,7 @@ p_incDecPC:
 p_flwr:
 		; *** 	testwrite to FLASH
 		
-		; call 	checkArgsTAL				; check necessary args ("string" $Adr1   Lvl1)
+		; call 	checkArgsTAL				; kolla att nödvändiga arg är angivna ("string" $Adr1   Lvl1)
 		; jp		NZ,argumentsError			; show argument error and return
 		; 	*** Check if flashmem is enabled
 		ld 		A,(memBankID)
@@ -1200,7 +910,7 @@ p_flwr:
 		ret
 errNoFlash:
 		call 	writeSTRBelow
-		DB 		0," Can't write to deselected FLASH !",CR,LF,00
+		DB 		0," Kan inte skriva till avaktiverat FLASH !",CR,LF,00
 
 		ret
 
@@ -1223,16 +933,29 @@ p_flse:
 	;****	XMODEM import to address DE   *******************
 	;***************************************************************	
 p_xmod:
+
+
+
+		ld 		HL,commAdr1
+		call	checkZero16 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
+		jr 		NZ,.adrAngiven 		; Visa minnesinnehåll. adress och mängd angiven !
+
+		; ***	Enbart mängd data som ska visas angiven...
+		ld 		HL,(PCvalue)				; HL = start address
+		ld 		(commAdr1),HL 			; temporär plats PCvalue
+
+
 		; ***	Transfer files via x-modem
 		; ***	Check commParseTable+1 if required parameters
-		call 	checkArgsTAL				; check necessary args
-		jp		NZ,argumentsError			; show argument error and return
+		; call 	checkArgsTAL				; check necessary args
+		; jp		NZ,argumentsError			; show argument error and return
 
-		ld 		A,(commParseTable+1)
-		bit 	0,A 			; should be a 	1-address
-		jr 		Z,.nxta
+		; ld 		A,(commParseTable+1)
+		; bit 	0,A 			; should be a 	1-address
+		; jr 		Z,.nxta
 		; ***	check the commLvl1 if zero
-		ld 		DE,(commLvl1)	; valid adress in DE
+		; ld 		DE,(commLvl1)	; valid adress in DE
+.adrAngiven:
 .nxta:		
 
 		call 	doImportXMODEM
@@ -1496,7 +1219,7 @@ p_FON:
 			; if '64K_SRAM' 1  ($08) no FLASH memory is selected
 			; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
 	call 	writeSTRBelow
-	DB 		0," Use 256k FLASH (7 banks),lower 32k and SRAM (16 banks),upper 32k !",CR,LF,00
+	DB 		0," 8st 32k FLASH minnesbankar (0-32k) Ändra med fb(0-7)",CR,LF," 32k SRAM (32k-64k) !",CR,LF,00
 	call 	waitForFinishedPrintout
 p_FON_No_Print: 		;; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0) without printout		
 	push 	HL
@@ -1517,7 +1240,7 @@ p_FOFF:
 			; if '64K_SRAM' 1  ($08) no FLASH memory is selected
 			; if '64K_SRAM' 0  ($00) FLASH memory is lower 32k and SRAM upper 32k
 	call 	writeSTRBelow
-	DB 		" Use only SRAM (16 banks),upper 32k !",CR,LF,00
+	DB 		" 16st 32k SRAM minnesbankar (0-32k) Ändra med sb (0-F).",CR,LF," 32k SRAM (32k-64k) !",CR,LF,00
 	call 	waitForFinishedPrintout
 
 p_FOFF_No_Print:		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1) without printout
@@ -1536,12 +1259,13 @@ p_FOFF_No_Print:		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1) without 
 ;********************************************************************************************     
 ;********************************************************************************************     
 
-		; ***	Check commParseTable+1 if required parameters
+		; ***	kolla 'commParseTable+1' för nödvändiga parametrar
+		; 		,	STEND,%101000,0,C
+		;  		textsträng 2/1; adress 2/1 och värde 2/1 (6 positioner)
 checkArgsTAL:		
 ;		*** command textstring1/2 	address1/2	 lvalue1/2
 
-		; ***	try to connect to USB
-		ld 		HL,commParseTable+2				; resulting typed arguments
+		ld 		HL,commParseTable+2				; tabell med parametriserat kommando (HEAP +80)
 		ld 		A,0
 		ld 		(HL),A
 
@@ -1568,11 +1292,11 @@ shift_0_1:
 		jr 		NZ,shiftIn1
 		cp 		(IX+1)
 		jr 		NZ,shiftIn1
-		; ***	both =0 shift in '0'
+		; ***	både hög och låg byte = 0 -> skifta in '0'
 		sla		(HL)
 		ret
 shiftIn1:
-		; ***	least one not '0' shift in '1'
+		; ***	hög eller låg byte inte '0'-> shifta in '1'
 		scf		
 		rl 		(HL)
 		ret

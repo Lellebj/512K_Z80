@@ -142,7 +142,14 @@
 
 		Dummy_Block  0x8000 :
 			{
-			*.o(I2C_Func)
+			*.o (EXCLUDE_SECTION( Z80_EEP*.o)	SD_USB_Start  ) 
+			*.o (EXCLUDE_SECTION (*.o )EEtestprog)
+			*.o (EXCLUDE_SECTION (*.o )FLASH_Startup)
+			*.o (EXCLUDE_SECTION (*.o )INT_IM1)
+			*.o (EXCLUDE_SECTION (*.o )I2C_Func)
+			*.o (EXCLUDE_SECTION (*.o )LAB_RGBLED)
+			*.o (EXCLUDE_FILE( I2C_func.o)   I2C_Func) ;
+			*.o (EXCLUDE_FILE( Z80_EEP*.o)	SD_USB_Start  ) 
 			*.o(EEtestprog)
 			*.o(FLASH_Startup)
 			*.o(INT_IM1)
@@ -156,17 +163,19 @@
 	
 			}
 
+
 		TheMonitor  _RAMSTART :
 		{
+
 
 			KEEP(*.o(Monitor))
 			_MonEnd = .;
 			. = ALIGN(0x20);
-
+/*
 		    KEEP( *.o(SD_USB_Start))
 			_USB_EEprog_end = .;
 			. = ALIGN(0x20);
-
+*/
 			KEEP( *.o(INIT_BODY))
             . = ALIGN(0x20);
 
@@ -188,11 +197,14 @@
 
 			KEEP(*.o (CH376S_Support))
 			_USB_end = .;
-			. = ALIGN(0x20);
+			. = ALIGN(0x20); 
 
 			KEEP(*.o (Xmodems))
 			_XMODEM_end = .;
 			. = ALIGN(0x20);
+
+
+
 
 		}	> RAM
 

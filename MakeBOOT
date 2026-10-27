@@ -27,7 +27,7 @@ MEDIA?= $(shell ls /media/lellebj/)
 
 #****************************************************
 #SOURCES   = $(filter-out I2C*.s , $(wildcard *.s))
-SOURCES   = $(shell find  -maxdepth 1 -name "*.s" ! -name "I2C*.s" ! -name "RGBLED*.s"  ! -name "XMOD*.s" )
+SOURCES   = $(shell find  -maxdepth 1 -name "*.s" ! -name "I2C*.s" ! -name "RGBLED*.s"  ! -name "XMOD*.s" ! -name "Z80_PLD_PCB*.s" )
 OBJECTS = $(SOURCES:%$(S_EX)=$(OB_CODE)/%.o)
 
 # SOURCES = $(shell find  -maxdepth 1 -name "*$(S_EX)")
@@ -90,12 +90,10 @@ $(OBJECTS) : $$(patsubst $(OB_CODE)/%.o, %$(S_EX),$$@)
 $(TARGET): $(OBJECTS)
 	$(LD)  $(LDFLAGS)  $^
 	chmod a-x $@
-# ifneq ($(strip $(MEDIA)),)
-# 	cp  ./Build/512K_Z80.BIN  /media/lellebj/$(MEDIA)/Z80EE.BIN
-# 	cp  ./Build/512K_Z80.BIN.MainBody  /media/lellebj/$(MEDIA)/Z80F.BIN
-# 	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80F* )
-# 	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80EE* )
-# endif
+ifneq ($(strip $(MEDIA)),)
+	cp  ./Build/512K_Z80.BIN  /media/lellebj/$(MEDIA)/Z80EE.BIN
+	@echo "Info Size: "$(shell ls -al /media/lellebj/$(MEDIA)/Z80EE* )
+endif
 
 
 

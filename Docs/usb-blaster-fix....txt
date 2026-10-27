@@ -1,0 +1,324 @@
+Fortsätt till huvudinnehållet
+Hjälp för tillgänglighet
+AI-läge
+Allt
+Videor
+Korta videor
+Bilder
+Fler
+Uppgradera
+install quartus ii 13.0sp1 on linux mint 22.3
+Installing Intel/Altera Quartus II 13.0sp1 on Linux Mint 22.3 requires old 32-bit compatibility libraries (i386) and missing legacy dependencies like libpng12, because Quartus II 13.0 is an older 32-bit/64-bit software release built for legacy Linux distributions. 
+Prerequisites & Dependencies
+Quartus II 13.0sp1 relies on older libraries no longer present by default in modern Ubuntu/Linux Mint 22.x baselines.
+
+    Enable 32-bit architecture support in APT:
+    bash
+
+    sudo dpkg --add-architecture i386
+    sudo apt-get update
+
+    Använd koden med försiktighet.
+    Install required system and compatibility packages:
+    bash
+
+    sudo apt-get install -y liblzma-dev libxft2:i386 libxtst6:i386
+
+    Använd koden med försiktighet.
+    Handle missing libpng12.so:
+    Quartus 13.0 looks for libpng12.so. You will need to supply or symlink libpng12.so inside the Quartus library paths:
+        /opt/altera/13.0sp1/quartus/linux/libpng12.so
+        /opt/altera/13.0sp1/quartus/linux64/libpng12.so 
+
+Installation Steps
+Option A: Standard Official Installer Method
+
+    Download the Linux installer files for Quartus II 13.0sp1 from the Intel Software Download Center.
+    Make the installer executable and run it:
+    bash
+
+    chmod +x <quartus-linux-installer.run>
+    ./<quartus-linux-installer.run>
+
+    Använd koden med försiktighet.
+    Follow the setup wizard and install to the default directory (/opt/altera/13.0sp1).
+    Apply any required legacy library workarounds (such as supplying libpng12.so and patching libsys_cpt.so if running into startup crashes on modern glibc/kernel environments). 
+
+Option B: Pre-configured / Adapted Repack Method
+If using community-adapted archives structured for modern Ubuntu/Linux Mint 20–22 environments (such as packages referenced via Rutracker Quartus II 13.0sp1): 
+
+    Install base 32-bit architectures and dependencies: 
+    bash
+
+    sudo dpkg --add-architecture i386
+    sudo apt-get install -y liblzma-dev libxft2:i386 libxtst6:i386
+
+    Använd koden med försiktighet.
+    Extract and copy the application tree to /opt:
+    bash
+
+    sudo cp -r opt/... /opt/altera/13.0sp1
+
+    Använd koden med försiktighet.
+    Copy system integration files (udev rules for USB-Blaster, desktop shortcuts, etc.) into /etc and /usr:
+        USB-Blaster udev rule: /etc/udev/rules.d/93-alterausb.rules
+        Reload udev rules: 
+        bash
+
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger
+
+        Använd koden med försiktighet.
+
+First Launch & Licensing
+
+    Launch Quartus II from your application menu or via terminal (/opt/altera/13.0sp1/quartus/bin/quartus).
+    Go to Tools > License Setup....
+    Point License File to your license.dat path (e.g., /opt/altera/13.0sp1/quartus/license.dat) and click OK. 
+
+Are you trying to set up a hardware programmer (like the USB-Blaster) or running into a specific error message or crash on launch?
+AI-svar kan innehålla fel. Läs mer
+
+    RuTracker.org
+    Quartus II Subscription
+    Table_title: регистрация Table_content: | | | | --- | --- | | [Профиль] [ЛС] | __alexx · 07-Янв-25 18:25 (1 год 9 месяцев назад, р...
+
+Unable to read device chain (Hardware not attached)
+The error Unable to read device chain (Hardware not attached) means Quartus successfully sees your USB-Blaster hardware, but the underlying JTAG server (jtagd) cannot communicate with the FPGA chip or lacks permission to parse the device list. 
+Follow these steps sequentially to resolve the issue on Linux Mint:
+1. Fix Permissions (udev Rules)
+If Linux lacks permissions to access the USB device, the JTAG server will fail to initialize the chain. 
+
+    Create or open the udev rule file:
+    bash
+
+    sudo nano /etc/udev/rules.d/51-usbblaster.rules
+
+    Använd koden med försiktighet.
+    Paste the following configuration exactly (covers standard and clone USB-Blasters):
+    text
+
+    # Altera USB-Blaster
+    SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6001", MODE="0666"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6002", MODE="0666"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6003", MODE="0666"
+
+    # Altera USB-Blaster II
+    SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6010", MODE="0666"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6810", MODE="0666"
+
+    Använd koden med försiktighet.
+    Save and close (Ctrl+O, Enter, Ctrl+X).
+    Reload the rules and re-plug your USB-Blaster: 
+    Reddit·r/FPGA +2
+    bash
+
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+
+    Använd koden med försiktighet.
+
+2. Restart the JTAG Daemon
+The background server (jtagd) can occasionally lock up or get confused, especially after changing rules or hot-plugging hardware. 
+www.01signal.com
+
+    Terminate all running instances of the daemon:
+    bash
+
+    killall -9 jtagd
+
+    Använd koden med försiktighet.
+    Manually query the JTAG chain using the Quartus diagnostic tool:
+    bash
+
+    /opt/altera/13.0sp1/quartus/bin/jtagconfig
+
+    Använd koden med försiktighet.
+    If successful, it should return your device name (e.g., EP4CE6 or EP3C25) instead of the error. 
+    www.01signal.com +2
+
+3. Check for the "Clone Blaster" Speed Bug
+Many cheap USB-Blaster clones (from AliExpress or Amazon) use a CH552G or similar MCU. Linux handles JTAG timing transitions much faster than Windows, which causes these clone programmers to desynchronize and report Hardware not attached. 
+Altera Community +3
+You can slow down the JTAG clock speed to see if it fixes the timing lag: 
+bash
+
+/opt/altera/13.0sp1/quartus/bin/jtagconfig --setparam 1 JTAGClock 6M
+
+Använd koden med försiktighet.
+(If 6M fails, attempt 3M or 16M based on your hardware capability).
+4. Hardware and Power Checklist
+If the software layer is configured properly but the error persists, check the target hardware configuration: 
+Check Item	Solution
+FPGA Board Power	The FPGA board must be powered on by its external power supply. The USB-Blaster does not power the board.
+Ribbon Cable Orientation	Ensure the 10-pin JTAG ribbon cable is not plugged in backward on the target board pinout.
+USB Hub Restrictions	Avoid USB 3.0/3.2 ports if possible. Plug the Blaster into a native USB 2.0 port, or route it through an older USB 2.0 external hub.
+Does running jtagconfig return a blank space or numbers before the Hardware not attached line, and is your FPGA kit an official board or a third-party clone?
+AI-svar kan innehålla fel. Läs mer
+
+    halina20011.com
+    Fixing Altera USB
+    The USB-Blaster clone I had My programmer was a Altera USB-Blaster clone based on a CH552G MCU. But programming did not work.
+    www.01signal.com
+    01signal: Quartus / Linux: Programming the FPGA with command-line
+    Daemon: `jtagd` listens on TCP … older versions can fail with newer FPGAs, requiring `killall jtagd` to resolve errors or disconne...
+    Reddit·r/FPGA
+    Fixing a Cheap CH552G USB-Blaster Rev.C Clone - Reddit
+    17 sep. 2026 — The clone turned out to use a WCH CH552G microcontroller. Reflashing it with the open-source CH552 USB-Blaster firmware fixed it c...
+
+No parameter named JTAGClock
+The error "No parameter named JTAGClock" occurs because older versions of the JTAG daemon (like the one bundled with Quartus 13.0sp1) do not support the JTAGClock parameters natively, or the parameter names differ in legacy builds.
+Let's skip that parameter and fix the issue using a known workaround for modern Linux kernels and USB-Blaster clones.
+1. The usbfs Memory Limitation Fix
+Modern Linux distributions (including Mint 22.x) limit the memory size allocated for USB transfers (usbfs_memory_mb), which frequently breaks the communication buffer of Altera USB-Blasters on newer kernels.
+
+    Check your current USB memory allocation limit:
+    bash
+
+    cat /sys/module/usbcore/parameters/usbfs_memory_mb
+
+    Använd koden med försiktighet.
+    If it returns 16 (the default), temporarily increase it to 1000:
+    bash
+
+    sudo sh -c 'echo 1000 > /sys/module/usbcore/parameters/usbfs_memory_mb'
+
+    Använd koden med försiktighet.
+    Restart the JTAG server and test again:
+    bash
+
+    killall -9 jtagd
+    /opt/altera/13.0sp1/quartus/bin/jtagconfig
+
+    Använd koden med försiktighet.
+
+Note: If this fixes your issue, you can make it permanent by adding usbcore.usbfs_memory_mb=1000 to your GRUB boot options.
+2. Force jtagd to Access the Ports Directly
+Sometimes the JTAG server runs into internal permission constraints even after configuring udev rules. Forcing the server to run with administrative permissions will bypass this boundary completely.
+
+    Kill any existing instances:
+    bash
+
+    killall -9 jtagd
+
+    Använd koden med försiktighet.
+    Launch the JTAG daemon as root:
+    bash
+
+    sudo /opt/altera/13.0sp1/quartus/bin/jtagd
+
+    Använd koden med försiktighet.
+    Run the config utility as a standard user:
+    bash
+
+    /opt/altera/13.0sp1/quartus/bin/jtagconfig
+
+    Använd koden med försiktighet.
+
+3. Verify Hardware Enumeration
+Let's verify whether the operating system actually recognizes the programmer hardware signature properly. Run lsusb in your terminal:
+bash
+
+lsusb | grep -i altera
+
+Använd koden med försiktighet.
+Look closely at the output format and match it to your scenario below:
+lsusb Output	System State	Next Action
+Bus ... Device ... ID 09fb:6001 Altera Blaster	The USB hardware is properly detected by Linux Mint.	The issue is strictly down to the physical JTAG connection between the programmer and the FPGA chip.
+Nothing appears / Empty line	The USB cable or physical port is completely dead.	Change your USB cable or move the programmer to a different hardware port.
+What does your lsusb command return, and does running jtagconfig as sudo change the output?
+AI-svar kan innehålla fel. Läs mer
+jtag(sudo)
+Running jtagconfig with sudo usually reveals exactly where the breakdown is happening.
+Here is how to interpret the results and fix the root cause based on what you see on your screen:
+Find Your Result
+If sudo jtagconfig returns...	What it means	The Fix
+1) USB-Blaster [USB 0]
+Unable to read device chain...	The system sees the USB-Blaster, but the JTAG lines to the chip are dead or floating.	Check the hardware ribbon cable orientation, ensure the FPGA board has its external power wall-adapter plugged in, or try a USB 2.0 port.
+No JTAG hardware available	The JTAG daemon cannot see the USB programmer at all.	Your udev rules are missing or jtagd didn't catch the permission change. Run lsusb to ensure 09fb:6001 shows up.
+1) USB-Blaster [USB 0]
+020F10DD (EP4CE6/EP3C5/..)	Success! The connection works perfectly under root.	The problem is strictly user permissions. Go to the step below to fix it permanently.
+If it worked with sudo (Fixing User Permissions)
+If sudo jtagconfig successfully lists your FPGA chip model, it means the regular jtagd daemon is running under your local user account and is blocked from accessing the raw USB port.
+
+    Kill the broken user-level daemon:
+    bash
+
+    killall -9 jtagd
+
+    Använd koden med försiktighet.
+    Make sure your user account is part of the plugdev and dialout system groups:
+    bash
+
+    sudo usermod -aG plugdev $USER
+    sudo usermod -aG dialout $USER
+
+    Använd koden med försiktighet.
+    Open your udev rule file again:
+    bash
+
+    sudo nano /etc/udev/rules.d/51-usbblaster.rules
+
+    Använd koden med försiktighet.
+    Ensure your rule explicitly assigns the device to the plugdev group by updating the lines to look like this:
+    text
+
+    SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6001", MODE="0666", GROUP="plugdev"
+
+    Använd koden med försiktighet.
+    Log out of Linux Mint and log back in for the group changes to apply.
+
+What exact text output did sudo jtagconfig print to your terminal?
+AI-svar kan innehålla fel. Läs mer
+1) USB-Blaster [1-11.3]
+  Unable to read device chain (Hardware not attached)
+
+2) USB-Blaster on 127.0.0.1 [1-11.3]
+  Unable to read device chain (Hardware not attached)
+lsusb |grep -i altera : Bus 001 Device 009: ID 09fb:6001 Altera Blaster
+The lsusb output proves that your Linux Mint OS perfectly detects the physical USB-Blaster hardware (09fb:6001).
+Because it shows the hardware address [1-11.3] but immediately follows with Unable to read device chain (Hardware not attached), it means the programmer itself is active, but the JTAG lines (TDI, TDO, TCK, TMS) cannot detect the FPGA chip.
+This is a classic hardware signaling or signal integrity issue on modern Linux kernels. Run through these targeted fixes:
+1. Fix the Linux Kernel USB Buffering Bug
+Modern Linux kernels use an aggressive USB power/buffer auto-management system that drops legacy JTAG data packets.
+Run this command to disable aggressive USB autosuspend for your Altera device:
+bash
+
+sudo sh -c 'echo -1 > /sys/bus/usb/devices/1-11.3/power/autosuspend'
+
+Använd koden med försiktighet.
+(Note: 1-11.3 matches the exact USB port address shown in your jtagconfig output).
+Next, ensure the USB memory limit is expanded so packets aren't dropped:
+bash
+
+sudo sh -c 'echo 1000 > /sys/module/usbcore/parameters/usbfs_memory_mb'
+
+Använd koden med försiktighet.
+Now kill the server and try again:
+bash
+
+killall -9 jtagd
+/opt/altera/13.0sp1/quartus/bin/jtagconfig
+
+Använd koden med försiktighet.
+2. The Physical Connection Checklist
+If the kernel tweaks do not immediately resolve it, the problem is physical. The error Hardware not attached explicitly means the JTAG chain loop is broken (TDO is not returning to TDI).
+Target Check	Actions to Take
+Independent Board Power	Ensure the FPGA development board is powered by its own DC wall adapter / power barrel. The USB-Blaster cannot supply operational power to the FPGA chip.
+Ribbon Cable Direction	Look closely at the 10-pin ISP ribbon cable. Ensure the red stripe or key notch matches the JTAG header on the board, not the AS or PS headers (which are for flashing configuration memories, not direct JTAG debugging).
+Port Speed Interferences	The USB-Blaster hardware architecture hates USB 3.0/3.1 ports (blue/red ports). Plug it into a native USB 2.0 port (black port) or route it through a cheap, unpowered USB 2.0 hub to force down the speed protocol.
+3. Clear Duplicate Local Servers
+Your output shows the device duplicated twice (USB-Blaster [1-11.3] and USB-Blaster on 127.0.0.1 [1-11.3]). This happens when the local daemon clones itself or glitches out.
+Run a clean flush:
+bash
+
+sudo killall -9 jtagd jtagconfig quartus
+sudo rm -f /var/run/jtagd* ~/.jtagd.conf
+/opt/altera/13.0sp1/quartus/bin/jtagconfig
+
+Använd koden med försiktighet.
+After applying the autosuspend bypass and checking the external board power, does jtagconfig change its text output?
+AI-svar kan innehålla fel. Läs mer
+Hoppa till föregående prompt
+AI-lägets svar är klart
+Fråga om 

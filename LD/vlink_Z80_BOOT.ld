@@ -143,36 +143,36 @@
 		FLASH_block  _FLASHSTART :
 			{
 			. = 0x00;
-			KEEP(*.o(FLASH_Startup))
+			KEEP(*.o(FLASH_Startup))  	/*  Z80_EEP_.s */
 
 			. = _NMISTART;	
-			KEEP( *.o(INT_IM1))
+			KEEP( *.o(INT_IM1))  		/*  Z80_EEP_.s */
 			. = ALIGN (0x80);
 
-			KEEP( *.o(INIT_BODY))
+			KEEP( *.o(INIT_BODY))  		/*  Z80_EEP_.s */
             . = ALIGN(0x20);
 
-		    KEEP(*.o(SD_USB_Start))
+		    KEEP(*.o(SD_USB_Start))		/*  Z80_PLD_PCB_.s, denna sektion används endast i boot-program  */
 			_BootSDUSB_EEprog_end = .;
 			. = ALIGN(0x20);
 
-			KEEP(*.o (CH376S_Support))
+			KEEP(*.o (CH376S_Support))	/*  Z80_USB_TXRX.s  section 	CH376S_Support		*/
 			_BootUSB_end = .;
 			. = ALIGN(0x20);
 
-			KEEP(*.o (Functions))
+			KEEP(*.o (Functions))		/* Z80_PLD_FLash_support.s 		section Functions  */
 			.= ALIGN(0x20) ;
 
 
-			KEEP(*.o (InOutInterrupt))
+			KEEP(*.o (InOutInterrupt))	/*  LEV_Sect11_IO_Interrupts.s  section InOutInterrupt */
 			_BootIOI_end = .;
 			. = ALIGN(0x20);
 
-			KEEP(*.o (CodeConversion))
+			KEEP(*.o (CodeConversion))	/*  LEV_Sect4_Code_Conversion.s  section	CodeConversion	*/
 			_BootCodeConv_end = .;
 			. = ALIGN(0x20);
 
-			KEEP(*.o (Strings))
+			KEEP(*.o (Strings))			/*  LEV_Sect8_String_Manipulation.s  section Strings */
 			_BootStrings_end = .;
 			. = ALIGN(0x20);
 

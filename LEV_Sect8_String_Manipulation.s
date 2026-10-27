@@ -7,7 +7,7 @@
 
 
 		GLOBAL strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR,src_size,isHex,isChar, isChar_A, dumpMemory
-		xref	isDelimit
+		GLOBAL	isDelimit, checkZero16
 		
 		; String Manipulation
 		; 8A    String Compare    288
@@ -156,8 +156,8 @@ exitZero:
 
 
 skipPriorDelimit:
-				; increase HL until non delimiter (NZ) or #0 (C) 
-				; HL points to acutal pos in 'Textbuf'
+				; öka HL till dess tecken inte är avgränsare (NZ) eller #0 (C) 
+				; HL pekar på aktuell position i 'Textbuf'
 		inc 	HL 				; skip past string length or next char	
 		call	isDelimit		;delimiters specified ? =>Z, else ~Z
 								;char in (HL) is '0' ->  set C, else NC
@@ -1118,15 +1118,6 @@ dumpMemory:
 		; ***	Visa minnesinnehåll från adress 'lvl1' eller 'PCval'. Mängd 'lvl2' eller  'lvl1' bytes
 		xref 	add_space
 
-		; Är lvl2 0 ?  
-
-		ld 		HL,commAdr1
-		call	checkZero16 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
-		jr 		NZ,.adrSizeTyped 		; Visa minnesinnehåll. adress och mängd angiven
-
-		; ***	Enbart mängd data som ska visas angiven...
-		ld 		HL,(PCvalue)				; HL = start address
-		ld 		(commAdr1),HL 			; temporär plats PCvalue
 
 .adrSizeTyped:
 		; ***	Visa minnesinnehåll. adress och mängd angiven
