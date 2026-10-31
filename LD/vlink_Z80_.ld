@@ -150,6 +150,11 @@
 			*.o (EXCLUDE_SECTION (*.o )LAB_RGBLED)
 			*.o (EXCLUDE_FILE( I2C_func.o)   I2C_Func) ;
 			*.o (EXCLUDE_FILE( Z80_EEP*.o)	SD_USB_Start  ) 
+			*.o (EXCLUDE_FILE( SPIbyPIO_SDcard*.o)	SPI_SD_Code  ) 
+			*.o (EXCLUDE_FILE( TEST_SPI_SDcard.s*.o)	SPI_SD_Code  ) 
+			*.o (EXCLUDE_FILE( Kermit_*.o)	Kermit_sektion_gammal  ) 
+			*.o (EXCLUDE_FILE( Kermit_*.o)	Kermit_sektion  ) 
+	
 			*.o(EEtestprog)
 			*.o(FLASH_Startup)
 			*.o(INT_IM1)

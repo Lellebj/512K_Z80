@@ -924,7 +924,7 @@ p_flse:
 
 		push	HL
 		ld 		HL,$2010
-		; call 	Flash_SE_Erase
+		call 	Flash_SE_Erase
 		pop 	HL
 		ret
 
