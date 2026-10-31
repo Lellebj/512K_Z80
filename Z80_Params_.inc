@@ -150,6 +150,9 @@ Heap				= $F800				; space for variable storage
 PIO_B_value:		= $F1D0
 Result_NumToHex:	= $F1F0
 
+;*****	C-Kermit/Wermit parametrar
+MARK			EQU 	0x1
+CHAR_OFFSET 	equ 	32         ; Kermit-kodning offset ('#')
 
 ;*****	ALIGN command  : 00 removes all align commands
 DOALIGN 	EQU 	00

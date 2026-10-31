@@ -184,8 +184,8 @@
 			*.o (EXCLUDE_SECTION (*.o ) Monitor  ) ;
 			*.o (EXCLUDE_FILE( SPIbyPIO_SDcard*.o)	SPI_SD_Code  ) 
 			*.o (EXCLUDE_FILE( TEST_SPI_SDcard.s*.o)	SPI_SD_Code  ) 
-			*.o (EXCLUDE_FILE( Kermit_*.o)	Kermit_sektion_gammal  ) 
-			*.o (EXCLUDE_FILE( Kermit_*.o)	Kermit_sektion  ) 
+			*.o (EXCLUDE_SECTION( Kermit_*.o)	Kermit_sektion_gammal  ) 
+			*.o (EXCLUDE_SECTION( Kermit_*.o)	Kermit_sektion  ) 
 
 /*
 		     *.o(EEtestprog)

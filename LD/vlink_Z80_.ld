@@ -120,7 +120,13 @@
 	PROVIDE( list_len		=	0x48	);				/*	 length of command pointer list */
 	PROVIDE( Comm_Ptr_list	=	0x380 + _String_HEAP); 	/*	 command pointer list */
 
-	SIO_PIO_CTC_stack		=	0x400 + _String_HEAP ;    	  	/* Interrupt vektorer för IO-kretsarna  (FC00)*/
+	SIO_PIO_CTC_stack		=	0x400 + _String_HEAP ;    	  	/* Interrupt vektorer för IO-kretsarna  (FC00) $20 bytes*/
+	
+	/*   C-Kermit */
+	PROVIDE( PktLen 		=  0x420 + _String_HEAP) ; 		/* C-kermit paketlängd  */
+	PROVIDE( PktSeq     	=  0x421 + _String_HEAP) ;  		/* C-kermit sekvensnummer  */
+	PROVIDE( PktType    	=  0x422 + _String_HEAP) ;  		/* C-kermit paket typ  */
+	PROVIDE( PktData    	=  0x424 + _String_HEAP) ; 	/* MAX_BUFF ; Reservera minne för inkommande data $100 bytes  */
 
 /*	PROVIDE( packetBaseAddress = 	0x480 + _String_HEAP);  Används ej  */
 /*	PROVIDE( prevPacketByte01	=	0x580 + _String_HEAP);  Används ej 	*/
@@ -129,8 +135,8 @@
 		; Code in $D008-D00D = $CCCCCCCC: code uploaded from xmodem/or DMA. Do not copy from flash
 		; Code in $D008-D00D = $33333333: code uploaded from Arduino. Do not copy from flash, 
 	*/
-/*	PROVIDE( BootCode		=	0x33333333);	*/
-	PROVIDE( BootCode		=	0xCCCCCCCC);	
+	PROVIDE( BootCode		=	0x33333333);	
+/*	PROVIDE( BootCode		=	0xCCCCCCCC);	*/
 /*	PROVIDE( BootCode		=	0x11111111);	*/	
 	PROVIDE( BootCodeAdr	=	_RAMSTART+8);	
 
@@ -152,8 +158,8 @@
 			*.o (EXCLUDE_FILE( Z80_EEP*.o)	SD_USB_Start  ) 
 			*.o (EXCLUDE_FILE( SPIbyPIO_SDcard*.o)	SPI_SD_Code  ) 
 			*.o (EXCLUDE_FILE( TEST_SPI_SDcard.s*.o)	SPI_SD_Code  ) 
-			*.o (EXCLUDE_FILE( Kermit_*.o)	Kermit_sektion_gammal  ) 
-			*.o (EXCLUDE_FILE( Kermit_*.o)	Kermit_sektion  ) 
+			*.o (EXCLUDE_SECTION( Kermit_*.o)	Kermit_sektion_gammal  ) 
+			*.o (EXCLUDE_SECTION( Kermit_*.o)	Kermit_sektion  ) 
 	
 			*.o(EEtestprog)
 			*.o(FLASH_Startup)

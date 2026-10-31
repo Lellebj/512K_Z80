@@ -791,7 +791,7 @@
 		GLOBAL 	SIO_0INT,InitSIO_0Ports,ReadUSBHandler, purgeRXB, waitForFinishedPrintout, purgeRXA, purgeTXA, TX_NAK,TX_ACK,TX_C,TX_X, TX_EMP
 		GLOBAL 	SIO_B_EI,SIO_B_RX_INTon,SIO_B_TXRX_INToff,SIO_B_EI,SIO_B_DI
 		GLOBAL 	SIO_A_EI,SIO_A_TXRX_INTon,SIO_A_TXRX_INToff,SIO_A_TX_INTon,SIO_A_RX_INTon,SIO_A_RTS_OFF,SIO_A_RTS_ON,SIO_A_DI
-
+		GLOBAL 	KermitACK, KermitNAK
 
 			;ARBITRARY SIO_0 PORT ADDRESSES
 								; INTERRUPT VECTOR
@@ -1527,6 +1527,40 @@ TX_EMP:
 		jp		z,TX_EMP
 		ret
 		
+		; ***	Utskrift till C-Kermit/wermit
+		;********************************************************************************************     
+KermitACK:
+            ld a, MARK
+            call TX_EMP
+            ld a, 3 + CHAR_OFFSET ; Längd (3 bytes: Len, Seq, Type)
+            call TX_EMP
+            ld a, (PktSeq)
+            add a, CHAR_OFFSET
+            call TX_EMP
+            ld a, 'Y'       ; 'Y' = ACK
+            call TX_EMP
+            ; För enklast möjliga ACK hårdkodar vi en statisk eller simpel checksumma här,
+            ; men i skarp drift bör den beräknas enligt formeln ovan.
+            ld a, 0x20 + 35 ; Förenklad exempelchecksumma för ACK
+            call TX_EMP
+            ret
+
+		; ***	Utskrift till C-Kermit/wermit
+		;********************************************************************************************     
+KermitNAK:
+            ld a, MARK
+            call TX_EMP
+            ld a, 3 + CHAR_OFFSET
+            call TX_EMP
+            ld a, (PktSeq)
+            add a, CHAR_OFFSET
+            call TX_EMP
+            ld a, 'N'       ; 'N' = NAK
+            call TX_EMP
+            ld a, 0x20 + 40 ; Förenklad exempelchecksumma för NAK
+            call TX_EMP
+            ret
+
 					
 
 ;********************************************************************************************     
@@ -1855,7 +1889,7 @@ CTC_CH1_Interrupt_Handler:
 		ld 		(TempVar1),A
 
 
-		cp 		16							; Z is set 
+		cp 		16							; Z : räkna antal cykler för XMODEM  
 		jp 		P,showtimeout				; check if loop should timeout... A>16
 
 		; call	Z,SetupXMODEM_TXandRX		; test if minicom has begun sending Z=0...
