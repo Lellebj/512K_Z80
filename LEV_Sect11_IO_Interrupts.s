@@ -40,30 +40,33 @@ waitForKey:
 
 ReadLine:
 
-		; ld 		HL,inBuffer +1
+		; ***	Vid inläsning av ny rad, börja med att nollställa pekare till (inBufferPtr)
+		; ***	 och nollställ flagga för nytt tecken (inBufferVal)  (HL pekar på Textbuf)
+
 		ld		(inBufferPtr), HL		; lagra  pekaradress till 'Textbuf'
-		ld 		IX,ESCsequence
 		xor 	A				; nollställ A
+		ld 		HL,inBufferVal
+		ld 		(HL),A				; nollställ flagga för nytt tecken (inBufferVal)	
+		ld 		IX,ESCsequence
 		ld 		(IX),A
 
 R_LOOP:
 		
-		ld 		HL,($F960)
-		inc 	HL
-		ld 		($F960),HL
-		ei
-		halt 						; vänta på tangentslag - avbrott på 'ReadINTHandler'
-		; call 	chkRX				; resultat i A & C
-		
+		; ***	Kolla om nytt tecken finns
+		ld 	 	HL,inBufferVal
+		xor 	A					; A=0
+		cp 		(HL)	
+		jr 		Z,R_LOOP				; vänta på nytt tecken
 
-		ld		HL, (inBufferPtr)		; HL pekar på inTailAdr  (strängslut)
+		; *** 	nytt tecken finns i inbuffer, hämta det och skriv ut det på skärmen	
+		; *** 	A är 0 och HL pekar på 'inBufferVal'
+		ld  	(HL),A 					; nollställ flagga för nytt tecken...
 
+		ld		HL, (inBufferPtr)		; HL pekar på sista inmatade tecken...
 		ld 		A,(HL)					; hämta senaste tangent
 		push 	AF
 		call 	WriteChar
 		POP 	AF
-		; call	ReadChar				;läs inmatat tecken
-		di
 
 		cp		CR					;vagnretur ?
 		jr		NZ,R_LOOP				;återvänd ny loop om inte vagnretur
@@ -74,92 +77,92 @@ R_LOOP:
 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-		waitEntry:
-		call	S_head_tail			; spara inmatat början och slut (heads and tails)
+; 		waitEntry:
+; 		call	S_head_tail			; spara inmatat början och slut (heads and tails)
 
-		ld		hl,(Comm_Ptr_list)
-		ld 		de,(Comm_Ptr_list+2)		; next item in list
-		or 		a					; 0ställ carry
-		SBC		hl,de 				; antal inmatade tecken i L (in L)
-		ld 		b,l					; antal i B
+; 		ld		hl,(Comm_Ptr_list)
+; 		ld 		de,(Comm_Ptr_list+2)		; next item in list
+; 		or 		a					; 0ställ carry
+; 		SBC		hl,de 				; antal inmatade tecken i L (in L)
+; 		ld 		b,l					; antal i B
 
-			; avgör om  wraparound (hl)<(de) (cirkulär buffer)
-		jp 		P,cont2				;positive result 	(hl)>(de)
-		ld 		a,bufferSize 			; läsbuffert längd definieras i länkskript (0x64)
-		add		a,b
-		ld		b,a					; korrekt antal i B om 'wraparound'
-cont2:
-		ld	 	ix,Textbuf				; get address of text buffer
-		ld		(ix),B				; spara antal tecken i början av sträng.
-		inc 	ix					; strängadress, stega förbi byte med längd
+; 			; avgör om  wraparound (hl)<(de) (cirkulär buffer)
+; 		jp 		P,cont2				;positive result 	(hl)>(de)
+; 		ld 		a,bufferSize 			; läsbuffert längd definieras i länkskript (0x64)
+; 		add		a,b
+; 		ld		b,a					; korrekt antal i B om 'wraparound'
+; cont2:
+; 		ld	 	ix,Textbuf				; get address of text buffer
+; 		ld		(ix),B				; spara antal tecken i början av sträng.
+; 		inc 	ix					; strängadress, stega förbi byte med längd
 
-		ld		hl,(Comm_Ptr_list+2)		; first string start
+; 		ld		hl,(Comm_Ptr_list+2)		; first string start
 
-		ld		DE,inBufferEnd
-c_nextchar:
-			;	copy from inbuffer to Textbuf...
-		ld 		a,(hl)				; char from inbuffer
-		ld		(ix),a			; save char in textbuf
-		inc		hl
-		inc 	ix
+; 		ld		DE,inBufferEnd
+; c_nextchar:
+; 			;	copy from inbuffer to Textbuf...
+; 		ld 		a,(hl)				; char from inbuffer
+; 		ld		(ix),a			; save char in textbuf
+; 		inc		hl
+; 		inc 	ix
 
-			; check if upper buffer adr 
-		or 		A		; clear carry
-		push 	hl	
-		SBC		hl,de		; S and Z set  hl=de -> inBufferEnd encountered
-		pop 	hl
-		jr 		NZ, cont1			; continue
-			; turnaround (HL) hl = inBuffer.	
-		ld 		hl,inBuffer			; hl = start of input buf
-cont1:
-		djnz 	c_nextchar		; count no chars.
-		xor 	a				; clear a
-		ld 		(ix),A			; end with 00H
-		ld		hl,Textbuf
-		ld		a,(hl)			; A = string length (num)
-		inc		hl				; HL = addr to first char in string
-		ret 					; string stored in textbuffer
-		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-ReadChar:
-		CALL	RetInpStatus	;get input status. return. carry = 1 if data available
-		JR		NC,ReadChar		;wait if no character available
-		DI                      ;disable interrupts
-		LD		HL,inBufCount			;reduce input buffer count by 1
-		DEC		(HL)
-		LD		HL, (inHeadAdr)		;Get   character from head of input buffer
-		LD		C, (HL)
-		CALL	incInPointer			;Move head pointer up 1
-		LD		(inHeadAdr) ,HL
-		LD		A,C
-		EI						;Reenable interrupts
-		RET
-			;return input status (carry    =1   if input data is available)
-RetInpStatus:
-		LD		A, (inBufCount)		;Test input buffer count
-		OR		A				;Clear carry always
-		RET		Z				; Return, carry = 0 if no data
-		SCF                     ;Set carry
-		RET                     ; Return. carry = 1 if data available
-		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+; 			; check if upper buffer adr 
+; 		or 		A		; clear carry
+; 		push 	hl	
+; 		SBC		hl,de		; S and Z set  hl=de -> inBufferEnd encountered
+; 		pop 	hl
+; 		jr 		NZ, cont1			; continue
+; 			; turnaround (HL) hl = inBuffer.	
+; 		ld 		hl,inBuffer			; hl = start of input buf
+; cont1:
+; 		djnz 	c_nextchar		; count no chars.
+; 		xor 	a				; clear a
+; 		ld 		(ix),A			; end with 00H
+; 		ld		hl,Textbuf
+; 		ld		a,(hl)			; A = string length (num)
+; 		inc		hl				; HL = addr to first char in string
+; 		ret 					; string stored in textbuffer
+; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-			; Save copies of inHeadAdr and inTailAdr to memory...
-S_head_tail:
+; ReadChar:
+; 		CALL	RetInpStatus	;get input status. return. carry = 1 if data available
+; 		JR		NC,ReadChar		;wait if no character available
+; 		DI                      ;disable interrupts
+; 		LD		HL,inBufCount			;reduce input buffer count by 1
+; 		DEC		(HL)
+; 		LD		HL, (inHeadAdr)		;Get   character from head of input buffer
+; 		LD		C, (HL)
+; 		CALL	incInPointer			;Move head pointer up 1
+; 		LD		(inHeadAdr) ,HL
+; 		LD		A,C
+; 		EI						;Reenable interrupts
+; 		RET
+; 			;return input status (carry    =1   if input data is available)
+; RetInpStatus:
+; 		LD		A, (inBufCount)		;Test input buffer count
+; 		OR		A				;Clear carry always
+; 		RET		Z				; Return, carry = 0 if no data
+; 		SCF                     ;Set carry
+; 		RET                     ; Return. carry = 1 if data available
+; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-		ld 		ix,Comm_Ptr_list+2
-		ld 		b,list_len-2
-bmve:
-		ld 		a,(ix)
-		ld 		(ix+2),A
-		dec		ix
-		djnz 	bmve		; shift data uppåt...
 
-		LD		HL,(inHeadAdr)		;GET   CHARACTER FROM HEAD OF INPUT BUFFER
-		ld 		(Comm_Ptr_list),HL
-		ret
-		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+; 			; Save copies of inHeadAdr and inTailAdr to memory...
+; S_head_tail:
+
+; 		ld 		ix,Comm_Ptr_list+2
+; 		ld 		b,list_len-2
+; bmve:
+; 		ld 		a,(ix)
+; 		ld 		(ix+2),A
+; 		dec		ix
+; 		djnz 	bmve		; shift data uppåt...
+
+; 		LD		HL,(inHeadAdr)		;GET   CHARACTER FROM HEAD OF INPUT BUFFER
+; 		ld 		(Comm_Ptr_list),HL
+; 		ret
+; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 
@@ -342,19 +345,20 @@ InitBuffers:
 		ld		(OutINTExpect),A	; indicate no output interruptS
 		ld		(inBufCount),A		; buffer counters = 0
 		ld		(OutBufCount),A
-		call	cleanInBuffer
+		; call	cleanInBuffer
 		call	cleanOutBuffer
 		call 	InitInterruptVectors		; init interrupt vectors
 		ret
 
-cleanInBuffer:
-		sub		A					; A=0
-		ld		(inBufCount),A		; läsbuffert  = 0
-		ld 		(inbufferDeactivate),A  ; Nollställ flagga för deaktivering av läsbuffert (inaktivering > 0)...
-		ld		HL,inBuffer			; HL pekar på läsbuffert start
-		ld		(inHeadAdr),HL		; 
-		ld		(inTailAdr),HL		; läsbuffert start,slut = början på buffert
-		ret
+; cleanInBuffer:
+; 		sub		A					; A=0
+; 		ld		(inBufCount),A		; läsbuffert  = 0
+; 		ld 		(inbufferDeactivate),A  ; Nollställ flagga för deaktivering av läsbuffert (inaktivering > 0)...
+; 		ld		HL,inBuffer			; HL pekar på läsbuffert start
+; 		ld		(inHeadAdr),HL		; 
+; 		ld		(inTailAdr),HL		; läsbuffert start,slut = början på buffert
+; 		ret
+
 cleanOutBuffer:
 		sub		A					; zero A
 		ld		(OutBufCount),A
@@ -443,30 +447,35 @@ ReadINTHandler:
 		ld		C,A					; save data in register c
 
 		; 		kolla om escape sekvens
-		; cp 		ESC
-		; jp 		Z,FixESCSEQ_Init		; hantera escapesekvens vid första $1B tecknet
+		cp 		ESC
+		jp 		Z,FixESCSEQ_Init		; hantera escapesekvens vid första $1B tecknet
 
-		; ld 		HL,ESCsequence
-		; xor  	A						; A=0	
-		; cp 		(HL)					; kolla om (ESCsequence) är > 0 - pågående ESCsekvens
-		; jr 		NZ,FixESCSEQ			; om ESC: fortsätt läsa in
+		ld 		HL,ESCsequence
+		xor  	A						; A=0	
+		cp 		(HL)					; kolla om (ESCsequence) är > 0 - pågående ESCsekvens
+		jr 		NZ,FixESCSEQ			; om ESC: fortsätt läsa in
 
-		; ld 		A,(inbufferDeactivate)
-		; cp 		$00 					; = 0 		
-		; jr 		NZ,exitRHandler
+		ld 		A,(inbufferDeactivate)
+		cp 		$00 					; = 0 		
+		jr 		NZ,exitRHandler
 
 		ld		HL,inBufCount			; Är inbuffert full?
-		; ld		A, (HL)
-		; cp		bufferSize
-		; jr		NC,exitRHandler			; retur (NC) om ingen plats finns kvar
-
+		ld		A, (HL)
+		cp		bufferSize
+		jr		NC,exitRHandler			; retur (NC) om ingen plats finns kvar
 		inc		(HL)				; öka värde på bufferstorlek 
 
-		ld		HL, (inBufferPtr)		; HL pekar på inTailAdr  (strängslut)
+		ld 		HL,inBufferVal
+		inc 	(HL)				; signalera att nytt tecken finns ( >0 )	
+
+
+		ld		HL, (inBufferPtr)		; HL pekar på sista tecknet (strängslut)
 		inc 	HL
-		ld		(HL),C				; inläst värde (A=C) lagras i (inTailAdr) 
-			; call	incInPointer		; justera värde på pekare värde i HL.
+		ld		(HL),C				; inläst värde (A=C) lagras i (inBufferPtr) 
 		ld		(inBufferPtr), HL		; lagra ny pekaradress
+		inc 	HL
+		xor 	A
+		ld 	 	(HL),A				; Nollställ tecknet efter strängslut = '0'
 exitRHandler:
 		; ld 		A,00
 		; ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
@@ -976,17 +985,17 @@ CharToSIO_0:
 		; svar: hl = pekaren ökad inkl. 'wraparound'
 		; Använda register: af,de,hl
 		;***************************************
-incInPointer:
-		inc		HL					; öka pekarens värde
-		ld		DE,inBufferEnd		; jämför med värde för buffert maxvärde
-		ld		A,L
-		cp		E
-		ret		NZ					;retur om värdena är olika L-E
-		ld		A,H
-		cp		D
-		ret		NZ					;retur om värdena är olika H-D
-		ld		HL,inBuffer			;om pekaren har hamnat på max -> inBuffer (start).
-		ret                   	 	; retur med Z
+; incInPointer:
+; 		inc		HL					; öka pekarens värde
+; 		ld		DE,inBufferEnd		; jämför med värde för buffert maxvärde
+; 		ld		A,L
+; 		cp		E
+; 		ret		NZ					;retur om värdena är olika L-E
+; 		ld		A,H
+; 		cp		D
+; 		ret		NZ					;retur om värdena är olika H-D
+; 		ld		HL,inBuffer			;om pekaren har hamnat på max -> inBuffer (start).
+; 		ret                   	 	; retur med Z
 		
 		
 		;*************************************
