@@ -40,30 +40,32 @@ waitForKey:
 
 ReadLine:
 
-		ld 		HL,inBuffer 
-		ld		(inTailAdr), HL		; lagra  pekaradress till 'inBuffer'
+		; ld 		HL,inBuffer +1
+		ld		(inBufferPtr), HL		; lagra  pekaradress till 'Textbuf'
 		ld 		IX,ESCsequence
 		xor 	A				; nollställ A
 		ld 		(IX),A
 
-		ld  	A,'Z'
-		call	WriteChar				;skriv ut inmatat tecken
-
 R_LOOP:
+		
 		ld 		HL,($F960)
 		inc 	HL
 		ld 		($F960),HL
-
+		ei
 		halt 						; vänta på tangentslag - avbrott på 'ReadINTHandler'
+		; call 	chkRX				; resultat i A & C
+		
 
-		ld		HL, (inTailAdr)		; HL pekar på inTailAdr  (senaste tangent)
+		ld		HL, (inBufferPtr)		; HL pekar på inTailAdr  (strängslut)
+
 		ld 		A,(HL)					; hämta senaste tangent
-
+		push 	AF
+		call 	WriteChar
+		POP 	AF
 		; call	ReadChar				;läs inmatat tecken
-		push	AF
-		call	WriteChar				;skriv ut inmatat tecken
-		pop		AF
-		cp		CRChar					;vagnretur ?
+		di
+
+		cp		CR					;vagnretur ?
 		jr		NZ,R_LOOP				;återvänd ny loop om inte vagnretur
 
 
@@ -340,7 +342,7 @@ InitBuffers:
 		ld		(OutINTExpect),A	; indicate no output interruptS
 		ld		(inBufCount),A		; buffer counters = 0
 		ld		(OutBufCount),A
-		; call	cleanInBuffer
+		call	cleanInBuffer
 		call	cleanOutBuffer
 		call 	InitInterruptVectors		; init interrupt vectors
 		ret
@@ -430,38 +432,41 @@ SIO_Init:
 ;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 ;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 ReadINTHandler:
+
+
+
 		push	AF				;SAVE REGISTERS
 		push	BC
 		push	DE
 		push   	HL
-	
 		in		A,(SIO_A_D)			; läs data från  SIO_A
 		ld		C,A					; save data in register c
 
 		; 		kolla om escape sekvens
-		cp 		ESC
-		jp 		Z,FixESCSEQ_Init		; hantera escapesekvens vid första $1B tecknet
+		; cp 		ESC
+		; jp 		Z,FixESCSEQ_Init		; hantera escapesekvens vid första $1B tecknet
 
-		ld 		HL,ESCsequence
-		xor  	A						; A=0	
-		cp 		(HL)					; kolla om (ESCsequence) är > 0 - pågående ESCsekvens
-		jr 		NZ,FixESCSEQ			; om ESC: fortsätt läsa in
+		; ld 		HL,ESCsequence
+		; xor  	A						; A=0	
+		; cp 		(HL)					; kolla om (ESCsequence) är > 0 - pågående ESCsekvens
+		; jr 		NZ,FixESCSEQ			; om ESC: fortsätt läsa in
 
 		; ld 		A,(inbufferDeactivate)
 		; cp 		$00 					; = 0 		
 		; jr 		NZ,exitRHandler
 
 		ld		HL,inBufCount			; Är inbuffert full?
-		ld		A, (HL)
-		cp		bufferSize
-		jr		NC,exitRHandler			; retur (NC) om ingen plats finns kvar
+		; ld		A, (HL)
+		; cp		bufferSize
+		; jr		NC,exitRHandler			; retur (NC) om ingen plats finns kvar
 
 		inc		(HL)				; öka värde på bufferstorlek 
-		ld		HL, (inTailAdr)		; HL pekar på inTailAdr  (strängslut)
+
+		ld		HL, (inBufferPtr)		; HL pekar på inTailAdr  (strängslut)
 		inc 	HL
 		ld		(HL),C				; inläst värde (A=C) lagras i (inTailAdr) 
 			; call	incInPointer		; justera värde på pekare värde i HL.
-		ld		(inTailAdr), HL		; lagra ny pekaradress
+		ld		(inBufferPtr), HL		; lagra ny pekaradress
 exitRHandler:
 		; ld 		A,00
 		; ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
@@ -578,6 +583,7 @@ chkRX:
 		jr 		z,chkRX			; kolla igen (loopa)
 
 		in 		A,(SIO_A_D)		; läs in tecken 
+		ld 		C,A
 		ret
 
 ;******************************************************************************

@@ -141,8 +141,8 @@ MONITOR_Start:
 		endif
 
 
-		call 	writeSTRBelow
-		defb   	0,"\e[4h",0				; cursor insert mode !
+		; call 	writeSTRBelow
+		; defb   	0,"\e[4h",0				; cursor insert mode !
 		; defb   	0,ESC,"[33;44;3;4m",0
 		; defb   	0,ESC,"[91;1m",0
 	
@@ -236,6 +236,7 @@ gem1:
 
 		ld 		iy,T_BUFFER
 		call 	WriteLine
+		call 	waitForFinishedPrintout
 
 		ld  	SP,(SP_valueP)			;återställ värde på stackpek SP innan POP BC
 	;***************************************************************
