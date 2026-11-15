@@ -289,9 +289,9 @@ SD_USB_startup:
 			call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
 		ld 		A,$3E
 		out 	(gpio_out),A
-			call	S_head_tail			; save input heads and tails
-		ld 		A,$3F
-		out 	(gpio_out),A
+			; call	S_head_tail			; save input heads and tails
+		; ld 		A,$3F
+		; out 	(gpio_out),A
 	
 	else
 	
@@ -300,7 +300,7 @@ SD_USB_startup:
 		call	PIO_Init
 		call 	CTC_Init
 		call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-		call	S_head_tail			; save input heads and tails
+		; call	S_head_tail			; save input heads and tails
 	endif
 
 		; call	sh_test

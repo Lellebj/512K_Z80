@@ -127,9 +127,7 @@ MONITOR_Start:
 			ld 		A,$DF
 			out 	(gpio_out),A
 
-			call	S_head_tail			; save input heads and tails
-			ld 		A,$81
-			out 	(gpio_out),A
+			; call	S_head_tail			; save input heads and tails
 		else 
 
 			CALL 	InitBuffers			;INITIALIZE in/Out buffers,	;INITIALIZE SIO_0. INTERRUPT SYSTEM
@@ -137,7 +135,7 @@ MONITOR_Start:
 			call	PIO_Init
 			call 	CTC_Init
 			call 	SIO_Init			; LEV_Sect11_IO_Interrupts.s
-			call	S_head_tail			; save input heads and tails
+			; call	S_head_tail			; save input heads and tails
 		endif
 
 
@@ -343,7 +341,7 @@ nextInList:
 inputerror:
 		push   	HL
 		call 	writeSTRBelow
-		DB 		0,"Oläsligt kommande... ! ",00
+		DB 		0,"Oläsligt kommando... ! ",00
 		pop 	DE
 		call 	putDEtoScreen
 		call 	CRLF
