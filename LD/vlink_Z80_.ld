@@ -60,12 +60,14 @@
 	PROVIDE( PCvalue		=	0x12A + _String_HEAP);		/* actual PC value , 2 bytes */
 	PROVIDE( PCinpFlag		=	0x12C + _String_HEAP);		/* indicates input of typed address 2 byte */
 	PROVIDE( generalFlags	=	0x12E + _String_HEAP);		/* indicates general flags, 2 byte */
-	PROVIDE( bufferSize		=	0x64		);				/*;SIZE OF INgeneral flags,  */
+	PROVIDE( bufferSize		=	0x60		);				/* bufferlängd   */
 	PROVIDE( inBuffer  		 =	0x130 + _String_HEAP);			/*	INPUT BUFFER */
-	PROVIDE( inBufferEnd	=	0x194 + _String_HEAP);      	/*;END OF INPUT BUFFER */
-	PROVIDE( inbufferDeactivate = 0x196+ _String_HEAP); 		/* if > 0: do not update inbuffer at char read */			
+	PROVIDE( inBufferPtr	=	0x190 + _String_HEAP);      	/* Extrapekare för inbuffer */
+	PROVIDE( inBufferEnd	=	0x194 + _String_HEAP);      	/* slutmarkör för inbuffer */
+	PROVIDE( inbufferDeactivate = 0x196+ _String_HEAP); 		/* om > 0: uppdatera INTE läsbuffer vid avbrottshantering */			
+	PROVIDE( ESCsequence	= 	0x197 + _String_HEAP); 			/* om > 0: hantera escape sekvens vid inmatning, läsbuffer används ej. */			
 	PROVIDE( memBankID		= 	0x198 + _String_HEAP); 			/* memoryBank value  b7-flash on/off b4-6:EEPBank b0-3:RAMBank */	
-	PROVIDE( rstBankID		= 	0x199 + _String_HEAP); 			/* reset memoryBank  b3-flash on/off b2 reset inhibit/ b0 OE IC62 */	
+	PROVIDE( rstBankID		= 	0x199 + _String_HEAP); 			/* minnesbank  bit3-flash på av bit2 förhindra reset av krets IC622 bit0 OE för IC620 */	
 
 	PROVIDE( inHeadAdr		=	0x19A + _String_HEAP);			/*	address of oldest character in input buffer DS	2	*/
 	PROVIDE( inTailAdr		=	0x19C + _String_HEAP);			/*	address of newest character in input buffer DS	2	*/
@@ -118,16 +120,19 @@
 	PROVIDE( endOutBuffer	=	0x370 + _String_HEAP);	/*		END OF OUTPUT BUFFER */
 
 	PROVIDE( list_len		=	0x48	);				/*	 length of command pointer list */
-	PROVIDE( Comm_Ptr_list	=	0x380 + _String_HEAP); 	/*	 command pointer list */
+	PROVIDE( Comm_Ptr_list	=	0x380 + _String_HEAP); 	/*	 command pointer list  L=0x80*/
 
 	SIO_PIO_CTC_stack		=	0x400 + _String_HEAP ;    	  	/* Interrupt vektorer för IO-kretsarna  (FC00) $20 bytes*/
 	
 	/*   C-Kermit */
-	PROVIDE( PktLen 		=  0x420 + _String_HEAP) ; 		/* C-kermit paketlängd  */
-	PROVIDE( PktSeq     	=  0x421 + _String_HEAP) ;  		/* C-kermit sekvensnummer  */
-	PROVIDE( PktType    	=  0x422 + _String_HEAP) ;  		/* C-kermit paket typ  */
-	PROVIDE( PktData    	=  0x424 + _String_HEAP) ; 	/* MAX_BUFF ; Reservera minne för inkommande data $100 bytes  */
-
+	PROVIDE( PktLen 		=  0x420 + _String_HEAP) ; 		/* C-kermit paketlängd  2 byte */
+	PROVIDE( PktSeq     	=  0x422 + _String_HEAP) ;  		/* C-kermit sekvensnummer 1 byte */
+	PROVIDE( PktType    	=  0x423 + _String_HEAP) ;  		/* C-kermit paket typ  1 byte */
+	PROVIDE( PktStart    	=  0x424 + _String_HEAP) ;  		/* C-kermit paket typ  adress för paketstart inkl. längd 2 byte */
+	PROVIDE( PktSlut    	=  0x426 + _String_HEAP) ;  		/* C-kermit paket typ  adress för paketslut sista data 2 byte */
+	PROVIDE( PktCHSum    	=  0x428 + _String_HEAP) ;  		/* C-kermit paket typ  Checksumma för paket 2 byte */
+	PROVIDE( PktData    	=  0x42A + _String_HEAP) ; 	/* MAX_BUFF ; Reservera minne för inkommande data $100 bytes  */
+						/*  Nästa adr   0x52A + _String_HEAP   */
 /*	PROVIDE( packetBaseAddress = 	0x480 + _String_HEAP);  Används ej  */
 /*	PROVIDE( prevPacketByte01	=	0x580 + _String_HEAP);  Används ej 	*/
 

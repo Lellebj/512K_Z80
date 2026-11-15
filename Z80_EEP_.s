@@ -85,7 +85,7 @@ setBanks:
 		call 	enableFLASH			; använd och starta från FLASH
 	endif
 
-		xor 	A
+		xor 	A					; A=0
 		call 	setSRAMBank			; ram bank #0
 
 	ifd 	GPIODEBUG

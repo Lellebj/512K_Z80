@@ -140,10 +140,29 @@ MONITOR_Start:
 			call	S_head_tail			; save input heads and tails
 		endif
 
-		; call	sh_test
-		; call 	Flash_WR_Test
-		; ld	HL,$2010
-		; call	Flash_SE_Erase
+
+		call 	writeSTRBelow
+		defb   	0,"\e[4h",0				; cursor insert mode !
+		; defb   	0,ESC,"[33;44;3;4m",0
+		; defb   	0,ESC,"[91;1m",0
+	
+; ESC  [   4   h
+; 033 133 064 150
+; Set selects insert mode and turns INSERT on. New display characters move old display characters to the right. Characters moved past the right margin are lost.
+; ESC  [   4   l
+; 033 133 064 154
+
+;Reset selects replace mode and turns INSERT off. New display characters replace old display characters at cursor position. The old character is erased.	
+
+;  https://man.archlinux.org/man/console_codes.4.en	
+
+;  *  ESC [ m           turn off attributes - normal video
+;  *  ESC [ 0 m         turn off attributes - normal video
+; !*  ESC [ 4 m         turn on underline mode 
+;  *  ESC [ 7 m         turn on inverse video mode
+;  *  ESC [ 1 m         highlight
+;  *  ESC [ 5 m         blink
+
 
 
 		call	CRLF
@@ -168,6 +187,9 @@ next_line:
 		; ***	visa minnesbanker SRAM   S[y]  SRAM minnesbank y
 				; om bit 3 (rstBankID) = 1  FLASH minne är inte vald
 				; om bit 3 (rstBankID) = 0 FLASH minne är 0-32 k och SRAM övre 32k
+	;***************************************************************
+	;	Skriv ut kommandoprompt med parametrar
+	;***************************************************************
 
 		ld 		A,(rstBankID)
 		bit 	3,A					; bit 3 set -> 64kSRAM
@@ -209,27 +231,26 @@ gem1:
 
 		ld 		HL,T_BUFFER+1 			; ange output buffer T_BUFFER+1	
 
-		call 	addStrBelowToPrintQueue   ; skriv ut kommandoprompt
+		call 	addStrBelowToPrintQueue   ; skriv ut kommandoprompt med parametrar på stacken....
 		defb 	0,p_C1,"[",p_C1,"][",p_H4,"]=",p_H4,"->",0
 
 		ld 		iy,T_BUFFER
 		call 	WriteLine
 
 		ld  	SP,(SP_valueP)			;återställ värde på stackpek SP innan POP BC
-
+	;***************************************************************
+	;	läs in kommandorad till 'Textbuf' - början på _String_HEAP
+	;***************************************************************
 		ld 		hl,Textbuf
-		call 	ReadLine
+		call 	ReadLine		; läs in kommandorad till 'Textbuf' - början på _String_HEAP
+								; finns i filen LEV_Sect11_IO_interrupts.s	
 
 		ld 		iy,Textbuf
 		call	WriteLine_CRLF
 
-		;***  	compare input
-		; ld 		HL,Textbuf
-		; ld 		DE,command_list+2
-		; call	strCompare
 
 	;***************************************************************
-	;	Find /Identify command:
+	;	Identifiera kommando från tabellen 'command_list'
 	;***************************************************************
 
 		ld 		HL,Textbuf
@@ -841,26 +862,10 @@ p_go:
 		ld 		A,(TempVar1)
 		inc 	A
 		ld 		(TempVar1),A
-		cp 		15
-		ld 		IX,$1234
-		ld		IY,$5678
-		ld 		A,$55
 
-		LD 		BC,$789A
-		LD 		DE,$BCDE
-		LD 		HL,$F0F1
+		ld A,$59 
+		cp $60
 
-		exx
-		ex		af,af'
-		ld 	a,18
-		LD 		BC,$1234
-		LD 		DE,$ABCD
-		LD 		HL,$F0F1
-		sub 	D 		; sign  minus ?
-		exx
-		ex		af,af'
-		xor 	A
-		scf
 		call 	DumpRegisters
 		
 		ret 	
@@ -972,14 +977,20 @@ p_kerm:			;***  	Filöverföring från PC via kermit
 		; bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
 		; jr 		Z,.nxta
 		; ***	check the commLvl1 if zero
+
+		ld 		HL,commAdr1
+		call	checkZero16 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
+		jr 		NZ,.adrAngiven 		; Visa minnesinnehåll. adress och mängd angiven !
+
+		; ***	Enbart mängd data som ska visas angiven...
+		ld 		HL,(PCvalue)				; HL = start address
+		ld 		(commAdr1),HL 			; temporär plats PCvalue
+
 		ld 		DE,(commLvl1)
+.adrAngiven:
 .nxta:		
 
-	ifndef BOOTLOAD			; används ej vid FLASH startsekvenser
-		xor  	A
-		ld  	($A004),A    ; val för stat av lagring av paket
 		call 	doImportKERMIT
-	endif
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
 		ret
@@ -1224,8 +1235,9 @@ p_FON:
 p_FON_No_Print: 		;; ***  Activate FLASH MEMORY (set 64K_SRAM signal 0) without printout		
 	push 	HL
 	ld 		HL,rstBankID
-	res 	3,(HL)				; clear bit 3 -> enable FLASH
-	res 	2,(HL)				; temp enable reset of IC622
+	res 	3,(HL)			; möjliggör reset av krets IC622
+	res 	2,(HL)			; bit 3 -> använd INTE FLASH minne
+						;rstBankID:	minnesbank  bit3-flash på/av: bit2 förhindra reset av krets IC622: bit0 OE för IC620 
 putBankF:
 	ld 		A,(HL)
 	out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
@@ -1246,8 +1258,9 @@ p_FOFF:
 p_FOFF_No_Print:		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1) without printout
 	push 	HL
 	ld 		HL,rstBankID
-	set 	2,(HL) 			; temp disable reset of IC622
-	set 	3,(HL)			; set bit 3 -> disable FLASH
+	set 	2,(HL) 			; förhindra reset av krets IC622
+	set 	3,(HL)			; bit 3 -> använd FLASH minne
+						;rstBankID:	minnesbank  bit3-flash på/av: bit2 förhindra reset av krets IC622: bit0 OE för IC620 
 	jr 		putBankF
 	; ld 		A,(HL)
 	; out 	(_CE_RST_BANK),A		; set bank register number 0 and 64K_SRAM=1	
@@ -1566,12 +1579,12 @@ textloop:
 ; 		ld	a,018h				;write into WR0: channel reset
 ; 		out (SIO_A_C),A 
 
-; 		ld	a,004h				;write into WR0: select WR4
+; 		ld	a,WR4				;write into WR0: select WR4
 ; 		out	(SIO_A_C),A
 ; 		ld	a,44h				;44h write into WR4: clkx16,1 stop bit, no parity
 ; 		out (SIO_A_C),A
 
-; 		ld	a,005h				;write into WR0: select WR5
+; 		ld	a,WR5				;write into WR0: select WR5
 ; 		out (SIO_A_C),A
 ; 		ld	a,01101000b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS inactive (bit 2)
 ; 		ld	a,01101010b			;NO DTR , TX 8bit, BREAK off, TX on(4), RTS active (bit 2)

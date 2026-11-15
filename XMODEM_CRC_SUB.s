@@ -5,6 +5,7 @@
 		xdef 	RAM_Start,SetupXMODEM_TXandRX,purgeRXA,purgeRXB,TX_EMP,TX_NAK,TX_ACK,SIO_A_DI,SIO_A_EI,SIO_A_RESET
 		xdef 	SIO_A_RTS_OFF,SIO_A_RTS_ON,SIO_A_TXRX_INToff,SIO_A_TXon,SIO_A_RXon,SIO_A_TXRX_INTon,TX_C,TX_X
 		xdef 	doImportXMODEM, doImportKERMIT, CRC16
+		GLOBAL 	KermitACK, KermitNAK
 ;********************************************************		
 ;		Routines in order to read data via XMODEM on SIO_0 chA
 ;********************************************************		
@@ -24,7 +25,31 @@ EO_CH_AV:
 		call	SIO_A_RTS_ON		;see comments below
 		pop		AF				;restore AF
 		Reti
-	
+
+		;***	stäng av wait funktion
+		;***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
+Stop_WaitRDY:
+		push 	af
+		ld		A,WR1			;Skriv SIO skrivreg  WR0: ange skrivregister 1 WR1
+		out		(SIO_A_C),A
+		ld		A,_WAIT_READY_R_T|_Rx_INT_First_Char		;stäng av wait funktion från nu
+		out		(SIO_A_C),A
+		pop 	af
+		ret	
+		;***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
+
+		;***	starta av wait funktion
+		;***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
+Start_WaitRDY:
+		push 	af
+		ld		A,_EN_INT_Nxt_Rx_Char|WR1				;skrivreg 0 ange WR1 ( sätt igång  INT när nästa tecken finns)
+		out		(SIO_A_C),A
+		; ld		A,_Rx_INT_First_Char			;'wait' aktiverat , interrupt vid nästa RX tecken 
+		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T		;'wait' aktiverat , ej interrupt  
+		out		(SIO_A_C),A		;buffer overrun is a spec RX condition
+		pop 	af
+		ret
+		;***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
 
 SPEC_RX_CONDITON:
 		jp		0000h
@@ -36,19 +61,20 @@ SPEC_RX_CONDITON:
 doImportKERMIT:
 
 		call 	writeSTRBelow
-		DB 		0,"Väntar på minicom wermit... ",CR,LF,00
+		DB 		0,"Väntar på minicom kermit... ",CR,LF,00
 		xor 	A
 		;		*** 	läs in tecken till dess ^A [01] hittas.
 
-
+		call 	waitForFinishedPrintout		; vänta på utskrift till skärm.
+		
 		;------------INIT SIO för KERMIT----------------------------------------
 
 		; ld 		HL,(commAdr1)
 
 		ld		HL,recMinicomTecken      	; Avbrott för SIO A, när tecken kommer från minicom
 		ld		(SIO_Int_Read_Vec),HL		; spara avbrottsvektor (recMinicomTecken) i SIO_Int_Read_Vec
-		ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
-		out		(SIO_A_C),A
+		; ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
+		; out		(SIO_A_C),A
 		ld		A,_EN_INT_Nxt_Rx_Char|WR1			;skrivreg 0 ange WR1 ( sätt igång  INT när nästa tecken finns)
 		out		(SIO_A_C),A
 		ld		A,_Rx_INT_First_Char		;'wait' aktiverat , interrupt vid nästa RX tecken 
@@ -60,114 +86,151 @@ doImportKERMIT:
 		ld 		HL,(commAdr1)
 		ld 		C,1					; block number
 		xor  	A
+
 nextC:		
-		ei
 
 MainLoop:
-		out  	($60),A					; start pulseview
 
+		ei
 		call 		WaitForNextChar					; vänta på avbrott från SIO/CTC  avbrott rutin 'recMinicomTecken', resultat A/E
-
-		; ld		A,_EN_INT_Nxt_Rx_Char|WR1				;skrivreg 0 ange WR1 ( sätt igång  INT när nästa tecken finns)
-		; out		(SIO_A_C),A
-		; ld		A,_Rx_INT_First_Char			;'wait' aktiverat , interrupt vid nästa RX tecken 
-		; ; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char			;'wait' aktiverat , interrupt vid nästa RX tecken 
-		; out		(SIO_A_C),A		;buffer overrun is a spec RX condition
+		; 							; avbrott: recMinicomTecken aktiverar WAIT/RDY, resultat i A och E. HL-> (XBaddr)
+		call 		Start_WaitRDY		; starta wait/RDY igen, för nästa tecken
 		; ei
 
 
 		; call 	SIO_A_RTS_ON			; 8 bitars teckenlängd (6&5), break (4), TX enable, RTS enable
 
-		; halt						;vänta på första tecken SIO A
-		; 							; avbrott: recMinicomTecken, resultat i A och E. HL-> (XBaddr)
 
 		; call 	SIO_A_RTS_OFF			; 8 bitars teckenlängd (6&5), ingen break (4), TX enable
 
-		; ***	stäng av wait funktion
-		; ***	************************
-		ld		A,WR1			;Skriv SIO skrivreg  WR0: ange skrivregister 1 WR1
-		out		(SIO_A_C),A
-		ld		A,_WAIT_READY_R_T|_Rx_INT_First_Char		;stäng av wait funktion från nu
-		out		(SIO_A_C),A
-		; ***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
+		; call 	Stop_WaitRDY
 
 		ld  	A,E
 		cp		SOH					;Sök 'MARK' /SOH  ^A
-		jp		Z,getLength		; om inte; sök nytt tecken.
-		call 	TX_EMP				; skriv ut tecken till SIO
-		jr  	MainLoop
+		jp		NZ,MainLoop		; om inte; sök nytt tecken.
+		ld 		DE,00			; typ 1 block check  (börjar med längd -> slut datapaket)
 
 		; ***	Paket längd (kodad)
 		; ***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
 getLength:
-	
-        call InChar
-            ld b, a         ; Spara rå-längd för checksumma
-            add a, c
-            ld c, a         ; Uppdatera checksumma
-            ld a, b
-		sub CHAR_OFFSET 
-		ld (PktLen), a				; Avkodad längd i A sparas i PktLen
-		ld b, a        				 ; B = Loopräknare för resten av paketet (exkl. MARK & LEN)
+   		out  	($70),A					; start pulseview
+
+			in a, (SIO_A_D) ; Läs datat  wait/RDY aktiverat
+            ; call 	InChar					; SIO läser in till A !
+		call 	UppdateraBlockCheck	; uppdatera blockcheck i DE med inläst värde (A är oförändrad!)
+
+		sub 	CHAR_OFFSET 
+		ld 		(PktLen), A				; Avkodad längd i A sparas i PktLen
+		ld 		B,00
+		ld 		C,A        			 ; BC = Loopräknare för resten av paketet (exkl. MARK & LEN) (B oförändrat 0)
 
 		; ***	Sekvensnummer
 		; ***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
-        call InChar
-            ld d, a         ; Spara rå-sekvens
-            add a, c
-            ld c, a         ; Uppdatera checksumma
-            ld a, d
-		sub CHAR_OFFSET
-		ld (PktSeq), a				; Avkodad sekvensnummer i A sparas i PktSeq
-		dec b
+			in a, (SIO_A_D) ; Läs datat  wait/RDY aktiverat
+           ; call 	InChar					; SIO läser in till A !
+		call 	UppdateraBlockCheck	; uppdatera blockcheck i DE med inläst värde A är oförändrad!
+		ld 		(PktSeq), A				; Oavkodad sekvensnummer i A sparas i PktSeq
+		sub 	CHAR_OFFSET
+		dec 	C						; minska byte-räknare.... Avkodad sekvensnr.
 
 		; ***	Läs pakettyp
 		; ***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
-        call InChar
-		ld (PktType), a				; Avkodad sekvensnummer i A sparas i PktType
-            add a, c
-            ld c, a         ; Uppdatera checksumma
-		dec b
-
-		; ***	Läs Datafält
+			in a, (SIO_A_D) ; Läs datat  wait/RDY aktiverat
+            ; call 	InChar					; SIO läser in till A !
+		ld 		(PktType), A			; Avkodad sekvensnummer i A sparas i PktType
+		call 	UppdateraBlockCheck		; uppdatera blockcheck i DE med inläst värde A är oförändrad!
+		dec 	C						; minska byte-räknare....
+		dec 	C
+		
+		; ***	Kolla om långa datapaket används
 		; ***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
+		ld  	A,(PktLen)
+		or  	A			; längd satt till '0'
+		jr 	 	NZ,.normalDpaket		; normalt paket ...
+		ld 		A,(PktType)
+		cp 		'D'
+		jr 	 	NZ,.normalDpaket        ; inget datapaket
 
-        ld hl, PktData
+				; läs in långa datapaket (längd nästa två bytes)
+				; ***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
+			in a, (SIO_A_D) ; Läs datat högbyte wait/RDY aktiverat
+           ; call 	InChar					; SIO läser in till A !
+			call 	UppdateraBlockCheck	; uppdatera blockcheck i DE med inläst värde A är oförändrad!
+			push  	HL 				; spara slutadress för block
+			push  	DE 				; spara blockcheck
+				sub 	CHAR_OFFSET
+				ld 	 	B,A 			; fixa multiplikation  95 * högbyte(avkodat värde i A)
+				ld 		DE,$5F
+				ld  	HL,00
+.multhbyte:
+				add 	HL,DE
+				djnz 	.multhbyte
+
+			in a, (SIO_A_D) ; Läs datat lågbyte wait/RDY aktiverat
+            ; call 	InChar					; SIO läser in till A !
+				ld 		B,A					; spara A
+				sub 	CHAR_OFFSET
+				ld  	D,0
+				ld 		E,A
+				add 	HL,DE			; lägg till lågbyte -> HL. Carry aldrig 1
+				
+			pop  	DE 				; återställ blockcheck
+			ld  	A,B				; läs tillbaka lågbyte (A)
+			call 	UppdateraBlockCheck	; uppdatera blockcheck i DE med inläst värde A är oförändrad!
+
+			in 		A,(SIO_A_D) ; Läs HCHECK  (wait/RDY aktiverat)	
+			call 	UppdateraBlockCheck	; uppdatera blockcheck i DE med inläst värde A är oförändrad!
+
+				ld 	 	B,H
+				ld 		C,l			; BC är antalet bytes vid långa paket
+			pop 		HL 				; återställ slutadress för block
+			dec 	BC 
+				
+		; ***	Läs Datafält  <BC> stycken bytes..
+		; ***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
+.normalDpaket:
+
+			; ld 		HL, PktData
 RecvDataLoop:
-            ld a, b   			 ; A/B = Loopräknare för resten av paketet (exkl. MARK & LEN)
-            cp 1            ; Sista byten är Checksumman
-            jr z, VerifyCheck
-            
-            push bc
-            push hl
-            call InChar
-            pop hl
-            pop bc
-            
+         			 ; BC = Loopräknare för resten av paketet (exkl. MARK & LEN)
+            ld 	A,B				; kolla specialfall där B = 0, C = 0 (dvs. inget datafält)
+			or 	C
+			jr 	 Z,TomData
+
+			in a, (SIO_A_D) ; Läs datat  wait/RDY aktiverat
+         	call 	UppdateraBlockCheck	; uppdatera blockcheck i DE med inläst värde A är oförändrad!
+   
             ld (hl), a
-            add a, c
-            ld c, a         ; Uppdatera checksumma
             inc hl
-            dec b
-            jr RecvDataLoop
+            dec BC 
+			jr 		RecvDataLoop
+			;- - - - - - - 
 
-VerifyCheck:
-            ; 6. Kontrollera checksumma
-            call InChar   			  ; Läs inkommande checksumma
-            ld d, a        			 ; D = Mottagen checksumma
+TomData:				; hoppar hit om inget datafält finns (B=0, C=0)
+			; 6. Kontrollera block check 
+			; ld  	HL,PktCHSum
+			in a, (SIO_A_D) ; Läs filens block check wait/RDY aktiverat
+			; ld 		(HL), a						; spara block check (1byte från host)
+           	ld 		d, a        			 ; D = Mottagen block check 
 
-            ; Beräkna Kermit-stil checksumma: ((c + (c & 0xC0)/0x40) & 0x3F) + 0x20
-            ld a, c
-            and 0xC0
+			in a, (SIO_A_D) ; Läs datat 'CR' ($0D) wait/RDY aktiverat
+           ; call 	InChar					; SIO läser in till A !
+			; cp 		CR
+			; jp 		nz, CRCheck
+
+            ; Beräkna Kermit-typ1 block check : ((c + (c & 0xC0)/0x40) & 0x3F) + 0x20
+            ld 		A,E					; läs låg byte från DE
+            and 	0xC0
             rlca
             rlca
-            add a, c
-            and 0x3F
-            add a, CHAR_OFFSET ; A = Beräknad kodad checksumma
+            add 	A,E
+            and 	0x3F
+            add 	a, CHAR_OFFSET 		; A = Beräknad kodad block check 
 
-            cp d
-            jp nz, BadCheck
+            cp 		D				; jämför block check (om 1byte metod anv.) (beräknad) med värde från host.
+            jp 		nz, BadCheck
 
+			call 	Stop_WaitRDY		; stäng av wait/RDY för SIO-CPU, ej SIO interrupt
 
             ; Analysera pakattyp
             ld a, (PktType)
@@ -175,6 +238,8 @@ VerifyCheck:
             jr z, HandleS
             cp 'F'          ; File Header packet?
             jr z, HandleF
+            cp 'A'          ; Attribute packet?
+            jr z, HandleA
             cp 'D'          ; Data packet?
             jr z, HandleD
             cp 'Z'          ; End of File (EOF)?
@@ -185,34 +250,80 @@ VerifyCheck:
 
             or a            ; Clear Carry = OK paket checksum
             ret
+UppdateraBlockCheck:
+           	push 	AF         ; Spara oavkodat värde i B 
+            add 	A,E			; genererar ev carry flagga
+			ld 		E,A			; uppdatera E
+			pop 	AF			; återställ värde i A.
+			ld 	(PktCHSum),DE	; uppdatera block check värde i DE till PktCHSum
+			ret  	nc		; retur utan carry
+			inc d				; addera 1 till D om carry, ny block check i DE
+			ld 	(PktCHSum),DE	; uppdatera block check värde i DE till PktCHSum
+			ret				; retur med carry 
+.nocarry:			 
+
+
 
 HandleS:
-            ; Svara med ACK på Send-Init
-            call KermitACK
-            jp MainLoop
+           ; Svara med ACK på Send-Init
+           call KermitACK
+		   jp MainLoop
 
 HandleF:
-            ; Här kan du extrahera filnamn om du har ett filsystem (t.ex. CP/M)
-            call KermitACK
+           ; Här kan du extrahera filnamn om du har ett filsystem (t.ex. CP/M)
+            call KortKermitACK
+            jp MainLoop
+
+HandleA:	; Attribut, tid, storlek mm.
+            ; Skriv ut eller lagra rådata (avkodad)
+            ; call ProcessData
+            call KortKermitACK
             jp MainLoop
 
 HandleD:
-            ; Skriv ut eller lagra rådata (avkodad)
+           ; Skriv ut eller lagra rådata (avkodad)
             ; call ProcessData
             call KermitACK
             jp MainLoop
 
 HandleZ:
-            call KermitACK
+            call KortKermitACK
             jp MainLoop
 
 HandleB:
-            call KermitACK
+           call KortKermitACK
             ; Överföring klar!
             ; halt
+			call 	restoreSIO_0IO 			; get normal keyboard/screen function
+			call 	waitForFinishedPrintout		; vänta på utskrift till skärm.
+	
+			call 	writeSTRBelow_CRLF
+			defb    "\0\r\n"
+			defb	"Filen inläst OK !",00
 
             scf             ; Set Carry = Fel checksumma paket
             ret
+
+
+
+BadCheck:
+
+		; halt
+		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+		call 	writeSTRBelow_CRLF
+		defb    "\0\r\n"
+		defb	"Checksummafel för kermit inträffade!",00
+		ret
+
+; CRCheck:
+
+; 		; halt
+; 		call 	restoreSIO_0IO 			; get normal keyboard/screen function
+; 		call 	writeSTRBelow_CRLF
+; 		defb    "\0\r\n"
+; 		defb	"Sista tecken inte CR !!!",00
+; 		ret
+
 
 
 
@@ -220,6 +331,93 @@ Error:
             ; Vid fel, skicka NAK för att begära omsändning
             call KermitNAK
             jp MainLoop
+
+
+		; 	Verifiera OK - kort sträng	
+		;********************************************************************************************     
+KortKermitACK:
+			push  	BC
+			ld 		IX,KortAckStr
+			jr 		GemAck
+
+		; 	Verifiera OK - lång sträng	
+		;********************************************************************************************     
+KermitACK:
+			push  	BC
+			ld 		IX,AckStr
+GemAck:
+			ld 		A,(PktSeq)		; sekvensnummer ej avkodat
+			ld  	(IX+2),A	; fixar sekvensnummer +32 i sträng
+			
+			ld  	A,(IX+1)	; ladda längd +32 från strängen
+			sub 	A,CHAR_OFFSET	; längd avkodad
+			ld 	 	B,A
+
+			ld  	a,00			; start checksumma
+			push  	IX 				; spara IX antingen för kort eller lång ACK
+.CHsumCount:
+			add  	A,(IX+1)		; addera alla värden fram till checksumma
+			inc  	IX
+
+			djnz 	.CHsumCount		
+			; (IX+1) pekar på checksumman
+			ld  	C,A				; slutsumman i C
+			; Beräkna Kermit-typ1 checksumma: ((A + (A & 0xC0)/0x40) & 0x3F) + CHAR_OFFSET
+            and 0xC0
+            rlca
+            rlca
+            add a, c
+            and 0x3F
+            add a, CHAR_OFFSET ; A = Beräknad kodad checksumma
+	
+			ld  	(IX+1),A	; fixar checksum +32 i strängen
+
+			pop 	IX			; återställ IX till start av ACK sträng (kort eller lång)
+			; ld 		IX,AckStr	
+			ld 		A,(IX+1)			; läs längd (LEN) till A
+			add 	A,3
+			sub 	A,CHAR_OFFSET			; avkodad längd
+			ld  	B,A				; loopa genom alla värden
+.ACKloop:
+			ld 		A, (IX)
+            call 	P_TX_EMP
+			inc 	IX
+			djnz 	.ACKloop
+
+			pop 	BC
+            
+			ret
+			;     MARK, 			LEN ,			SEQ, TYPE, MAXL, TIMO, NPAD, PADC, EOL,  QCTL, EBQ, BCT, RPT, 		CAPAS,    		WSLOTS, MaxLx1, Maxl2,  chksum, CR
+AckStr: 	defb  MARK, AckEnd-AckStr-3+CHAR_OFFSET, 0,	  'Y', '~', 0x2F, 0x20, 0x40, CR+32, '#', 'N', '1',  '~', %00110110+CHAR_OFFSET, 0x20,   0x35,   0x55,   	0,  CR
+																																	;	2*95 +32
+AckEnd:		defb 	AckEnd-AckStr
+			even
+KortAckStr: defb  MARK, 3+CHAR_OFFSET, 				0,	  'Y',  	0,  CR
+
+KortAckEnd:	defb 	KortAckEnd-KortAckStr
+			even
+
+		; ***	Utskrift till C-Kermit/wermit
+		;********************************************************************************************     
+KermitNAK:
+            ld a, MARK
+            call P_TX_EMP
+            ld a, 3 + CHAR_OFFSET
+            call P_TX_EMP
+            ld a, (PktSeq)
+            add a, CHAR_OFFSET
+            call P_TX_EMP
+            ld a, 'N'       ; 'N' = NAK
+            call P_TX_EMP
+            ld a, 0x20 + 40 ; Förenklad exempelchecksumma för NAK
+            call P_TX_EMP
+ 			ld 	A,CR
+            call P_TX_EMP
+           ret
+
+					
+
+;********************************************************************************************     
 
 
 
@@ -257,16 +455,6 @@ Error:
 
 
 
-
-
-BadCheck:
-		call 	restoreSIO_0IO 			; get normal keyboard/screen function
-		call 	writeSTRBelow_CRLF
-		defb    "\0\r\n"
-		defb	"Checksummafel för wermit inträffade!",00
-		ret
-
-
 		; ***	VerifyCheck
 		; ***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	***	
 
@@ -285,6 +473,7 @@ BadCheck:
 		; halt 
 		; halt 
 		; halt 
+		; ***	Utskrift till C-Kermit/wermit
 
 
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
@@ -293,11 +482,10 @@ BadCheck:
 
 recMinicomTecken:
 				;***	läs tecken från minicom till dess [01] ^A
-		out  	($70),A					; start pulseview
-		ld		A,WR1								;skriv i SIO WR0 cmd4 och välj WR1 
-		out		(SIO_A_C),A
-		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T	;aktivera WAIT
-		out		(SIO_A_C),A						;'buffer overrun' blir special RX condition
+		; out  	($70),A					; start pulseview
+	
+		call 	Start_WaitRDY			; aktivera wait - RDY för SIO-CPU
+
 		; ld		A,_EN_INT_Nxt_Rx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
 		; out		(SIO_A_C),A
 		; ; ld		A,_Rx_INT_First_Char			;wait active, interrupt on first RX character
@@ -315,6 +503,7 @@ recMinicomTecken:
 
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
+
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 
@@ -346,8 +535,8 @@ doKERMITentry:		; ***  Kermit initiering hoppar hit
 
 		ld		(SIO_Int_Read_Vec),HL		;STORE READ VECTOR
 
-		ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
-		out		(SIO_A_C),A
+		; ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
+		; out		(SIO_A_C),A
 		ld		A,_EN_INT_Nxt_Rx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
 		out		(SIO_A_C),A
 		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
@@ -419,9 +608,9 @@ XblockFinished:
 		
 WaitForNextChar:	
 		push 	BC 						; spara blocknummer (C)
-		ld		A,_EN_INT_Nxt_Rx_Char|WR1			;write into WR0 cmd4 and select WR1 ( enable INT on next char)
+		ld		A,_EN_INT_Nxt_Rx_Char|WR1			;skriv till WR1  ( enable INT on next char)
 		out		(SIO_A_C),A
-		ld		A,_Rx_INT_First_Char		;wait active, interrupt on first RX character
+		ld		A,_Rx_INT_First_Char		;Ej wait (Wait EN(bit7) = 0) interrupt on first RX character
 		; ld		a,_WAIT_READY_EN|_WAIT_READY_R_T|_Rx_INT_First_Char		;wait active, interrupt on first RX character
 		out		(SIO_A_C),A		;buffer overrun is a spec RX condition
 		ei
@@ -451,10 +640,7 @@ receiveBlockIn:
 		; CH1 counter not send any interrupts
 		call 	CTC1_INT_OFF			; CH1 counter not send any interrupts
 
-		ld		A,WR1								;write into WR0 cmd4 and select WR1 
-		out		(SIO_A_C),A
-		ld		a,_WAIT_READY_EN|_WAIT_READY_R_T	;wait active, 
-		out		(SIO_A_C),A						;buffer overrun is a spec RX condition
+		call 	Start_WaitRDY			; aktivera wait - RDY för SIO-CPU ej SIO interrupt
 
 		ld 		(XBAddr),HL						; startadress där block sparas (commAdr1)
 
@@ -470,12 +656,12 @@ checkByte01:
 		reti					; avbrottsretur med kod (=2) i E  EOT
 
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
-; 		kolla status på SIO och läs in data när data finns.  (pulling)	
+; 		kolla status på SIO och läs in data till A när data finns.  (pulling)	
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
- InChar:
+InChar: 					; SIO läser in till A !:
 		in a, (SIO_A_C)
 		bit 0, a        ; Finns nytt tecken?
-		jr z, InChar
+		jr z, InChar					; SIO läser in till A !
 		in a, (SIO_A_D) ; Läs datat
 		ret
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
@@ -504,7 +690,7 @@ Er04_:
 checkBlockNum:
 		ld 		(PktLen),A			; lagra '1',SOH eller '2' (STX) i PktLen
 		out  	($60),A					; start pulseview
-		call 	InChar				;läs nästa byte till A (blocknummer)
+		call 	InChar					; SIO läser in till A !				;läs nästa byte till A (blocknummer)
 		cp		C					;kolla om rätt block nr
 		jp		nz,Er02_			; wrong block number (09)
 
@@ -514,7 +700,7 @@ checkBlockNum:
 		ld		E,A					;förväntat inverterat blocknummer till A
 
 checkComplBlockNum:		
-		call 	InChar			;läs nästa byte till A (inverterat blocknummer)
+		call 	InChar					; SIO läser in till A !			;läs nästa byte till A (inverterat blocknummer)
 		cp		E					;jämför med förväntat inverterat blocknummer(A)
 		jp		nz,Er03_			; felmeddelande fel blocknummer
 	
@@ -528,7 +714,7 @@ checkComplBlockNum:
 		;hämta aktuellt block med data
 		ld 		BC,$80 				; ändra till block 128 bytes
 getBlockData:
-		call 	InChar				; läs in byte till A om ny byte finns
+		call 	InChar					; SIO läser in till A !				; läs in byte till A om ny byte finns
 		; in		A,(SIO_A_D)	
 		ld		(HL),A				;spara ny byte
 		; add		A,D
@@ -543,9 +729,9 @@ getBlockData:
 
 checkBlockChecksum:
 
-		call 	InChar
+		call 	InChar					; SIO läser in till A !
 		ld 		D,A
-		call 	InChar
+		call 	InChar					; SIO läser in till A !
 		ld 		E,A					; DE = inlästa blockets checksumma 
 		ld 		(XMChkSum),DE
 
@@ -655,10 +841,6 @@ checkSumErr:
 ; Calculating XMODEM CRC-16 in Z80
 ; ================================
 
-; Calculate an XMODEM 16-bit CRC from data in memory. This code is as
-; tight and as fast as it can be, moving as much code out of inner
-; loops as possible. Can be made shorter, but slower, by replacing
-; JP with JR.
 
 ; On entry, crc..crc+1   =  incoming CRC
 ;           addr..addr+1 => start address of data
@@ -682,7 +864,7 @@ bytelp:
 rotlp:                    ;											|
 		sla 	E
 		adc 	A,A					; Rotate CRC						|
-		jp 		NC,clear			; b15 was zero						|
+		jr 		NC,clear			; b15 was zero						|
 		ld 		D,A					; Put CRC high byte back into D		|
 		ld 		A,E
 		xor 	$21
@@ -691,7 +873,7 @@ rotlp:                    ;											|
 		xor 	$10					; And get CRC top byte back into A	|
 clear:                    ;											|
 		dec 	B	
-		jp 		NZ,rotlp				; Loop for 8 bits					|
+		jr 		NZ,rotlp				; Loop for 8 bits					|
 
 		ld 		D,A					; Put CRC top byte back into D		|
 ;		 -----------------------------------------------------------+
@@ -701,7 +883,7 @@ clear:                    ;											|
 		dec 	BC					; num=num-1
 		ld 		A,B
 		or 		C
-		jp 		NZ,bytelp			; Loop until num=0
+		jr 		NZ,bytelp			; Loop until num=0
 
 		ret
 
