@@ -139,11 +139,16 @@ MONITOR_Start:
 		endif
 
 
-		; call 	writeSTRBelow
-		; defb   	0,"\e[4h",0				; cursor insert mode !
+	;***************************************************************
+	;	Ställ in skärm för insättning av tecken i sträng (insert)
+	;***************************************************************
 		; defb   	0,ESC,"[33;44;3;4m",0
 		; defb   	0,ESC,"[91;1m",0
-	
+		call 	writeSTRBelow
+		defb   	0,"\e[4h",0				; cursor infoga alltid valt.!
+		ld 		HL,InsertMode
+		ld 		A,$FF		; A>0		
+		ld  	(HL),A		; (InsertMode) = FF. Kan ändras med CPL A
 ; ESC  [   4   h
 ; 033 133 064 150
 ; Set selects insert mode and turns INSERT on. New display characters move old display characters to the right. Characters moved past the right margin are lost.

@@ -37,7 +37,7 @@
 	PROVIDE( SRAM_VAR_START =  _String_HEAP);
 	PROVIDE( HEAP_SIZE 	 	= SRAM_VAR_END-SRAM_VAR_START);
 
-	PROVIDE( bufferSize		=	0x3E   );				/* bufferlängd  på läsbuffert */
+	PROVIDE( bufferSize		=	0x3B   );				/* bufferlängd  på läsbuffert */
 	PROVIDE( Textbufsize	=	0x40  )	;				/*text input buffer , läsbuffert vid inmatning*/
 	PROVIDE( Textbuf		= _String_HEAP);			/*text buffer */
 
@@ -63,39 +63,41 @@
 	PROVIDE( generalFlags	=	0x12E + _String_HEAP);		/* DS	2	indicates general flags, 2 byte */
 	PROVIDE( inBufferPtr	=	0x130 + _String_HEAP);      /* DS	2	Extrapekare för inbuffer  DS 2*/
 	PROVIDE( inBufferVal	=	0x132 + _String_HEAP);      /* DS	1	Värde > 0 om nytt tecken finns DS 1 */
-	PROVIDE( inbufferDeactivate = 0x133+ _String_HEAP); 	/* DS	1	om > 0: uppdatera INTE läsbuffer vid avbrottshantering */			
-	PROVIDE( ESCsequence	= 	0x134 + _String_HEAP); 		/* DS	1	om > 0: hantera escape sekvens vid inmatning, sparas ej i läsbuffer. */			
-	PROVIDE( memBankID		= 	0x135 + _String_HEAP); 			/* DS	1	memoryBank value  b7-flash on/off b4-6:EEPBank b0-3:RAMBank */	
-	PROVIDE( rstBankID		= 	0x136 + _String_HEAP); 			/* DS	1	minnesbank  bit3-flash på av bit2 förhindra reset av krets IC622 bit0 OE för IC620 */	
+	PROVIDE( inBufferOffset	=	0x133 + _String_HEAP);      /* DS	2	Offset > 0 om cursor inte är på sista position */
+	PROVIDE( inbufferDeactivate = 0x135+ _String_HEAP); 	/* DS	1	om > 0: uppdatera INTE läsbuffer vid avbrottshantering */			
+	PROVIDE( ESCsequence	= 	0x136 + _String_HEAP); 		/* DS	1	om > 0: hantera escape sekvens vid inmatning, sparas ej i läsbuffer. */			
+	PROVIDE( InsertMode		= 	0x137 + _String_HEAP); 		/* DS	1	om > 0: hantera escape sekvens vid inmatning, sparas ej i läsbuffer. */			
+	PROVIDE( memBankID		= 	0x138 + _String_HEAP); 			/* DS	1	memoryBank value  b7-flash on/off b4-6:EEPBank b0-3:RAMBank */	
+	PROVIDE( rstBankID		= 	0x139 + _String_HEAP); 			/* DS	1	minnesbank  bit3-flash på av bit2 förhindra reset av krets IC622 bit0 OE för IC620 */	
 
-	PROVIDE( inBufCount		=	0x138 + _String_HEAP);			/*	DS	1	number of characters in input buffer DS	1	*/
-	PROVIDE( outHeadAdr		=	0x13A + _String_HEAP);			/*	DS	2	address of oldest character in output buffer	DS	2	*/
-	PROVIDE( outTailAdr		=	0x13C + _String_HEAP);			/*	DS	2	address of newest character in output buffer	DS	2	*/
-	PROVIDE( OutBufCount	=	0x13E + _String_HEAP);			/*	DS	1	number of characters in output buffer	DS	1	*/
-	PROVIDE( OutINTExpect	=	0x13F + _String_HEAP);			/*	DS	1	output interrupt expected	DS	1	*/
+	PROVIDE( inBufCount		=	0x13A + _String_HEAP);			/*	DS	1	number of characters in input buffer DS	1	*/
+	PROVIDE( outHeadAdr		=	0x13C + _String_HEAP);			/*	DS	2	address of oldest character in output buffer	DS	2	*/
+	PROVIDE( outTailAdr		=	0x13E + _String_HEAP);			/*	DS	2	address of newest character in output buffer	DS	2	*/
+	PROVIDE( OutBufCount	=	0x140 + _String_HEAP);			/*	DS	1	number of characters in output buffer	DS	1	*/
+	PROVIDE( OutINTExpect	=	0x141 + _String_HEAP);			/*	DS	1	output interrupt expected	DS	1	*/
 																/*; (0 = no interrupt expected. ff = interrupt expected)*/
-	PROVIDE( XBAddr			=	0x140 + _String_HEAP);			/*	DS	2	XMODEM block start address  2byte	*/
-	PROVIDE( XMChkSum		=	0x142 + _String_HEAP);			/*	DS	2	XMODEM block checksum  2byte	*/
-	PROVIDE( SDUSB_Helper	=	0x144 + _String_HEAP);			/*	DS	2	SD och USB hjälpvariabel  2byte	*/
+	PROVIDE( XBAddr			=	0x142 + _String_HEAP);			/*	DS	2	XMODEM block start address  2byte	*/
+	PROVIDE( XMChkSum		=	0x144 + _String_HEAP);			/*	DS	2	XMODEM block checksum  2byte	*/
+	PROVIDE( SDUSB_Helper	=	0x146 + _String_HEAP);			/*	DS	2	SD och USB hjälpvariabel  2byte	*/
 
-	PROVIDE( TempVar0		=	0x146 + _String_HEAP);			/*	DS	2	Temp1		*/
-	PROVIDE( TempVar1		=	0x148 + _String_HEAP);			/*	DS	1	Temp1		*/
-	PROVIDE( TempVar2		=	0x149 + _String_HEAP);			/*	DS	1	Temp2		*/
-	PROVIDE( TempVar3		=	0x14A + _String_HEAP);			/*	DS	1	Temp3		*/
-	PROVIDE( TempVar4		=	0x14B + _String_HEAP);			/*	DS	1	Temp4		*/
-	PROVIDE( TempVar5		=	0x14C + _String_HEAP);			/*	DS	1	Temp5		*/
-	PROVIDE( TempVar6		=	0x14D + _String_HEAP);			/*	DS	1	Temp6		*/
-	PROVIDE( TempVar7		=	0x14E + _String_HEAP);			/*	DS	1	Temp7		*/
-	PROVIDE( TempVar8		=	0x14F + _String_HEAP);			/*	DS	1	Temp8		*/
+	PROVIDE( TempVar0		=	0x148 + _String_HEAP);			/*	DS	2	Temp1		*/
+	PROVIDE( TempVar1		=	0x14A + _String_HEAP);			/*	DS	1	Temp1		*/
+	PROVIDE( TempVar2		=	0x14B + _String_HEAP);			/*	DS	1	Temp2		*/
+	PROVIDE( TempVar3		=	0x14C + _String_HEAP);			/*	DS	1	Temp3		*/
+	PROVIDE( TempVar4		=	0x14D + _String_HEAP);			/*	DS	1	Temp4		*/
+	PROVIDE( TempVar5		=	0x14E + _String_HEAP);			/*	DS	1	Temp5		*/
+	PROVIDE( TempVar6		=	0x14F + _String_HEAP);			/*	DS	1	Temp6		*/
+	PROVIDE( TempVar7		=	0x150 + _String_HEAP);			/*	DS	1	Temp7		*/
+	PROVIDE( TempVar8		=	0x151 + _String_HEAP);			/*	DS	1	Temp8		*/
 
-	PROVIDE( Temp_CTRL	 	= 	0x150 + _String_HEAP);			/*	DS  1 	temp byte 	*/
-	PROVIDE( CTCdelayFlag 	= 	0x151 + _String_HEAP);			/*	DS  1 	CTC flags that timeout has occured 1 byte	*/
-	PROVIDE( packLen 		=	0x152 + _String_HEAP);			/*	DS	2	bytelength of packet   2-byte */
-	PROVIDE( charLen 		=	0x154 + _String_HEAP);			/*	DS	2	length of written file   2-byte */
-	PROVIDE( sdWRpointer 	=	0x156 + _String_HEAP);			/*	DS 	2	bytepointer to write file   2-byte */
+	PROVIDE( Temp_CTRL	 	= 	0x152 + _String_HEAP);			/*	DS  1 	temp byte 	*/
+	PROVIDE( CTCdelayFlag 	= 	0x153 + _String_HEAP);			/*	DS  1 	CTC flags that timeout has occured 1 byte	*/
+	PROVIDE( packLen 		=	0x154 + _String_HEAP);			/*	DS	2	bytelength of packet   2-byte */
+	PROVIDE( charLen 		=	0x156 + _String_HEAP);			/*	DS	2	length of written file   2-byte */
+	PROVIDE( sdWRpointer 	=	0x158 + _String_HEAP);			/*	DS 	2	bytepointer to write file   2-byte */
 
-	PROVIDE( LENS1			=	0x158 + _String_HEAP);			/*	DS  1	length of string 1 */
-	PROVIDE( LENS2			=	0x15A + _String_HEAP);			/*	DS	1	length of string 2 */
+	PROVIDE( LENS1			=	0x15A + _String_HEAP);			/*	DS  1	length of string 1 */
+	PROVIDE( LENS2			=	0x15B + _String_HEAP);			/*	DS	1	length of string 2 */
 	PROVIDE( S1ADR			=	0x15C + _String_HEAP);			/*	DS  2	BASE ADDRESS OF STRING 1 */
 	PROVIDE( S1LEN			=	0x15E + _String_HEAP);			/*	DS  1	LENGTH OF STRING 1 */
 	PROVIDE( S2LEN			=	0x15F + _String_HEAP);			/*	DS  1	LENGTH OF STRING 2 */

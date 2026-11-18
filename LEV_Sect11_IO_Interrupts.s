@@ -44,125 +44,44 @@ ReadLine:
 		; ***	 och nollställ flagga för nytt tecken (inBufferVal)  (HL pekar på Textbuf)
 
 		ld		(inBufferPtr), HL		; lagra  pekaradress till 'Textbuf'
-		xor 	A				; nollställ A
-		ld 		HL,inBufferVal
-		ld 		(HL),A				; nollställ flagga för nytt tecken (inBufferVal)	
+		xor 	A						; nollställ A
+		ld		(inBufferOffset), A		; lagra  offset för pekaradress '0'
+		ld 		(inBufferVal),A				; nollställ flagga för nytt tecken (inBufferVal)	
+		ld 		(inBufCount),a			; nollställ buffetlängd
 		ld 		IX,ESCsequence
 		ld 		(IX),A
 
-R_LOOP:
+Read_LOOP:
 		
 		; ***	Kolla om nytt tecken finns
 		ld 	 	HL,inBufferVal
 		xor 	A					; A=0
 		cp 		(HL)	
-		jr 		Z,R_LOOP				; vänta på nytt tecken
+		jr 		Z,Read_LOOP				; vänta på nytt tecken
 
 		; *** 	nytt tecken finns i inbuffer, hämta det och skriv ut det på skärmen	
 		; *** 	A är 0 och HL pekar på 'inBufferVal'
-		ld  	(HL),A 					; nollställ flagga för nytt tecken...
+		ld  	(HL),A 					; nollställ flagga för nytt tecken... (A=0)
 
-		ld		HL, (inBufferPtr)		; HL pekar på sista inmatade tecken...
-		ld 		A,(HL)					; hämta senaste tangent
+		; cp 		BS
+		; jr		Z,Read_LOOP				;återvänd ny loop om inte backspace
+
+		ld 		A,(IY)					; hämta senaste tecken (IY pekar på detta)
 		push 	AF
 		call 	WriteChar
 		POP 	AF
 
 		cp		CR					;vagnretur ?
-		jr		NZ,R_LOOP				;återvänd ny loop om inte vagnretur
-
+		jr		NZ,Read_LOOP				;återvänd ny loop om inte vagnretur
+		; ***	sätt in '0' efter CR kan vara mitt i strängen om backsteg anänts
+		xor		A
+		ld 		(IY+1),A			; IY pekar på sist inmatade tecken, vilket kan vara CR 	
+		ld 		(IY+2),A			; IY pekar på sist inmatade tecken, vilket kan vara CR 	
 
 		call	CRNL
 		ret
 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-
-; 		waitEntry:
-; 		call	S_head_tail			; spara inmatat början och slut (heads and tails)
-
-; 		ld		hl,(Comm_Ptr_list)
-; 		ld 		de,(Comm_Ptr_list+2)		; next item in list
-; 		or 		a					; 0ställ carry
-; 		SBC		hl,de 				; antal inmatade tecken i L (in L)
-; 		ld 		b,l					; antal i B
-
-; 			; avgör om  wraparound (hl)<(de) (cirkulär buffer)
-; 		jp 		P,cont2				;positive result 	(hl)>(de)
-; 		ld 		a,bufferSize 			; läsbuffert längd definieras i länkskript (0x64)
-; 		add		a,b
-; 		ld		b,a					; korrekt antal i B om 'wraparound'
-; cont2:
-; 		ld	 	ix,Textbuf				; get address of text buffer
-; 		ld		(ix),B				; spara antal tecken i början av sträng.
-; 		inc 	ix					; strängadress, stega förbi byte med längd
-
-; 		ld		hl,(Comm_Ptr_list+2)		; first string start
-
-; 		ld		DE,inBufferEnd
-; c_nextchar:
-; 			;	copy from inbuffer to Textbuf...
-; 		ld 		a,(hl)				; char from inbuffer
-; 		ld		(ix),a			; save char in textbuf
-; 		inc		hl
-; 		inc 	ix
-
-; 			; check if upper buffer adr 
-; 		or 		A		; clear carry
-; 		push 	hl	
-; 		SBC		hl,de		; S and Z set  hl=de -> inBufferEnd encountered
-; 		pop 	hl
-; 		jr 		NZ, cont1			; continue
-; 			; turnaround (HL) hl = inBuffer.	
-; 		ld 		hl,inBuffer			; hl = start of input buf
-; cont1:
-; 		djnz 	c_nextchar		; count no chars.
-; 		xor 	a				; clear a
-; 		ld 		(ix),A			; end with 00H
-; 		ld		hl,Textbuf
-; 		ld		a,(hl)			; A = string length (num)
-; 		inc		hl				; HL = addr to first char in string
-; 		ret 					; string stored in textbuffer
-; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-; ReadChar:
-; 		CALL	RetInpStatus	;get input status. return. carry = 1 if data available
-; 		JR		NC,ReadChar		;wait if no character available
-; 		DI                      ;disable interrupts
-; 		LD		HL,inBufCount			;reduce input buffer count by 1
-; 		DEC		(HL)
-; 		LD		HL, (inHeadAdr)		;Get   character from head of input buffer
-; 		LD		C, (HL)
-; 		CALL	incInPointer			;Move head pointer up 1
-; 		LD		(inHeadAdr) ,HL
-; 		LD		A,C
-; 		EI						;Reenable interrupts
-; 		RET
-; 			;return input status (carry    =1   if input data is available)
-; RetInpStatus:
-; 		LD		A, (inBufCount)		;Test input buffer count
-; 		OR		A				;Clear carry always
-; 		RET		Z				; Return, carry = 0 if no data
-; 		SCF                     ;Set carry
-; 		RET                     ; Return. carry = 1 if data available
-; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-; 			; Save copies of inHeadAdr and inTailAdr to memory...
-; S_head_tail:
-
-; 		ld 		ix,Comm_Ptr_list+2
-; 		ld 		b,list_len-2
-; bmve:
-; 		ld 		a,(ix)
-; 		ld 		(ix+2),A
-; 		dec		ix
-; 		djnz 	bmve		; shift data uppåt...
-
-; 		LD		HL,(inHeadAdr)		;GET   CHARACTER FROM HEAD OF INPUT BUFFER
-; 		ld 		(Comm_Ptr_list),HL
-; 		ret
-; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 
@@ -428,6 +347,8 @@ SIO_Init:
 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
+
+
 ;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 ;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 ;******************************************************************************
@@ -435,9 +356,12 @@ SIO_Init:
 ;******************************************************************************
 ;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 ;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+
+
+
+
+
 ReadINTHandler:
-
-
 
 		push	AF				;SAVE REGISTERS
 		push	BC
@@ -449,33 +373,96 @@ ReadINTHandler:
 		; 		kolla om escape sekvens
 		cp 		ESC
 		jp 		Z,FixESCSEQ_Init		; hantera escapesekvens vid första $1B tecknet
+		; ***	----------------------------------------------------
 
 		ld 		HL,ESCsequence
 		xor  	A						; A=0	
 		cp 		(HL)					; kolla om (ESCsequence) är > 0 - pågående ESCsekvens
-		jr 		NZ,FixESCSEQ			; om ESC: fortsätt läsa in
+		jp 		NZ,FixESCSEQ			; om ESC flagga: fortsätt läsa in ESC sekvens
+		; ***	----------------------------------------------------
 
-		ld 		A,(inbufferDeactivate)
-		cp 		$00 					; = 0 		
-		jr 		NZ,exitRHandler
+		; ld 		A,(inbufferDeactivate)
+		; cp 		$00 					; = 0 		
+		; jr 		NZ,exitRHandler
+		; ***	----------------------------------------------------
 
+checkBS:		
+		; ***	öka markör pos offset med 1 om inte offset = inBufCount
+		ld 		A,BS
+		cp 		C 					; kolla om 'backspace'
+		jp 		NZ,kollaCR
+		; ***	BS fungerar även om offset är 0. Offset är oförändrat, och inBufCount minskar med 1
+		; ***	radera tecken vid markör, flytta tecknen t o m strängslut ett steg vänster
+
+		ld 		A,(inBufferOffset)
+		ld 		HL,inBufCount
+		cp 		(HL)					; jämför buffertlängd och offset om 0; avbryt.
+		jp 		P,hanteraslut 			; kan ej ta bort om offset = 0
+
+		xor 	A 						; nollställ  A för att visa BS
+		call 	skifta_BS_DEL 			; skifta tecken i insträng
+
+		
+		call 	writeSTRBelow
+		defb   	0,"\e[D\e[P",0			; radera tecken vid markör och flytta vänster
+		jp 		exitRHandler		
+		; ***	----------------------------------------------------
+
+kollaCR:
+		ld 		HL,inBufferVal
+		inc 	(HL)				; signalera att nytt tecken finns ( >0 )	
+		; ***	----------------------------------------------------
+
+
+		; ***	kolla om vagnretur
+		ld 		A,CR
+		cp 		C 					; kolla om vagnretur
+		jr 		NZ,kollabuflen
+		; ***	skriv in CR,0 i slutet av inskriven rad (inBufferPtr)
+		ld 		IY,(inBufferPtr)
+		inc 	IY
+		ld 		(IY),A			; skriv in avslutande 'CR'
+		xor 	A
+		ld 		(IY+1),A				; skriv in avslutande '0'
+		jp 		exitRHandler
+		; ***	----------------------------------------------------
+kollabuflen:
 		ld		HL,inBufCount			; Är inbuffert full?
 		ld		A, (HL)
 		cp		bufferSize
-		jr		NC,exitRHandler			; retur (NC) om ingen plats finns kvar
+		jp		NC,exitRHandler			; retur (NC) om ingen plats finns kvar
 		inc		(HL)				; öka värde på bufferstorlek 
+		; ***	----------------------------------------------------
 
-		ld 		HL,inBufferVal
-		inc 	(HL)				; signalera att nytt tecken finns ( >0 )	
-
-
+		; ***	för in aktuellt tecken i sträng m h t markörpos, DEL, BS, ---
 		ld		HL, (inBufferPtr)		; HL pekar på sista tecknet (strängslut)
 		inc 	HL
-		ld		(HL),C				; inläst värde (A=C) lagras i (inBufferPtr) 
-		ld		(inBufferPtr), HL		; lagra ny pekaradress
-		inc 	HL
-		xor 	A
-		ld 	 	(HL),A				; Nollställ tecknet efter strängslut = '0'
+		push 	HL
+		pop 	IY				; IY pekar på sträng slut
+		ld  	A, (inBufferOffset)	; räknare för att skifta n st bytes till höger
+		ld 		B,A
+		; ***  om offset är 0 - skriv till strängslut.
+.nstskift:
+		xor 	A		
+		or  	B
+		jr  	Z,.skiftklar		; om allt är skiftat - fortsätt
+
+		dec 	B
+		ld 		A,(IY-1)
+		ld 		(IY),A			; skifta byte till höger
+		dec 	IY					; skifta vänster
+		jr 		.nstskift
+
+.skiftklar:
+		ld		(IY),C				; inläst värde (A=C) lagras i (inBufferPtr - offset) 
+		ld		(inBufferPtr), HL		; lagra ny pekaradress för strängslut (IY) pekar på insatt tecken
+		; inc 	HL
+		; xor 	A
+		; ld 	 	(HL),A				; Nollställ tecknet efter strängslut = '0'
+		jr	 	exitRHandler
+		; ***	----------------------------------------------------
+
+
 exitRHandler:
 		; ld 		A,00
 		; ld 		(CTCdelayFlag),A 	; reset timeout flag indicate interrupt by SIOA read.
@@ -487,10 +474,56 @@ exitRHandler:
 		ei						;reenable interrupts
 		reti
 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		
+skifta_BS_DEL:
+		; ***	Gemensam rutin för Backspace (BS) eller DEL.
+		; ***	Om A är 0 avses BS, annars DEL
+			; ***	rutinstart ....
+		ld 		(TempVar1),A 			; spara A (är 0 avses BS, annars DEL)
+
+		ld 		A,(inBufferOffset)
+		ld 		B,A					; räknare = offset
+		; dec 	A
+
+		ld  	HL,(inBufferPtr)
+		dec 	HL
+		ld  	(inBufferPtr),HL	; spara inBufferPtr minskat med 1
+
+		push 	HL
+		ld 		HL,TempVar1			; HL pekar på värde på A vid anrop till 'skifta_BS_DEL'
+		bit 	0,(HL)				; kolla om A är 0(BS) eller ej 0(DEL)
+							; Z flaggan ställd om (HL)0=0		
+		pop 	HL					; återställ HL innan kontroll av Z
+		
+		jr 		Z,.hoppaBS
+		; *** 	hoppa över dessa rader om BS, men kör om DEL	
+		dec 	A
+		ld 		(inBufferOffset),A		; spara offset minskat med 1
+.hoppaBS:
+		inc 	HL 					;justera HL	
+		ld 		D,0
+		ld 		E,A
+		scf
+		ccf
+		sbc 	HL,DE 				; HL = HL - offset
+
+		push 	HL
+		pop 	IY				; sätt IY = inBufferPtr - offset
+.nskift:
+		ld	 	A,(IY+1)
+		ld 		(IY),A
+		inc 	IY
+		djnz 	.nskift
+
+		ld 		HL,inBufCount
+		dec 	(HL)					; minska bufferlängd med 1
+		; ***	rutinslut  ....
+		ret		
 
 
 ;##############################################################
 ;	Ta hand om ESC sekvens...
+; 	
 ; 	använder  AF, C
 ;##############################################################
 FixESCSEQ_Init:
@@ -503,7 +536,7 @@ FixESCSEQ_Init:
 		ld 		(IX),A
 
 FixESCSEQ:
-		; lagra escape sekvens i T_BUFFER
+		; lagra escape sekvens i T_BUFFER; 
 		ld 		DE,(S1x)
 		ld 		A,C
 		ld 		(DE),A			; spara 'ESC'
@@ -518,17 +551,17 @@ FixESCSEQ:
 		ld 		A,(IX)
 		and 	$0F				; behåll lägre halvan		
 		cp 		3
-		jr 		Z,hantera3t
+		jp 		Z,hantera3t
 		cp 		4
-		jr 		Z,hantera4t
+		jp 		Z,hantera4t
 		cp 		5
-		jr 		Z,hantera5t
+		jp 		Z,hantera5t
 		cp 		6
-		jr 		Z,hantera6t
+		jp 		Z,hantera6t
 		cp 		7
-		jr 		Z,hantera7t
+		jp 		Z,hantera7t
 		
-		jr 		exitRHandler	; fortsätt läsa tecken
+		jp 		exitRHandler	; fortsätt läsa tecken
 
 hantera3t:
 		; ***	3'e tecknet i sekvens är mellan $41 och $53
@@ -537,29 +570,89 @@ hantera3t:
 		jp 		M,exitRHandler 		; mindre än $41
 		cp 		$54						
 		jp 		P,exitRHandler		; större än $53
-	; ld 		($F84F),A			; spara tecknet i (F84F) för vidare hantering
 			; up, down, left, rigt, F1, F2, F3, F4 mellan $41 och $53 -> OK
-		ld 		A,C
+
+		ld 		HL,inBufferOffset		; hämta offset för markörposition 
+		ld 		A,(inBufCount)		; A antal tecken i buffert
+		ld  	B,A					; spara buffertlängd -B
+
+		ld 		A,C				; A är 3'e tecknet
 		CP 		$44				; kolla vänster pil
 		jr 		NZ,.kh
+	
+		; ***	öka markör pos offset med 1 om inte offset = inBufCount
+		ld 		A,B 				; A är buffertlängd
+		ld 		B,(HL)				; B är offset
+		sub 	A,B
+		jp 		Z,hanteraslut		;inBufCount = inBufferOffset; vänster ändläge. (Sign minus)
+		inc 	(HL)					; öka offset med 1
 		call 	writeSTRBelow
-		defb   	0,"\e[D",0
+		defb   	0,"\e[D",0			; flytta markör vänster
+
 		jp 		hanteraslut			; mellan $41 och $53 -> OK
 .kh:
-		CP 		$43				; kolla höger pil
+		CP 		$43					; kolla höger pil
 		jr 		NZ,.ku
+
+		xor 	A
+		cp 		(HL)				; är offset 0 ?
+		jr 		Z,hanteraslut		;inBufCount = inBufferOffset; vänster ändläge. (Sign minus)
+		dec 	(HL)					; minska offset med 1
+
 		call 	writeSTRBelow
-		defb   	0,"\e[C",0
+		defb   	0,"\e[C",0			; flytta markör höger
 .ku:	jp 		hanteraslut			; mellan $41 och $53 -> OK
 
 hantera4t:
+		dec 	de
+		dec 	de
+		ld 		A,(DE)			; ladda A med värde av 3'e tecknet i sekvens (påverkar ej CCR)		
+		inc 	DE
+		inc 	DE
+
+		CP 		$32				; kolla 'INS'
+		jp 		NZ,checkDEL
+		; ***	ändra värde på 'InsertMode' med CPL
+		; ld 		A,(InsertMode)
+		; cpl
+		; ld 		(InsertMode),A
+		; or 		a						; ställ Z om A=0
+		; jr 		NZ,.INS_1
+		; call 	writeSTRBelow
+		; defb   	0,"\e[4l",0				; cursor överskrivning!
+		; 		; call 	writeSTRBelow
+		; 		; defb   	0,"\e[2 q",0				; markör useende!
+		; jp 		hanteraslut
+		
+; .INS_1	call 	writeSTRBelow
+; 		defb   	0,"\e[4h",0				; cursor infoga !
+; 				; call 	writeSTRBelow
+; 				; defb   	0,"\e[6 q",0				; markör useende!
+		jp 		hanteraslut
+
+checkDEL:
+		CP 		$33				; kolla 'DEL'
+		jp 		NZ,exitRHandler
+		; ***	DEL fungerar om offset > 0. Offset och inBufCount minskar med 1
+		; ***	radera tecken vid markör, flytta tecken till höger ett steg vänster
+
+		ld 		A,(inBufferOffset)
+		or  	A
+		jp 		Z,hanteraslut 			; kan ej ta bort om offset = 0
+
+		ld  	A,1 					; ställ bit 0 för att visa DEL (kollas med BIT)
+		call 	skifta_BS_DEL 			; skifta tecken i insträng
+
+		call 	writeSTRBelow
+		defb   	0,"\e[P",0			; radera tecken vid markör 
+
+		jp 		hanteraslut
+
 hantera5t:
 		; ***	4'e tecknet i sekvens är $7E, alt 5'e tecknet i sekvens är $7E
 		ld	 	A,C			; ladda A med värde av sista tecknet (påverkar ej CCR)
 		cp 		$7E
 		jp 		NZ,exitRHandler		; om inte $7E -> fortsätt läsa in sekvens (fler än 4 tecken)
-	ld 		($F84E),A			; spara tecknet i (F84E) för vidare hantering
-
 
 		jp 		hanteraslut			; värde $7E -> OK
 
@@ -575,13 +668,13 @@ hantera7t:
 		inc 	DE
 		cp 		$3B
 		jP 		NZ,exitRHandler		; om inte $7E -> fortsätt läsa in sekvens (fler än 4 tecken)
-	ld 		($F84D),A			; spara tecknet i (F84D) för vidare hantering
+
 		jp 		hanteraslut			; 4'e värde $3B -> OK
 
 hanteraslut:
 		xor 	A				; nollställ A
 		ld 		(IX),A
-		jp 		exitRHandler	; fortsätt läsa tecken
+		jp 		exitRHandler	; fortsätt läsa tecken nollställ flagga för ESC sekvens.
 
 
 
@@ -977,26 +1070,6 @@ CharToSIO_0:
 		ld		(OutINTExpect),a		;expect an output interrupt
 		ret
 
-
-		;*************************************
-		; subrutin: incInPointer
-		; Öka pekarens värde för läsbuffer med 'wraparound'
-		; invärde: hl = pekare
-		; svar: hl = pekaren ökad inkl. 'wraparound'
-		; Använda register: af,de,hl
-		;***************************************
-; incInPointer:
-; 		inc		HL					; öka pekarens värde
-; 		ld		DE,inBufferEnd		; jämför med värde för buffert maxvärde
-; 		ld		A,L
-; 		cp		E
-; 		ret		NZ					;retur om värdena är olika L-E
-; 		ld		A,H
-; 		cp		D
-; 		ret		NZ					;retur om värdena är olika H-D
-; 		ld		HL,inBuffer			;om pekaren har hamnat på max -> inBuffer (start).
-; 		ret                   	 	; retur med Z
-		
 		
 		;*************************************
 		; routine: incoutpointer
@@ -1285,3 +1358,110 @@ CTC_Init:
 
 .end
 
+
+; 		waitEntry:
+; 		call	S_head_tail			; spara inmatat början och slut (heads and tails)
+
+; 		ld		hl,(Comm_Ptr_list)
+; 		ld 		de,(Comm_Ptr_list+2)		; next item in list
+; 		or 		a					; 0ställ carry
+; 		SBC		hl,de 				; antal inmatade tecken i L (in L)
+; 		ld 		b,l					; antal i B
+
+; 			; avgör om  wraparound (hl)<(de) (cirkulär buffer)
+; 		jp 		P,cont2				;positive result 	(hl)>(de)
+; 		ld 		a,bufferSize 			; läsbuffert längd definieras i länkskript (0x64)
+; 		add		a,b
+; 		ld		b,a					; korrekt antal i B om 'wraparound'
+; cont2:
+; 		ld	 	ix,Textbuf				; get address of text buffer
+; 		ld		(ix),B				; spara antal tecken i början av sträng.
+; 		inc 	ix					; strängadress, stega förbi byte med längd
+
+; 		ld		hl,(Comm_Ptr_list+2)		; first string start
+
+; 		ld		DE,inBufferEnd
+; c_nextchar:
+; 			;	copy from inbuffer to Textbuf...
+; 		ld 		a,(hl)				; char from inbuffer
+; 		ld		(ix),a			; save char in textbuf
+; 		inc		hl
+; 		inc 	ix
+
+; 			; check if upper buffer adr 
+; 		or 		A		; clear carry
+; 		push 	hl	
+; 		SBC		hl,de		; S and Z set  hl=de -> inBufferEnd encountered
+; 		pop 	hl
+; 		jr 		NZ, cont1			; continue
+; 			; turnaround (HL) hl = inBuffer.	
+; 		ld 		hl,inBuffer			; hl = start of input buf
+; cont1:
+; 		djnz 	c_nextchar		; count no chars.
+; 		xor 	a				; clear a
+; 		ld 		(ix),A			; end with 00H
+; 		ld		hl,Textbuf
+; 		ld		a,(hl)			; A = string length (num)
+; 		inc		hl				; HL = addr to first char in string
+; 		ret 					; string stored in textbuffer
+; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+; ReadChar:
+; 		CALL	RetInpStatus	;get input status. return. carry = 1 if data available
+; 		JR		NC,ReadChar		;wait if no character available
+; 		DI                      ;disable interrupts
+; 		LD		HL,inBufCount			;reduce input buffer count by 1
+; 		DEC		(HL)
+; 		LD		HL, (inHeadAdr)		;Get   character from head of input buffer
+; 		LD		C, (HL)
+; 		CALL	incInPointer			;Move head pointer up 1
+; 		LD		(inHeadAdr) ,HL
+; 		LD		A,C
+; 		EI						;Reenable interrupts
+; 		RET
+; 			;return input status (carry    =1   if input data is available)
+; RetInpStatus:
+; 		LD		A, (inBufCount)		;Test input buffer count
+; 		OR		A				;Clear carry always
+; 		RET		Z				; Return, carry = 0 if no data
+; 		SCF                     ;Set carry
+; 		RET                     ; Return. carry = 1 if data available
+; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+; 			; Save copies of inHeadAdr and inTailAdr to memory...
+; S_head_tail:
+
+; 		ld 		ix,Comm_Ptr_list+2
+; 		ld 		b,list_len-2
+; bmve:
+; 		ld 		a,(ix)
+; 		ld 		(ix+2),A
+; 		dec		ix
+; 		djnz 	bmve		; shift data uppåt...
+
+; 		LD		HL,(inHeadAdr)		;GET   CHARACTER FROM HEAD OF INPUT BUFFER
+; 		ld 		(Comm_Ptr_list),HL
+; 		ret
+; 		;-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+		;*************************************
+		; subrutin: incInPointer
+		; Öka pekarens värde för läsbuffer med 'wraparound'
+		; invärde: hl = pekare
+		; svar: hl = pekaren ökad inkl. 'wraparound'
+		; Använda register: af,de,hl
+		;***************************************
+; incInPointer:
+; 		inc		HL					; öka pekarens värde
+; 		ld		DE,inBufferEnd		; jämför med värde för buffert maxvärde
+; 		ld		A,L
+; 		cp		E
+; 		ret		NZ					;retur om värdena är olika L-E
+; 		ld		A,H
+; 		cp		D
+; 		ret		NZ					;retur om värdena är olika H-D
+; 		ld		HL,inBuffer			;om pekaren har hamnat på max -> inBuffer (start).
+; 		ret                   	 	; retur med Z
+		
