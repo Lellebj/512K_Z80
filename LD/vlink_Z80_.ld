@@ -217,6 +217,10 @@
 			_XMODEM_end = .;
 			. = ALIGN(0x20);
 
+			KEEP(*.o (Kermit))
+			_KERMIT_end = .;
+			. = ALIGN(0x20);
+
 
 
 
