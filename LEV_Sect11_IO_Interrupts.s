@@ -607,8 +607,6 @@ hantera4t:
 		dec 	de
 		dec 	de
 		ld 		A,(DE)			; ladda A med värde av 3'e tecknet i sekvens (påverkar ej CCR)		
-		inc 	DE
-		inc 	DE
 
 		CP 		$32				; kolla 'INS'
 		jp 		NZ,checkDEL
@@ -663,9 +661,6 @@ hantera7t:
 		dec 	de
 		dec 	de
 		ld 		A,(DE)			; ladda A med värde av 4'e tecknet i sekvens (påverkar ej CCR)		
-		inc 	DE
-		inc 	DE
-		inc 	DE
 		cp 		$3B
 		jP 		NZ,exitRHandler		; om inte $7E -> fortsätt läsa in sekvens (fler än 4 tecken)
 
@@ -677,16 +672,6 @@ hanteraslut:
 		jp 		exitRHandler	; fortsätt läsa tecken nollställ flagga för ESC sekvens.
 
 
-
-		; vänta på nästa tecken  (pulling) interrupt avstängt (DI)
-chkRX:
-		in		A,(SIO_A_C)		; kolla status
-		bit		0,A				; finns nytt tecken (NZ) ??
-		jr 		z,chkRX			; kolla igen (loopa)
-
-		in 		A,(SIO_A_D)		; läs in tecken 
-		ld 		C,A
-		ret
 
 ;******************************************************************************
 			;SIO kanal A: avbrottshanterare för utskrift 
