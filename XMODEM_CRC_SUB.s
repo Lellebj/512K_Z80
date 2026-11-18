@@ -76,9 +76,6 @@ doImportXMODEM:
 		;------------INIT SIO----------------------------------------
 
 		ld		HL,receiveBlockIn       	; Avbrottsrutin för SIO A
-
-; doKERMITentry:		; ***  Kermit initiering hoppar hit
-
 		ld		(SIO_Int_Read_Vec),HL		;STORE READ VECTOR
 
 		; ld 		A,_Reset_STAT_INT|_Reset_STAT_INT	
@@ -381,7 +378,8 @@ checkSumErr:
 		ld		(TempVar2),A
 		cp		09h
 		jp		z,retry9Err		;abort download after 9 attempts to transfer a block
-		jp 		MainLoop		;repeat block reception
+		jp 		XnextBlock:
+		;repeat block reception
 
 
 ; Calculating XMODEM CRC-16 in Z80
