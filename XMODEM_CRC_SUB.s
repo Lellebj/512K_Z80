@@ -63,7 +63,7 @@ doImportXMODEM:
 		ld 		(TempVar1),A				; reset badblock counter
 		;------------INIT CTC (2 sec timing for 'C'/NAK process----------------
 		;init CH 0 and 1
-		ld 	 	A,_Counter|_Rising|_TC_Follow|_Reset|_CW
+		ld 	 	A,_Counter|_Rising|_TC_Follow|_Reset|_CW      ; $40+$10+$04+$02+$01 : 
 		out		(CH0),A 		; CH0 is on hold now
 		ld		A,$42			; time constant (prescaler; $42;$DA; 14390,625 khz -> 2, sec peroid;  
 		out		(CH0),A			; and loaded into channel 0
@@ -72,6 +72,16 @@ doImportXMODEM:
 		out		(CH1),A			; CH1 counter
 		ld		A,$DA			; time constant 
 		out		(CH1),A			; and loaded into channel 2
+
+				; _INT_EN 		equ 	$80		; D7 - 1 enables interrupt
+				; _Counter 		equ 	$40		; D6 - 1 Counter Mode  		0 - Timer Mode
+				; _Timer 		equ 	$00
+				; _Prescaler	equ 	$20		; D5 - 1 Prescaler 256		0 - Prescaler 16
+				; _Rising 		equ 	$10		; D4 - 1 CLK/TRG rising		0 - CLK/TRG falling
+				; _CLK_TRG_Start 	equ $08		; D3 - 1 CLK/TRG start timer  0 - automatic start during LOAD_BASE
+				; _TC_Follow 	equ 	$04		; D2 - 1 time constant follows
+				; _Reset 		equ 	$02		; D1 - 1 Software reset
+				; _CW 			equ 	$01		; D0 - 1 Control word 		0 - Vector	
 
 		;------------INIT SIO----------------------------------------
 
