@@ -188,7 +188,7 @@ WaitForNextChar:
 ;*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*/*
 receiveBlockIn:
 		
-		out  	($70),A					; start pulseview
+		; out  	($60),A					; start pulseview
 
 		; CH1 counter not send any interrupts
 		call 	CTC1_INT_OFF			; CH1 counter not send any interrupts
@@ -392,42 +392,37 @@ checkSumErr:
 		;repeat block reception
 
 
-; Calculating XMODEM CRC-16 in Z80
+; Beräkning XMODEM CRC-16/ Z80
 ; ================================
 
-
-; On entry, crc..crc+1   =  incoming CRC
-;           addr..addr+1 => start address of data
-;           num..num+1   =  number of bytes
-; On exit,  crc..crc+1   =  updated CRC
-;           addr..addr+1 => undefined
-;           num..num+1   =  undefined
-
-; Multiple passes over data in memory can be made to update the CRC.
-; For XMODEM, initial CRC must be 0. Result in DE..
-
+; 		INDATA
+; 		HL : pekare på data[0]
+; 		BC : antal värden
+; 		DE : initial CRC initial  (CRC = 0000 för XMODEM)
+; 		UTDATA
+; 		DE : Resulterande CRC16 värde
 CRC16:
-		ld 		DE,$00					; Incoming CRC
-		; Enter here with HL=>data, BC=count, DE=incoming CRC
+		ld 		DE,$0000			; initial CRC
+		;  HL=>data, BC=count, DE=incoming CRC
 bytelp:
-		push 	BC					; Save count
-		ld 		A,(HL)				; Fetch byte from memory
-;		 The following code updates the CRC with the byte in A -----+
-		xor 	D					; XOR byte into CRC top byte		|
-		ld 		B,8					; Prepare to rotate 8 bits			|
+		push 	BC					; spara antal data på stack
+		ld 		A,(HL)				; byte (HL) från minne i A
+
+		xor 	D					; XOR A&D CRC Hbyte				|
+		ld 		B,8					; Räknare för 8 bitar			|
 rotlp:                    ;											|
-		sla 	E
-		adc 	A,A					; Rotate CRC						|
-		jr 		NC,clear			; b15 was zero						|
-		ld 		D,A					; Put CRC high byte back into D		|
+		sla 	E					; rotera E
+		adc 	A,A					; rotera CRC i A					|
+		jr 		NC,clear			; om bit 15 = 0						|
+		ld 		D,A					; CRC Hbyte tillbaka till D			|
 		ld 		A,E
 		xor 	$21
-		ld 		E,A					; CRC=CRC XOR $1021, XMODEM polynomic	|
+		ld 		E,A					; CRC=CRC XOR $1021, ref. XMODEM 	|
 		ld 		A,D
-		xor 	$10					; And get CRC top byte back into A	|
-clear:                    ;											|
+		xor 	$10					; CRC Hbyte tillbaka till A			|
+clear:                    ;												|
 		dec 	B	
-		jr 		NZ,rotlp				; Loop for 8 bits					|
+		jr 		NZ,rotlp				; Loop for 8 bits				|
 
 		ld 		D,A					; Put CRC top byte back into D		|
 ;		 -----------------------------------------------------------+
@@ -440,12 +435,4 @@ clear:                    ;											|
 		jr 		NZ,bytelp			; Loop until num=0
 
 		ret
-
-
-
-	;***************************************************************
-	;SAMPLE EXECUTION:
-	;***************************************************************
-
-
 

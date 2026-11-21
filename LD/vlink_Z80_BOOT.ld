@@ -72,6 +72,7 @@
 	PROVIDE( outTailAdr		=	0x13C + _String_HEAP);			/*	DS	2	address of newest character in output buffer	DS	2	*/
 	PROVIDE( OutBufCount	=	0x13E + _String_HEAP);			/*	DS	1	number of characters in output buffer	DS	1	*/
 	PROVIDE( OutINTExpect	=	0x13F + _String_HEAP);			/*	DS	1	output interrupt expected	DS	1	*/
+	PROVIDE( inBufferOffset	=	0x142 + _String_HEAP);      /* DS	2	Offset > 0 om cursor inte är på sista position */
 														/*; (0 = no interrupt expected.
 														; ff = interrupt expected)*/
 	PROVIDE( XBAddr			=	0x1A8 + _String_HEAP);			/*	XMODEM block start address  2byte	*/
@@ -183,8 +184,7 @@
 			*.o (EXCLUDE_SECTION (*.o ) Monitor  ) ;
 			*.o (EXCLUDE_FILE( SPIbyPIO_SDcard*.o)	SPI_SD_Code  ) 
 			*.o (EXCLUDE_FILE( TEST_SPI_SDcard.s*.o)	SPI_SD_Code  ) 
-			*.o (EXCLUDE_SECTION( Kermit_*.o)	Kermit_sektion_gammal  ) 
-			*.o (EXCLUDE_SECTION( Kermit_*.o)	Kermit_sektion  ) 
+			*.o (EXCLUDE_FILE( Kermit_*.o)	Kermit  ) 
 
 /*
 		     *.o(EEtestprog)

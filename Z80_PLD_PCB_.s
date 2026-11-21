@@ -3,7 +3,7 @@
 		include 	"Z80_Params_.inc"
 		include 	"Salea_Logic.inc"
 	
-		GLOBAL  	MONITOR_Start
+		GLOBAL  	MONITOR_Start, p_srbank, p_flbank, p_srbank0, p_flbank0
 
 			xref	Bin2Hex8,Bin2Hex16,  HEX2BN, DEC2BN,MFILL, BLKMOV,strCompare,CONCAT,POS,COPY,DELETE,INSERT_STR
 			xref	InitBuffers, ReadLine, WriteChar, ReadChar, S_head_tail
@@ -14,7 +14,7 @@
 			xref	RegLabels1,RegLabels2,RegLabels3,RegFlags
 			xref	sourctext1,sourctext2,endtext,src_size, writeSTRBelow,isHex
 
-			xref 	crc16_2,CRC16
+			xref 	CRC16
 		
 		xref 	SIO_A_RTS_OFF,SIO_A_RTS_ON
 
@@ -205,7 +205,11 @@ next_line:
 		ld  	A,(memBankID)
 		and 	$0F					; sram bank #
 		add 	A,'0'				; gör till ascii char (+$30) Ainnehåller bank#, E innehåller S/F
+		cp 		$3A
+		jp  	M,gem1
+		add 	$07
 		jr  	gem1
+		
 useFlash:
 		ld 		A,'F'	
 		ld 		E,A
@@ -418,34 +422,36 @@ command_list:
 		dw 		p_xmod,0									; xmodem via PC   xmod <address>  ; ange adress $xyzw
 		db		ITEM,15,3,"rst",	STEND,%000000,0,CDEL
 		dw 		p_reset,0
-		db		ITEM,16,4,"sdrd",	STEND,%101000,0,CDEL
+		db		ITEM,16,3,"crc",	STEND,%000010,0,CDEL
+		dw 		p_C_crc,0
+		db		ITEM,17,4,"sdrd",	STEND,%101000,0,CDEL
 		dw		p_C_Read,0									; Read from SD card   sdrd  "file"  $Addr
-		db		ITEM,17,4,"sdwr",	STEND,%101010,0,CDEL
+		db		ITEM,18,4,"sdwr",	STEND,%101010,0,CDEL
 		dw 		p_C_Write,0									; Write to SD card   sdwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
-		db		ITEM,18,5,"usbrd",	STEND,%101000,0,CDEL
+		db		ITEM,19,5,"usbrd",	STEND,%101000,0,CDEL
 		dw 		p_C_Read,0									; Read from USB      usbrd  "file"  $Addr
-		db		ITEM,19,5,"usbwr",	STEND,%101010,0,CDEL
+		db		ITEM,20,5,"usbwr",	STEND,%101010,0,CDEL
 		dw 		p_C_Write,0									; Write to USB        usbwr  "file"  $Addr.l  $Addr.h/Num (2A/2C)
-		db		ITEM,20,5,"sddel",	STEND,%100000,0,CDEL
+		db		ITEM,21,5,"sddel",	STEND,%100000,0,CDEL
 		dw 		p_C_Delete,0 								; Delete file on SD card   sddel  "file"  
-		db		ITEM,21,6,"usbdel",	STEND,%100000,0,CDEL
+		db		ITEM,22,6,"usbdel",	STEND,%100000,0,CDEL
 		dw 		p_C_Delete,0 								; Delete file on USB   usbdel  "file"  
-		db		ITEM,22,5,"sddir",	STEND,%100000,0,CDEL
+		db		ITEM,23,5,"sddir",	STEND,%100000,0,CDEL
 		dw 		p_C_Read,0 									; List root level files/dirs on sd card
-		db		ITEM,23,6,"usbdir",	STEND,%100000,0,CDEL
+		db		ITEM,24,6,"usbdir",	STEND,%100000,0,CDEL
 		dw 		p_C_Read,0 									; List root level files/dirs on USB
-		db 		ITEM,24,5,"cptfl",	STEND,%001100,0,CDEL
+		db 		ITEM,25,5,"cptfl",	STEND,%001100,0,CDEL
 		dw 		p_cptFl,0									; copy from adress range to flash   cptfl  $Addr   $Addr
-		db 		ITEM,25,2,"fb",		STEND,%000010,0,CDEL
+		db 		ITEM,26,2,"fb",		STEND,%000010,0,CDEL
 		dw 		p_flbank,0									; set flash bank #	
-		db 		ITEM,26,2,"sb",		STEND,%000010,0,CDEL
+		db 		ITEM,27,2,"sb",		STEND,%000010,0,CDEL
 		dw		p_srbank,0									; set sram bank #	
-		db		ITEM,27,4,"kerm",	STEND,%001000,0,CDEL
+		db		ITEM,28,4,"kerm",	STEND,%001000,0,CDEL
 		dw 		p_kerm,0									; kermit via PC   xmod <address>  ; ange adress $xyzw
-		db		ITEM,28,3,"nop",	STEND,%000000,0,CDEL
+		db		ITEM,29,3,"nop",	STEND,%000000,0,CDEL
 		dw 		0,0
 		db		LISTEND
-commListLen  equ   28
+commListLen  equ   29
 
 		; ld		HL,$6000
 		; ld		(packetBaseAddress),HL			; store the address for target code (for error correction)
@@ -791,6 +797,7 @@ p_reset:
 		call 	enableIC620_OE 			; enable the outputs.
 
 		jp $0000
+		; ***	----------------------------------------------------------------------------
 
 p_load:
 		ret
@@ -802,8 +809,29 @@ p_dumpmem:
 		call 	p_kollaAntalAdress
 
 		call 	dumpMemory			; filen LEV_Sect8_String_Manipulation.s
+skrivUtCRC16:
+		; ***	Skriv ut checksumma baserat på 'commAdr1' och 'commLvl1'
+		ld 		HL,(commAdr1)
+		ld 		BC,(commLvl1)
+
+		call 	CRC16				; resultat i DE
+		push 	DE
+		call 	writeSTRBelow
+		DB 		0,"Checksumma för minnesområde: ",00
+		pop 	DE
+		call	putDEtoScreen
+		call 	CRLF
 
 		ret
+		; ***	----------------------------------------------------------------------------
+
+		; beräkna CRC16 checksumma för angiven adress/antal
+p_C_crc:
+		; ***	Gå genom kommandorad och kolla adress/mängd (default är PC/$80)
+		call 	p_kollaAntalAdress
+		jp 		skrivUtCRC16
+		; ***	----------------------------------------------------------------------------
+
 p_pc:
 		ret
 
@@ -817,6 +845,7 @@ p_clearmem:
 ;		***		radera minne (SRAM) från PCvalue eller angiven adress, antal bytes
 		; call 	checkArgsTAL				; kolla att nödvändiga arg (antal) är angivna 
 		; jp		NZ,argumentsError			; show argument error and return
+		; ***	Gå genom kommandorad och kolla adress/mängd (default är PC/$80)
 		call 	p_kollaAntalAdress
 
 		ld 		BC,(commLvl1)    	;amount of bytes
@@ -831,6 +860,7 @@ p_clearmem:
 		ret
 .zero_byte:	db  0
 
+		; ***	----------------------------------------------------------------------------
 
 		;********************************************************************
 		;  	Kolla kommando adress och värde: defaultvärde är PCval och 80
@@ -854,6 +884,7 @@ p_kollaAntalAdress:
 		ld 		(commLvl1),HL 			; 
 .sizeAngiven:	
 		ret
+		; ***	----------------------------------------------------------------------------
 
 
 p_exe:
@@ -861,6 +892,8 @@ p_exe:
 		; call 	LCD_Test
 
 		ret
+		; ***	----------------------------------------------------------------------------
+
 p_go:
 
 		ld 		A,(TempVar1)
@@ -874,6 +907,7 @@ p_go:
 		
 		ret 	
 		jr 		p_go
+		; ***	----------------------------------------------------------------------------
 
 
 p_incDecPC:
@@ -901,6 +935,7 @@ p_incDecPC:
 .common:
 		ld 		(PCvalue),HL
 		ret
+		; ***	----------------------------------------------------------------------------
 
 	;***************************************************************
 	;****	Write to Flash memory SST39SF020    *******************
@@ -922,6 +957,7 @@ errNoFlash:
 		DB 		0," Kan inte skriva till avaktiverat FLASH !",CR,LF,00
 
 		ret
+		; ***	----------------------------------------------------------------------------
 
 
 
@@ -936,6 +972,7 @@ p_flse:
 		call 	Flash_SE_Erase
 		pop 	HL
 		ret
+		; ***	----------------------------------------------------------------------------
 
 
 	;***************************************************************
@@ -944,60 +981,32 @@ p_flse:
 p_xmod:
 
 
+		; ***	Gå genom kommandorad och kolla adress/mängd (default är PC/$80)
+		call	p_kollaAntalAdress 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
 
-		ld 		HL,commAdr1
-		call	checkZero16 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
-		jr 		NZ,.adrAngiven 		; Visa minnesinnehåll. adress och mängd angiven !
-
-		; ***	Enbart mängd data som ska visas angiven...
-		ld 		HL,(PCvalue)				; HL = start address
-		ld 		(commAdr1),HL 			; temporär plats PCvalue
-
-
-		; ***	Transfer files via x-modem
-		; ***	Check commParseTable+1 if required parameters
-		; call 	checkArgsTAL				; check necessary args
-		; jp		NZ,argumentsError			; show argument error and return
-
-		; ld 		A,(commParseTable+1)
-		; bit 	0,A 			; should be a 	1-address
-		; jr 		Z,.nxta
-		; ***	check the commLvl1 if zero
-		; ld 		DE,(commLvl1)	; valid adress in DE
-.adrAngiven:
-.nxta:		
+		; ***	Filöverföring via minicom och x-modem
 
 		call 	doImportXMODEM
 
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
 		ret
+		; ***	----------------------------------------------------------------------------
 
 p_kerm:			;***  	Filöverföring från PC via kermit
 		; call 	checkArgsTAL				; check necessary args
 		; jp		NZ,argumentsError			; show argument error and return
 
-		; ld 		A,(commParseTable+1)
-		; bit 	0,A 			; should be a <2-textstring 	1-address	 0-lvalue>
-		; jr 		Z,.nxta
-		; ***	check the commLvl1 if zero
+		; ***	Gå genom kommandorad och kolla adress/mängd (default är PC/$80)
+		call	p_kollaAntalAdress 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
 
-		ld 		HL,commAdr1
-		call	checkZero16 			; Ingen angiven adress i kommando: 2 bytes =0 -> Z 
-		jr 		NZ,.adrAngiven 		; Visa minnesinnehåll. adress och mängd angiven !
-
-		; ***	Enbart mängd data som ska visas angiven...
-		ld 		HL,(PCvalue)				; HL = start address
-		ld 		(commAdr1),HL 			; temporär plats PCvalue
-
-		ld 		DE,(commLvl1)
-.adrAngiven:
-.nxta:		
+		ld 		DE,(commLvl1)    ??????
 
 		call 	doImportKERMIT
 		call 	SIO_A_TXRX_INTon
 		call 	CTC1_INT_OFF
 		ret
+		; ***	----------------------------------------------------------------------------
 
 p_C_Read:
 
@@ -1262,6 +1271,7 @@ p_FOFF:
 p_FOFF_No_Print:		; ***  Do Not USE FLASH MEMORY(set 64K_SRAM signal 1) without printout
 	push 	HL
 	ld 		HL,rstBankID
+	set 	0,(HL)			; mata ut IC620(LS374)OE till diodramp
 	set 	2,(HL) 			; förhindra reset av krets IC622
 	set 	3,(HL)			; bit 3 -> använd FLASH minne
 						;rstBankID:	minnesbank  bit3-flash på/av: bit2 förhindra reset av krets IC622: bit0 OE för IC620 

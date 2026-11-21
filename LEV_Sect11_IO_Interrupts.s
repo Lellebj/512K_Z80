@@ -867,8 +867,7 @@ SIO_A_RTS_OFF:
 		;signaling the host go or nogo for reception
 		ld		a,WR5			;write into WR0: select WR5
 		out		(SIO_A_C),A
-		ld		a,_Tx_8bits_char|_Tx_Enable 				; 8 bitars teckenlängd (6&5), ingen break (4), TX enable
-		ld		a,0E8h			
+		ld		a,_DTR_Enable|_Tx_8bits_char|_Tx_Enable 				; 8 bitars teckenlängd (6&5), ingen break (4), TX enable
 		out		(SIO_A_C),A 
 		ret 
 		
@@ -877,8 +876,7 @@ SIO_A_RTS_ON:
 		; signaling the host go or nogo for reception
 		ld		a,WR5			;write into WR0: select WR5
 		out		(SIO_A_C),A
-		; ld		a,_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
-		ld		a,0EAh					
+		ld		a,_DTR_Enable|_Tx_8bits_char|_Tx_Enable|_RTS_Enable 		;TX 8bit, BREAK off, TX on, RTS active
 		out		(SIO_A_C),A 
 		ret 
 		
@@ -991,10 +989,10 @@ TX_X:
 		;###############################################
 		;		skriv ut tecken och vänta på SIO
 P_TX_EMP:			
+		; sänder tecken till värddator 
 		out		(SIO_A_D),A
 
 TX_EMP:
-		; sänder tecken till värddator 
 		; kontroll att transmit buffer är tom.
 		ld 		a,01				;välj läsregister  RR1
 		out		(SIO_A_C),A
